@@ -1,0 +1,169 @@
+{
+  "manifest_schema": 1,
+  "template_id": "agreement_to_sell_flat_en",
+  "name_en": "Agreement to Sell (Flat / Apartment)",
+  "name_mr": "साठेखत - सदनिका / फ्लॅट (इंग्रजी)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "agreement_to_sell",
+  "property_type": "flat",
+  "language": "en",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "promoters": {
+      "role": "prospective_seller",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Vendor / Prospective Seller(s)",
+      "label_mr": "विक्रेता / इसार घेणार"
+    },
+    "purchasers": {
+      "role": "prospective_purchaser",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Purchaser / Prospective Buyer(s)",
+      "label_mr": "खरेदीदार / इसार देणार"
+    }
+  },
+  "repeaters": {
+    "instalments": {
+      "name": "instalments",
+      "min": 1,
+      "max": 6,
+      "label_en": "Instalment Payment Schedule",
+      "label_mr": "हप्त्यांचा तपशील"
+    },
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "apartment_schedule",
+      "title_en": "Apartment / Unit Details",
+      "title_mr": "सदनिकेचे तपशील",
+      "field_names": [
+        "property.flat_no",
+        "property.floor_no",
+        "property.building_name",
+        "property.mouza",
+        "property.khasra_no",
+        "property.carpet_area_sqm"
+      ]
+    },
+    {
+      "id": "agreement_terms",
+      "title_en": "Agreed Consideration & Timeline",
+      "title_mr": "मोबदला व अटी",
+      "field_names": [
+        "financial.total_consideration",
+        "financial.earnest_amount",
+        "terms.months_to_complete"
+      ]
+    }
+  ],
+  "fields": {
+    "property.flat_no": {
+      "name": "property.flat_no",
+      "type": "string",
+      "label_en": "Flat / Unit No.",
+      "label_mr": "फ्लॅट क्र.",
+      "required": true
+    },
+    "property.floor_no": {
+      "name": "property.floor_no",
+      "type": "string",
+      "label_en": "Floor No.",
+      "label_mr": "मजला",
+      "required": true
+    },
+    "property.building_name": {
+      "name": "property.building_name",
+      "type": "string",
+      "label_en": "Building / Wing Name",
+      "label_mr": "इमारतीचे नाव",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza / Village",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Survey / Khasra No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.carpet_area_sqm": {
+      "name": "property.carpet_area_sqm",
+      "type": "decimal",
+      "label_en": "RERA Carpet Area (sq. metres)",
+      "label_mr": "रेरा चटई क्षेत्र (चौ. मी.)",
+      "required": true
+    },
+    "financial.total_consideration": {
+      "name": "financial.total_consideration",
+      "type": "decimal",
+      "label_en": "Total Agreed Consideration (Rs.)",
+      "label_mr": "एकूण मान्य मोबदला (रुपये)",
+      "required": true
+    },
+    "financial.earnest_amount": {
+      "name": "financial.earnest_amount",
+      "type": "decimal",
+      "label_en": "Earnest / Token Money Paid (Rs.)",
+      "label_mr": "इसार रक्कम (रुपये)",
+      "required": true
+    },
+    "terms.months_to_complete": {
+      "name": "terms.months_to_complete",
+      "type": "integer",
+      "label_en": "Time to Execute Sale Deed (Months)",
+      "label_mr": "खरेदीखत नोंदणीची मुदत (महिने)",
+      "required": true,
+      "default": 3
+    },
+    "execution_date": {
+      "name": "execution_date",
+      "type": "date",
+      "label_en": "Execution Date",
+      "label_mr": "साठेखताची तारीख",
+      "required": true
+    }
+  },
+  "derived_fields": {
+    "financial.balance_due": {
+      "name": "financial.balance_due",
+      "type": "decimal",
+      "expression": "financial.total_consideration - financial.earnest_amount",
+      "label_en": "Balance Consideration Due",
+      "label_mr": "देय शिल्लक रक्कम"
+    },
+    "property.carpet_area_sqft": {
+      "name": "property.carpet_area_sqft",
+      "type": "decimal",
+      "expression": "property.carpet_area_sqm * 10.7639104",
+      "label_en": "Carpet Area (Sq. Feet)",
+      "label_mr": "कार्पेट क्षेत्रफळ (चौ.फूट)"
+    }
+  },
+  "validations": [
+    {
+      "id": "earnest_le_total",
+      "condition": "financial.earnest_amount <= financial.total_consideration",
+      "message_en": "Earnest money cannot exceed total agreed consideration.",
+      "message_mr": "इसार रक्कम एकूण मोबदल्यापेक्षा जास्त असू शकत नाही.",
+      "severity": "error"
+    }
+  ]
+}

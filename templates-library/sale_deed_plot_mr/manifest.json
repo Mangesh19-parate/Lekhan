@@ -1,0 +1,206 @@
+{
+  "manifest_schema": 1,
+  "template_id": "sale_deed_plot_mr",
+  "name_en": "Sale Deed (Plot in NIT/NMC Layout)",
+  "name_mr": "खरेदीखत (भूखंड - ना.सु.प्र./ना.म.पा. लेआउट)",
+  "version": 1,
+  "status": "approved",
+  "document_type": "sale_deed",
+  "property_type": "plot",
+  "language": "mr",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "sellers": {
+      "role": "seller",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Seller(s)",
+      "label_mr": "विक्रेता"
+    },
+    "purchasers": {
+      "role": "purchaser",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Purchaser(s)",
+      "label_mr": "खरेदीदार"
+    }
+  },
+  "repeaters": {
+    "instalments": {
+      "name": "instalments",
+      "min": 1,
+      "max": 6,
+      "label_en": "Instalment Details",
+      "label_mr": "हप्ता / धनादेश तपशील"
+    },
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_details",
+      "title_en": "Property Schedule",
+      "title_mr": "मिळकतीचे वर्णन",
+      "field_names": [
+        "property.mouza",
+        "property.khasra_no",
+        "property.plot_no",
+        "property.layout_name",
+        "property.sheet_no",
+        "property.area_sqm"
+      ]
+    },
+    {
+      "id": "boundaries",
+      "title_en": "Boundaries",
+      "title_mr": "चतुःसीमा",
+      "field_names": [
+        "boundaries.east",
+        "boundaries.west",
+        "boundaries.north",
+        "boundaries.south"
+      ]
+    },
+    {
+      "id": "financial_details",
+      "title_en": "Financial Consideration",
+      "title_mr": "मोबदला व देय रक्कम",
+      "field_names": [
+        "financial.total_consideration",
+        "financial.earnest_advance"
+      ]
+    }
+  ],
+  "fields": {
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra / Survey No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.plot_no": {
+      "name": "property.plot_no",
+      "type": "string",
+      "label_en": "Plot No.",
+      "label_mr": "प्लॉट क्र.",
+      "required": true
+    },
+    "property.layout_name": {
+      "name": "property.layout_name",
+      "type": "string",
+      "label_en": "Layout / Colony Name",
+      "label_mr": "लेआउटचे नाव",
+      "required": false
+    },
+    "property.sheet_no": {
+      "name": "property.sheet_no",
+      "type": "string",
+      "label_en": "City Survey Sheet No.",
+      "label_mr": "नगर भूमापन शीट क्र.",
+      "required": false
+    },
+    "property.area_sqm": {
+      "name": "property.area_sqm",
+      "type": "decimal",
+      "label_en": "Area (Sq. Metres)",
+      "label_mr": "क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    },
+    "boundaries.east": {
+      "name": "boundaries.east",
+      "type": "string",
+      "label_en": "East",
+      "label_mr": "पूर्व",
+      "required": true
+    },
+    "boundaries.west": {
+      "name": "boundaries.west",
+      "type": "string",
+      "label_en": "West",
+      "label_mr": "पश्चिम",
+      "required": true
+    },
+    "boundaries.north": {
+      "name": "boundaries.north",
+      "type": "string",
+      "label_en": "North",
+      "label_mr": "उत्तर",
+      "required": true
+    },
+    "boundaries.south": {
+      "name": "boundaries.south",
+      "type": "string",
+      "label_en": "South",
+      "label_mr": "दक्षिण",
+      "required": true
+    },
+    "financial.total_consideration": {
+      "name": "financial.total_consideration",
+      "type": "decimal",
+      "label_en": "Total Consideration (Rs.)",
+      "label_mr": "एकूण मोबदला (रु.)",
+      "required": true
+    },
+    "financial.earnest_advance": {
+      "name": "financial.earnest_advance",
+      "type": "decimal",
+      "label_en": "Earnest / Advance Amount (Rs.)",
+      "label_mr": "इसार / आगाऊ रक्कम (रु.)",
+      "required": true
+    },
+    "execution_date": {
+      "name": "execution_date",
+      "type": "date",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त निष्पादनाची तारीख",
+      "required": true
+    }
+  },
+  "derived_fields": {
+    "financial.balance_amount": {
+      "name": "financial.balance_amount",
+      "type": "decimal",
+      "expression": "financial.total_consideration - financial.earnest_advance",
+      "label_en": "Balance Consideration Amount",
+      "label_mr": "शिल्लक मोबदला रक्कम"
+    },
+    "property.area_sqft": {
+      "name": "property.area_sqft",
+      "type": "decimal",
+      "expression": "property.area_sqm * 10.7639104",
+      "label_en": "Area (Sq. Feet)",
+      "label_mr": "क्षेत्रफळ (चौ.फूट)"
+    }
+  },
+  "validations": [
+    {
+      "id": "earnest_le_total",
+      "condition": "financial.earnest_advance <= financial.total_consideration",
+      "message_en": "Earnest amount cannot exceed total consideration",
+      "message_mr": "इसार रक्कम एकूण मोबदल्यापेक्षा जास्त असू शकत नाही",
+      "severity": "error"
+    },
+    {
+      "id": "total_gt_zero",
+      "condition": "financial.total_consideration > 0",
+      "message_en": "Total consideration must be greater than zero",
+      "message_mr": "एकूण मोबदला शून्यापेक्षा जास्त असणे आवश्यक आहे",
+      "severity": "error"
+    }
+  ]
+}

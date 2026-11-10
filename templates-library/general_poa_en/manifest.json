@@ -1,0 +1,126 @@
+{
+  "manifest_schema": 1,
+  "template_id": "general_poa_en",
+  "name_en": "General Power of Attorney",
+  "name_mr": "कुलमुखत्यारपत्र (General POA - इंग्रजी)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "general_poa",
+  "property_type": "general",
+  "language": "en",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "principals": {
+      "role": "principal",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Principal(s) / Executant(s)",
+      "label_mr": "मुखत्यारपत्र लिहून देणारे"
+    },
+    "attorneys": {
+      "role": "attorney",
+      "min_parties": 1,
+      "max_parties": 2,
+      "label_en": "Appointed Attorney(s) / Agent(s)",
+      "label_mr": "नेमलेले मुखत्यार"
+    }
+  },
+  "repeaters": {
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_reference",
+      "title_en": "Subject Matter / Property Particulars",
+      "title_mr": "मिळकतीचा संदर्भ",
+      "field_names": [
+        "property.description",
+        "property.mouza",
+        "property.khasra_no"
+      ]
+    },
+    {
+      "id": "powers_schedule",
+      "title_en": "Powers Conferred Upon Attorney",
+      "title_mr": "प्रदत्त अधिकार",
+      "field_names": [
+        "powers.can_sell",
+        "powers.can_mortgage",
+        "powers.can_appear_court",
+        "powers.can_sign_portal"
+      ]
+    }
+  ],
+  "fields": {
+    "property.description": {
+      "name": "property.description",
+      "type": "string",
+      "label_en": "Property / Matter Summary",
+      "label_mr": "मिळकतीचे संक्षिप्त वर्णन",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza / Locality",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Survey / Khasra / CTS No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "powers.can_sell": {
+      "name": "powers.can_sell",
+      "type": "boolean",
+      "label_en": "Power to sell, convey or transfer property",
+      "label_mr": "विक्री अथवा हस्तांतरण करण्याचा अधिकार",
+      "required": true,
+      "default": true
+    },
+    "powers.can_mortgage": {
+      "name": "powers.can_mortgage",
+      "type": "boolean",
+      "label_en": "Power to create mortgage / charge with financial institutions",
+      "label_mr": "गहाणखत / बोजा नोंदविण्याचा अधिकार",
+      "required": true,
+      "default": false
+    },
+    "powers.can_appear_court": {
+      "name": "powers.can_appear_court",
+      "type": "boolean",
+      "label_en": "Power to appear before Courts, Tribunals and Registrar",
+      "label_mr": "न्यायालय व निबंधकांसमोर उपस्थित राहण्याचा अधिकार",
+      "required": true,
+      "default": true
+    },
+    "powers.can_sign_portal": {
+      "name": "powers.can_sign_portal",
+      "type": "boolean",
+      "label_en": "Power to digitally sign e-filing portals & municipal records",
+      "label_mr": "ऑनलाइन पोर्टल व नगररचना दस्त स्वाक्षरी अधिकार",
+      "required": true,
+      "default": true
+    },
+    "execution_date": {
+      "name": "execution_date",
+      "type": "date",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त निष्पादनाची तारीख",
+      "required": true
+    }
+  },
+  "derived_fields": {},
+  "validations": []
+}

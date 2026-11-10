@@ -1,0 +1,179 @@
+{
+  "manifest_schema": 1,
+  "template_id": "agreement_to_sell_plot_mr",
+  "name_en": "Agreement to Sell (Plot)",
+  "name_mr": "साठेखत / इसारपावती (भूखंड)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "agreement_to_sell",
+  "property_type": "plot",
+  "language": "mr",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "prospective_sellers": {
+      "role": "prospective_seller",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Prospective Seller(s)",
+      "label_mr": "लिहून देणार / इसार घेणार"
+    },
+    "prospective_purchasers": {
+      "role": "prospective_purchaser",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Prospective Purchaser(s)",
+      "label_mr": "लिहून घेणार / इसार देणार"
+    }
+  },
+  "repeaters": {
+    "instalments": {
+      "name": "instalments",
+      "min": 1,
+      "max": 8,
+      "label_en": "Agreed Instalments",
+      "label_mr": "ठरलेले हप्ते"
+    },
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_schedule",
+      "title_en": "Property Schedule",
+      "title_mr": "मिळकतीचे तपशील",
+      "field_names": [
+        "property.mouza",
+        "property.khasra_no",
+        "property.plot_no",
+        "property.area_sqm"
+      ]
+    },
+    {
+      "id": "agreement_terms",
+      "title_en": "Terms & Consideration",
+      "title_mr": "व्यवहाराच्या अटी व मोबदला",
+      "field_names": [
+        "financial.total_consideration",
+        "financial.earnest_amount",
+        "financial.has_bank_loan",
+        "financial.bank_loan_amount",
+        "terms.months_to_complete"
+      ]
+    }
+  ],
+  "fields": {
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra No.",
+      "label_mr": "खसरा क्र.",
+      "required": true
+    },
+    "property.plot_no": {
+      "name": "property.plot_no",
+      "type": "string",
+      "label_en": "Plot No.",
+      "label_mr": "प्लॉट क्र.",
+      "required": true
+    },
+    "property.area_sqm": {
+      "name": "property.area_sqm",
+      "type": "decimal",
+      "label_en": "Area (Sq. Metres)",
+      "label_mr": "क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    },
+    "financial.total_consideration": {
+      "name": "financial.total_consideration",
+      "type": "decimal",
+      "label_en": "Total Agreed Price (Rs.)",
+      "label_mr": "एकूण ठरलेला मोबदला (रु.)",
+      "required": true
+    },
+    "financial.earnest_amount": {
+      "name": "financial.earnest_amount",
+      "type": "decimal",
+      "label_en": "Earnest / Token Received (Rs.)",
+      "label_mr": "मिळालेली इसार रक्कम (रु.)",
+      "required": true
+    },
+    "financial.has_bank_loan": {
+      "name": "financial.has_bank_loan",
+      "type": "boolean",
+      "label_en": "Purchaser Availing Bank Loan?",
+      "label_mr": "खरेदीदार बँक कर्ज घेणार आहे का?",
+      "required": true,
+      "default": false
+    },
+    "financial.bank_loan_amount": {
+      "name": "financial.bank_loan_amount",
+      "type": "decimal",
+      "label_en": "Proposed Bank Loan Amount (Rs.)",
+      "label_mr": "बँक कर्ज रक्कम (रु.)",
+      "required": false,
+      "visible_when": "financial.has_bank_loan == true"
+    },
+    "terms.months_to_complete": {
+      "name": "terms.months_to_complete",
+      "type": "integer",
+      "label_en": "Time to Execute Final Sale Deed (Months)",
+      "label_mr": "अंतिम खरेदीखत करण्याचा कालावधी (महिने)",
+      "required": true,
+      "default": 3
+    },
+    "execution_date": {
+      "name": "execution_date",
+      "type": "date",
+      "label_en": "Agreement Date",
+      "label_mr": "साठेखताची तारीख",
+      "required": true
+    }
+  },
+  "derived_fields": {
+    "financial.balance_due": {
+      "name": "financial.balance_due",
+      "type": "decimal",
+      "expression": "financial.total_consideration - financial.earnest_amount",
+      "label_en": "Remaining Balance Due",
+      "label_mr": "देय शिल्लक रक्कम"
+    },
+    "property.area_sqft": {
+      "name": "property.area_sqft",
+      "type": "decimal",
+      "expression": "property.area_sqm * 10.7639104",
+      "label_en": "Area (Sq. Feet)",
+      "label_mr": "क्षेत्रफळ (चौ.फूट)"
+    }
+  },
+  "validations": [
+    {
+      "id": "earnest_less_than_total",
+      "condition": "financial.earnest_amount < financial.total_consideration",
+      "message_en": "Earnest amount must be less than total consideration",
+      "message_mr": "इसार रक्कम एकूण मोबदल्यापेक्षा कमी असणे आवश्यक आहे",
+      "severity": "error"
+    },
+    {
+      "id": "valid_period",
+      "condition": "terms.months_to_complete > 0",
+      "message_en": "Completion period must be at least 1 month",
+      "message_mr": "कालावधी किमान १ महिना असणे आवश्यक आहे",
+      "severity": "error"
+    }
+  ]
+}
+

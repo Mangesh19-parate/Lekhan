@@ -1,0 +1,202 @@
+{
+  "manifest_schema": 1,
+  "template_id": "sale_deed_agricultural_mr",
+  "name_en": "Sale Deed (Agricultural Land in Marathi)",
+  "name_mr": "खरेदीखत (शेती जमीन / शेतजमीन)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "sale_deed",
+  "property_type": "agricultural",
+  "language": "mr",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "sellers": {
+      "role": "seller",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Seller(s)",
+      "label_mr": "विक्रेता / शेतकरी"
+    },
+    "purchasers": {
+      "role": "purchaser",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Purchaser(s)",
+      "label_mr": "खरेदीदार"
+    }
+  },
+  "repeaters": {
+    "instalments": {
+      "name": "instalments",
+      "min": 1,
+      "max": 6,
+      "label_en": "Payment Details",
+      "label_mr": "धनादेश / आरटीजीएस तपशील"
+    },
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "agricultural_schedule",
+      "title_en": "Agricultural Land Schedule",
+      "title_mr": "शेतजमिनीचे वर्णन",
+      "field_names": [
+        "property.mouza",
+        "property.gat_khasra_no",
+        "property.area_hectare_r",
+        "property.potkharab_area",
+        "property.assessment_tax",
+        "property.irrigation_type"
+      ]
+    },
+    {
+      "id": "boundaries",
+      "title_en": "Boundaries",
+      "title_mr": "चतुःसीमा",
+      "field_names": [
+        "boundaries.east",
+        "boundaries.west",
+        "boundaries.north",
+        "boundaries.south"
+      ]
+    },
+    {
+      "id": "financial_details",
+      "title_en": "Financial Consideration",
+      "title_mr": "मोबदला व देय रक्कम",
+      "field_names": [
+        "financial.total_consideration",
+        "financial.earnest_advance"
+      ]
+    }
+  ],
+  "fields": {
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.gat_khasra_no": {
+      "name": "property.gat_khasra_no",
+      "type": "string",
+      "label_en": "Gat / Khasra No.",
+      "label_mr": "गट क्र. / खसरा क्र.",
+      "required": true
+    },
+    "property.area_hectare_r": {
+      "name": "property.area_hectare_r",
+      "type": "string",
+      "label_en": "Total Area (Hectare - R)",
+      "label_mr": "एकूण क्षेत्र (हेक्टर-आर)",
+      "required": true
+    },
+    "property.potkharab_area": {
+      "name": "property.potkharab_area",
+      "type": "string",
+      "label_en": "Potkharab Area",
+      "label_mr": "पोटखराब क्षेत्र",
+      "required": false,
+      "default": "निरंक"
+    },
+    "property.assessment_tax": {
+      "name": "property.assessment_tax",
+      "type": "string",
+      "label_en": "Land Revenue / Akar",
+      "label_mr": "आकारणी (रुपये)",
+      "required": false
+    },
+    "property.irrigation_type": {
+      "name": "property.irrigation_type",
+      "type": "string",
+      "label_en": "Irrigation Type (Jirayat / Bagayat)",
+      "label_mr": "जमिनीचा प्रकार (जिरायत / बागायत)",
+      "required": true,
+      "default": "जिरायत (कोरडवाहू)"
+    },
+    "boundaries.east": {
+      "name": "boundaries.east",
+      "type": "string",
+      "label_en": "East",
+      "label_mr": "पूर्व",
+      "required": true
+    },
+    "boundaries.west": {
+      "name": "boundaries.west",
+      "type": "string",
+      "label_en": "West",
+      "label_mr": "पश्चिम",
+      "required": true
+    },
+    "boundaries.north": {
+      "name": "boundaries.north",
+      "type": "string",
+      "label_en": "North",
+      "label_mr": "उत्तर",
+      "required": true
+    },
+    "boundaries.south": {
+      "name": "boundaries.south",
+      "type": "string",
+      "label_en": "South",
+      "label_mr": "दक्षिण",
+      "required": true
+    },
+    "financial.total_consideration": {
+      "name": "financial.total_consideration",
+      "type": "decimal",
+      "label_en": "Total Consideration (Rs.)",
+      "label_mr": "एकूण ठरलेला मोबदला (रु.)",
+      "required": true
+    },
+    "financial.earnest_advance": {
+      "name": "financial.earnest_advance",
+      "type": "decimal",
+      "label_en": "Earnest / Advance Amount (Rs.)",
+      "label_mr": "इसार / आगाऊ रक्कम (रु.)",
+      "required": true
+    },
+    "execution_date": {
+      "name": "execution_date",
+      "type": "date",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त निष्पादनाची तारीख",
+      "required": true
+    }
+  },
+  "derived_fields": {
+    "financial.balance_amount": {
+      "name": "financial.balance_amount",
+      "type": "decimal",
+      "expression": "financial.total_consideration - financial.earnest_advance",
+      "label_en": "Balance Amount",
+      "label_mr": "शिल्लक मोबदला रक्कम"
+    }
+  },
+  "validations": [
+    {
+      "id": "earnest_le_total",
+      "condition": "financial.earnest_advance <= financial.total_consideration",
+      "message_en": "Earnest money cannot exceed total consideration",
+      "message_mr": "इसार रक्कम एकूण मोबदल्यापेक्षा जास्त असू शकत नाही",
+      "severity": "error"
+    },
+    {
+      "id": "total_gt_zero",
+      "condition": "financial.total_consideration > 0",
+      "message_en": "Total consideration must be greater than zero",
+      "message_mr": "एकूण मोबदला शून्यापेक्षा जास्त असणे आवश्यक आहे",
+      "severity": "error"
+    }
+  ]
+}
+

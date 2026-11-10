@@ -1,0 +1,224 @@
+{
+  "manifest_schema": 1,
+  "template_id": "sale_deed_shop_mr",
+  "name_en": "Sale Deed (Commercial Shop / Unit in Marathi)",
+  "name_mr": "खरेदीखत (व्यावसायिक दुकान / गाळा)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "sale_deed",
+  "property_type": "shop",
+  "language": "mr",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "sellers": {
+      "role": "seller",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Seller(s)",
+      "label_mr": "विक्रेता"
+    },
+    "purchasers": {
+      "role": "purchaser",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Purchaser(s)",
+      "label_mr": "खरेदीदार"
+    }
+  },
+  "repeaters": {
+    "instalments": {
+      "name": "instalments",
+      "min": 1,
+      "max": 6,
+      "label_en": "Instalment Details",
+      "label_mr": "हप्ता / धनादेश तपशील"
+    },
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "shop_schedule",
+      "title_en": "Commercial Shop Schedule",
+      "title_mr": "दुकानाचे वर्णन",
+      "field_names": [
+        "property.shop_no",
+        "property.floor_no",
+        "property.complex_name",
+        "property.mouza",
+        "property.sheet_no",
+        "property.khasra_no",
+        "property.builtup_area_sqm",
+        "property.frontage_ft"
+      ]
+    },
+    {
+      "id": "boundaries",
+      "title_en": "Shop Boundaries",
+      "title_mr": "दुकानाची चतुःसीमा",
+      "field_names": [
+        "boundaries.east",
+        "boundaries.west",
+        "boundaries.north",
+        "boundaries.south"
+      ]
+    },
+    {
+      "id": "financial_details",
+      "title_en": "Financial Consideration",
+      "title_mr": "मोबदला व देय रक्कम",
+      "field_names": [
+        "financial.total_consideration",
+        "financial.earnest_advance"
+      ]
+    }
+  ],
+  "fields": {
+    "property.shop_no": {
+      "name": "property.shop_no",
+      "type": "string",
+      "label_en": "Shop / Unit No.",
+      "label_mr": "दुकान / गाळा क्र.",
+      "required": true
+    },
+    "property.floor_no": {
+      "name": "property.floor_no",
+      "type": "string",
+      "label_en": "Floor",
+      "label_mr": "मजला",
+      "required": true,
+      "default": "तळमजला (Ground Floor)"
+    },
+    "property.complex_name": {
+      "name": "property.complex_name",
+      "type": "string",
+      "label_en": "Commercial Complex / Market Name",
+      "label_mr": "व्यावसायिक संकुलाचे नाव",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.sheet_no": {
+      "name": "property.sheet_no",
+      "type": "string",
+      "label_en": "City Survey Sheet No.",
+      "label_mr": "नगर भूमापन शीट क्र.",
+      "required": false
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.builtup_area_sqm": {
+      "name": "property.builtup_area_sqm",
+      "type": "decimal",
+      "label_en": "Built-up Area (Sq. Metres)",
+      "label_mr": "बांधकाम क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    },
+    "property.frontage_ft": {
+      "name": "property.frontage_ft",
+      "type": "decimal",
+      "label_en": "Road Frontage (Feet)",
+      "label_mr": "रस्त्याकडील दर्शनी बाजू (फूट)",
+      "required": false
+    },
+    "boundaries.east": {
+      "name": "boundaries.east",
+      "type": "string",
+      "label_en": "East",
+      "label_mr": "पूर्व",
+      "required": true
+    },
+    "boundaries.west": {
+      "name": "boundaries.west",
+      "type": "string",
+      "label_en": "West",
+      "label_mr": "पश्चिम",
+      "required": true
+    },
+    "boundaries.north": {
+      "name": "boundaries.north",
+      "type": "string",
+      "label_en": "North",
+      "label_mr": "उत्तर",
+      "required": true
+    },
+    "boundaries.south": {
+      "name": "boundaries.south",
+      "type": "string",
+      "label_en": "South",
+      "label_mr": "दक्षिण",
+      "required": true
+    },
+    "financial.total_consideration": {
+      "name": "financial.total_consideration",
+      "type": "decimal",
+      "label_en": "Total Consideration (Rs.)",
+      "label_mr": "एकूण मोबदला (रु.)",
+      "required": true
+    },
+    "financial.earnest_advance": {
+      "name": "financial.earnest_advance",
+      "type": "decimal",
+      "label_en": "Earnest / Advance Amount (Rs.)",
+      "label_mr": "इसार / आगाऊ रक्कम (रु.)",
+      "required": true
+    },
+    "execution_date": {
+      "name": "execution_date",
+      "type": "date",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त निष्पादनाची तारीख",
+      "required": true
+    }
+  },
+  "derived_fields": {
+    "financial.balance_amount": {
+      "name": "financial.balance_amount",
+      "type": "decimal",
+      "expression": "financial.total_consideration - financial.earnest_advance",
+      "label_en": "Balance Amount",
+      "label_mr": "शिल्लक मोबदला रक्कम"
+    },
+    "property.builtup_area_sqft": {
+      "name": "property.builtup_area_sqft",
+      "type": "decimal",
+      "expression": "property.builtup_area_sqm * 10.7639104",
+      "label_en": "Built-up Area (Sq. Feet)",
+      "label_mr": "बांधकाम क्षेत्रफळ (चौ.फूट)"
+    }
+  },
+  "validations": [
+    {
+      "id": "earnest_le_total",
+      "condition": "financial.earnest_advance <= financial.total_consideration",
+      "message_en": "Earnest money cannot exceed total consideration",
+      "message_mr": "इसार रक्कम एकूण मोबदल्यापेक्षा जास्त असू शकत नाही",
+      "severity": "error"
+    },
+    {
+      "id": "total_gt_zero",
+      "condition": "financial.total_consideration > 0",
+      "message_en": "Total consideration must be greater than zero",
+      "message_mr": "एकूण मोबदला शून्यापेक्षा जास्त असणे आवश्यक आहे",
+      "severity": "error"
+    }
+  ]
+}
+

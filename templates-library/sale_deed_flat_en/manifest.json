@@ -1,0 +1,185 @@
+{
+  "manifest_schema": 1,
+  "template_id": "sale_deed_flat_en",
+  "name_en": "Deed of Absolute Sale (Flat / Apartment)",
+  "name_mr": "खरेदीखत - फ्लॅट / सदनिका (इंग्रजी)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "sale_deed",
+  "property_type": "flat",
+  "language": "en",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "vendors": {
+      "role": "vendor",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Vendor / Seller(s)",
+      "label_mr": "विक्रेता"
+    },
+    "purchasers": {
+      "role": "purchaser",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Purchaser(s)",
+      "label_mr": "खरेदीदार"
+    }
+  },
+  "repeaters": {
+    "instalments": {
+      "name": "instalments",
+      "min": 1,
+      "max": 6,
+      "label_en": "Payment Cheque / RTGS Details",
+      "label_mr": "धनादेश / आरटीजीएस तपशील"
+    },
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "apartment_schedule",
+      "title_en": "Apartment / Flat Schedule",
+      "title_mr": "फ्लॅटचा तपशील",
+      "field_names": [
+        "property.flat_no",
+        "property.floor_no",
+        "property.building_name",
+        "property.locality",
+        "property.city",
+        "property.survey_no",
+        "property.carpet_area_sqm",
+        "property.parking_no"
+      ]
+    },
+    {
+      "id": "financial_terms",
+      "title_en": "Sale Consideration & Payment",
+      "title_mr": "मोबदला व देय रक्कम",
+      "field_names": [
+        "financial.total_price",
+        "financial.advance_paid"
+      ]
+    }
+  ],
+  "fields": {
+    "property.flat_no": {
+      "name": "property.flat_no",
+      "type": "string",
+      "label_en": "Flat / Unit No.",
+      "label_mr": "फ्लॅट क्र.",
+      "required": true
+    },
+    "property.floor_no": {
+      "name": "property.floor_no",
+      "type": "string",
+      "label_en": "Floor No.",
+      "label_mr": "मजला",
+      "required": true
+    },
+    "property.building_name": {
+      "name": "property.building_name",
+      "type": "string",
+      "label_en": "Building / Apartment Name",
+      "label_mr": "इमारतीचे नाव",
+      "required": true
+    },
+    "property.locality": {
+      "name": "property.locality",
+      "type": "string",
+      "label_en": "Locality / Mouza",
+      "label_mr": "परिसर / मौजे",
+      "required": true
+    },
+    "property.city": {
+      "name": "property.city",
+      "type": "string",
+      "label_en": "City",
+      "label_mr": "शहर",
+      "required": true,
+      "default": "Nagpur"
+    },
+    "property.survey_no": {
+      "name": "property.survey_no",
+      "type": "string",
+      "label_en": "City Survey / Khasra No.",
+      "label_mr": "सर्व्हे / खसरा क्र.",
+      "required": true
+    },
+    "property.carpet_area_sqm": {
+      "name": "property.carpet_area_sqm",
+      "type": "decimal",
+      "label_en": "Carpet Area (Sq. Metres)",
+      "label_mr": "कार्पेट क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    },
+    "property.parking_no": {
+      "name": "property.parking_no",
+      "type": "string",
+      "label_en": "Covered / Open Parking Space No.",
+      "label_mr": "पार्किंग क्र.",
+      "required": false
+    },
+    "financial.total_price": {
+      "name": "financial.total_price",
+      "type": "decimal",
+      "label_en": "Total Sale Consideration (Rs.)",
+      "label_mr": "एकूण विक्री मोबदला (रु.)",
+      "required": true
+    },
+    "financial.advance_paid": {
+      "name": "financial.advance_paid",
+      "type": "decimal",
+      "label_en": "Earnest / Advance Amount Paid (Rs.)",
+      "label_mr": "आगाऊ मिळालेली रक्कम (रु.)",
+      "required": true
+    },
+    "execution_date": {
+      "name": "execution_date",
+      "type": "date",
+      "label_en": "Date of Execution",
+      "label_mr": "दस्त निष्पादनाची तारीख",
+      "required": true
+    }
+  },
+  "derived_fields": {
+    "financial.balance_amount": {
+      "name": "financial.balance_amount",
+      "type": "decimal",
+      "expression": "financial.total_price - financial.advance_paid",
+      "label_en": "Balance Sale Consideration",
+      "label_mr": "शिल्लक देय रक्कम"
+    },
+    "property.carpet_area_sqft": {
+      "name": "property.carpet_area_sqft",
+      "type": "decimal",
+      "expression": "property.carpet_area_sqm * 10.7639104",
+      "label_en": "Carpet Area (Sq. Feet)",
+      "label_mr": "कार्पेट क्षेत्रफळ (चौ.फूट)"
+    }
+  },
+  "validations": [
+    {
+      "id": "advance_le_total",
+      "condition": "financial.advance_paid <= financial.total_price",
+      "message_en": "Advance amount cannot exceed total sale consideration",
+      "message_mr": "आगाऊ रक्कम एकूण मोबदल्यापेक्षा जास्त असू शकत नाही",
+      "severity": "error"
+    },
+    {
+      "id": "total_gt_zero",
+      "condition": "financial.total_price > 0",
+      "message_en": "Total sale consideration must be greater than zero",
+      "message_mr": "एकूण मोबदला शून्यापेक्षा जास्त असणे आवश्यक आहे",
+      "severity": "error"
+    }
+  ]
+}
+

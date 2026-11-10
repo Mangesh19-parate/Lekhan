@@ -1,0 +1,176 @@
+{
+  "manifest_schema": 1,
+  "template_id": "release_deed_mr",
+  "name_en": "Release Deed / Relinquishment Deed (Marathi)",
+  "name_mr": "हक्कसोड पत्र (सहहिस्सा / वारसाहक्क)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "release_deed",
+  "property_type": "plot",
+  "language": "mr",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "releasors": {
+      "role": "releasor",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Releasor(s) / Person Relinquishing Share",
+      "label_mr": "हक्क सोडणारे (सहहिस्सेदार)"
+    },
+    "releasees": {
+      "role": "releasee",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Releasee(s) / Person Accepting Relinquished Share",
+      "label_mr": "हक्क घेणारे (सहहिस्सेदार)"
+    }
+  },
+  "repeaters": {
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_schedule",
+      "title_en": "Property Schedule",
+      "title_mr": "मिळकतीचे वर्णन व सोडलेला हिस्सा",
+      "field_names": [
+        "property.mouza",
+        "property.khasra_no",
+        "property.plot_no",
+        "property.area_sqm",
+        "property.relinquished_share"
+      ]
+    },
+    {
+      "id": "boundaries",
+      "title_en": "Boundaries",
+      "title_mr": "चतुःसीमा",
+      "field_names": [
+        "boundaries.east",
+        "boundaries.west",
+        "boundaries.north",
+        "boundaries.south"
+      ]
+    },
+    {
+      "id": "financial_terms",
+      "title_en": "Terms of Relinquishment",
+      "title_mr": "हक्कसोड अटी व मोबदला",
+      "field_names": [
+        "financial.is_without_consideration",
+        "financial.consideration_amount"
+      ]
+    }
+  ],
+  "fields": {
+    "execution_date": {
+      "name": "execution_date",
+      "type": "string",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त नोंदणी दिनांक",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra / Survey No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.plot_no": {
+      "name": "property.plot_no",
+      "type": "string",
+      "label_en": "Plot No.",
+      "label_mr": "प्लॉट क्र.",
+      "required": true
+    },
+    "property.area_sqm": {
+      "name": "property.area_sqm",
+      "type": "number",
+      "label_en": "Total Area (sq.m.)",
+      "label_mr": "एकूण क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    },
+    "property.relinquished_share": {
+      "name": "property.relinquished_share",
+      "type": "string",
+      "label_en": "Relinquished Share Fraction",
+      "label_mr": "सोडण्यात येणारा अविभाज्य हिस्सा",
+      "required": true
+    },
+    "financial.is_without_consideration": {
+      "name": "financial.is_without_consideration",
+      "type": "boolean",
+      "label_en": "Relinquished Without Consideration (Natural Love/Affection)",
+      "label_mr": "विना मोबदला (खाजगी प्रेमाखातर / रक्ताच्या नात्यापोटी)",
+      "required": true,
+      "default": true
+    },
+    "financial.consideration_amount": {
+      "name": "financial.consideration_amount",
+      "type": "number",
+      "label_en": "Consideration Amount (if any)",
+      "label_mr": "मोबदला रक्कम (असल्यास)",
+      "required": false,
+      "default": 0
+    },
+    "boundaries.east": {
+      "name": "boundaries.east",
+      "type": "string",
+      "label_en": "East Boundary",
+      "label_mr": "पूर्व",
+      "required": true
+    },
+    "boundaries.west": {
+      "name": "boundaries.west",
+      "type": "string",
+      "label_en": "West Boundary",
+      "label_mr": "पश्चिम",
+      "required": true
+    },
+    "boundaries.north": {
+      "name": "boundaries.north",
+      "type": "string",
+      "label_en": "North Boundary",
+      "label_mr": "उत्तर",
+      "required": true
+    },
+    "boundaries.south": {
+      "name": "boundaries.south",
+      "type": "string",
+      "label_en": "South Boundary",
+      "label_mr": "दक्षिण",
+      "required": true
+    },
+    "witness_1": {
+      "name": "witness_1",
+      "type": "string",
+      "label_en": "First Attesting Witness",
+      "label_mr": "पहिला साक्षीदार",
+      "required": true
+    },
+    "witness_2": {
+      "name": "witness_2",
+      "type": "string",
+      "label_en": "Second Attesting Witness",
+      "label_mr": "दुसरा साक्षीदार",
+      "required": true
+    }
+  }
+}
+
