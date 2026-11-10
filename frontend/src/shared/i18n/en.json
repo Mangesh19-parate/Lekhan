@@ -1,0 +1,53 @@
+{
+  "app": {
+    "name": "Lekhan",
+    "subtitle": "Bilingual Property Legal Drafting"
+  },
+  "nav": {
+    "wizard": "Draft Document",
+    "matters": "Matters",
+    "parties": "Parties",
+    "templates": "Template Registry",
+    "audit": "Audit Log"
+  },
+  "actions": {
+    "save_draft": "Save Draft",
+    "generate": "Generate Document",
+    "next": "Continue",
+    "back": "Back",
+    "cancel": "Cancel",
+    "add_item": "Add Entry",
+    "remove": "Remove",
+    "suggest_transliteration": "Suggest transliteration",
+    "download_docx": "Download DOCX",
+    "calculating": "Calculating..."
+  },
+  "status": {
+    "draft": "Draft",
+    "under_review": "Under Review",
+    "approved": "Approved by Legal Advocate",
+    "retired": "Retired",
+    "queued": "Queued",
+    "running": "Generating...",
+    "completed": "Ready for Download",
+    "failed": "Generation Failed"
+  },
+  "wizard": {
+    "step_1": "1. Template Selection",
+    "step_2": "2. Deed Information",
+    "step_3": "3. Review & Export"
+  },
+  "form": {
+    "required": "Required",
+    "optional": "Optional",
+    "amount_in_words": "Amount in words",
+    "balance_due": "Balance Consideration",
+    "area_sqft": "Equivalent Area (Sq. Ft.)",
+    "parties_section": "Parties Details",
+    "property_section": "Property Schedule",
+    "financial_section": "Consideration & Payment Terms",
+    "witnesses_section": "Attesting Witnesses"
+  },
+  "disclaimer": "Generated draft deed. Must be verified and approved by a qualified legal professional before execution or registration."
+}
+
