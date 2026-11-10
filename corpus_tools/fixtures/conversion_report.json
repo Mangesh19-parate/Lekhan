@@ -1,0 +1,228 @@
+[
+  {
+    "file_name": "01_plot_sale_deed_header.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "02_parties_individual_male.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "03_parties_individual_female.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "04_parties_multiple_sellers.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "05_property_mouza_khasra.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "06_four_boundaries_chaturseema.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "07_consideration_payment_terms.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "08_earnest_money_advance.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "09_possession_clause.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "10_witness_block.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "11_general_power_of_attorney.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "12_agreement_to_sell_flat.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "13_nit_sanction_order.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "14_city_survey_sheet.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "15_encumbrance_free_warranty.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "16_registration_statutory_duty.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "17_agricultural_land_clause.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "18_commercial_shop_lease.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "19_latin_in_kruti_warning_pan.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [
+      {
+        "paragraph": 0,
+        "type": "PAN",
+        "snippet": "ABCDE1234F",
+        "position": 11
+      },
+      {
+        "paragraph": 0,
+        "type": "10_12_DIGIT_ID",
+        "snippet": "9876543210",
+        "position": 31
+      },
+      {
+        "paragraph": 0,
+        "type": "LATIN_KEYWORD",
+        "snippet": "PLOT",
+        "position": 42
+      },
+      {
+        "paragraph": 0,
+        "type": "LATIN_KEYWORD",
+        "snippet": "KHASRA",
+        "position": 47
+      }
+    ],
+    "success": true,
+    "error": null
+  },
+  {
+    "file_name": "20_marathi_special_eyelash_reph.txt",
+    "total_paragraphs": 1,
+    "total_runs": 1,
+    "converted_runs": 1,
+    "latin_preserved_runs": 0,
+    "warnings": [],
+    "success": true,
+    "error": null
+  }
+]
+

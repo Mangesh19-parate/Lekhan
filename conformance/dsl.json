@@ -1,0 +1,175 @@
+[
+  {
+    "id": "eq_string_true",
+    "expr": "financial.payment_mode == 'bank_loan'",
+    "ast": {
+      "op": "eq",
+      "args": [{"var": "financial.payment_mode"}, {"lit": "bank_loan"}]
+    },
+    "input": {
+      "financial": {"payment_mode": "bank_loan"}
+    },
+    "expected": true
+  },
+  {
+    "id": "eq_string_false",
+    "expr": "financial.payment_mode == 'cash'",
+    "ast": {
+      "op": "eq",
+      "args": [{"var": "financial.payment_mode"}, {"lit": "cash"}]
+    },
+    "input": {
+      "financial": {"payment_mode": "bank_loan"}
+    },
+    "expected": false
+  },
+  {
+    "id": "gt_number_true",
+    "expr": "financial.loan_amount > 500000",
+    "ast": {
+      "op": "gt",
+      "args": [{"var": "financial.loan_amount"}, {"lit": 500000}]
+    },
+    "input": {
+      "financial": {"loan_amount": 1000000}
+    },
+    "expected": true
+  },
+  {
+    "id": "gte_equal_true",
+    "expr": "property.area_sqm >= 150",
+    "ast": {
+      "op": "gte",
+      "args": [{"var": "property.area_sqm"}, {"lit": 150}]
+    },
+    "input": {
+      "property": {"area_sqm": 150}
+    },
+    "expected": true
+  },
+  {
+    "id": "and_operator_true",
+    "expr": "financial.payment_mode == 'bank_loan' and financial.loan_amount > 0",
+    "ast": {
+      "op": "and",
+      "args": [
+        {"op": "eq", "args": [{"var": "financial.payment_mode"}, {"lit": "bank_loan"}]},
+        {"op": "gt", "args": [{"var": "financial.loan_amount"}, {"lit": 0}]}
+      ]
+    },
+    "input": {
+      "financial": {"payment_mode": "bank_loan", "loan_amount": 750000}
+    },
+    "expected": true
+  },
+  {
+    "id": "and_operator_false",
+    "expr": "financial.payment_mode == 'bank_loan' and financial.loan_amount > 5000000",
+    "ast": {
+      "op": "and",
+      "args": [
+        {"op": "eq", "args": [{"var": "financial.payment_mode"}, {"lit": "bank_loan"}]},
+        {"op": "gt", "args": [{"var": "financial.loan_amount"}, {"lit": 5000000}]}
+      ]
+    },
+    "input": {
+      "financial": {"payment_mode": "bank_loan", "loan_amount": 750000}
+    },
+    "expected": false
+  },
+  {
+    "id": "or_operator_true",
+    "expr": "financial.is_loan == true or financial.is_cash == true",
+    "ast": {
+      "op": "or",
+      "args": [
+        {"op": "eq", "args": [{"var": "financial.is_loan"}, {"lit": true}]},
+        {"op": "eq", "args": [{"var": "financial.is_cash"}, {"lit": true}]}
+      ]
+    },
+    "input": {
+      "financial": {"is_loan": false, "is_cash": true}
+    },
+    "expected": true
+  },
+  {
+    "id": "not_operator_true",
+    "expr": "not (financial.is_cash == true)",
+    "ast": {
+      "op": "not",
+      "args": [
+        {"op": "eq", "args": [{"var": "financial.is_cash"}, {"lit": true}]}
+      ]
+    },
+    "input": {
+      "financial": {"is_cash": false}
+    },
+    "expected": true
+  },
+  {
+    "id": "in_array_true",
+    "expr": "property.category in ['plot', 'flat']",
+    "ast": {
+      "op": "in",
+      "args": [
+        {"var": "property.category"},
+        {"lit": ["plot", "flat"]}
+      ]
+    },
+    "input": {
+      "property": {"category": "plot"}
+    },
+    "expected": true
+  },
+  {
+    "id": "is_empty_true",
+    "expr": "is_empty(financial.cheque_no)",
+    "ast": {
+      "op": "is_empty",
+      "args": [{"var": "financial.cheque_no"}]
+    },
+    "input": {
+      "financial": {"cheque_no": null}
+    },
+    "expected": true
+  },
+  {
+    "id": "count_function_true",
+    "expr": "count(parties.witnesses) == 2",
+    "ast": {
+      "op": "eq",
+      "args": [
+        {"op": "count", "args": [{"var": "parties.witnesses"}]},
+        {"lit": 2}
+      ]
+    },
+    "input": {
+      "parties": {
+        "witnesses": ["witness1", "witness2"]
+      }
+    },
+    "expected": true
+  },
+  {
+    "id": "nested_precedence_and_over_or",
+    "expr": "financial.mode == 'cash' or financial.loan > 0 and financial.approved == true",
+    "ast": {
+      "op": "or",
+      "args": [
+        {"op": "eq", "args": [{"var": "financial.mode"}, {"lit": "cash"}]},
+        {
+          "op": "and",
+          "args": [
+            {"op": "gt", "args": [{"var": "financial.loan"}, {"lit": 0}]},
+            {"op": "eq", "args": [{"var": "financial.approved"}, {"lit": true}]}
+          ]
+        }
+      ]
+    },
+    "input": {
+      "financial": {"mode": "bank", "loan": 500000, "approved": true}
+    },
+    "expected": true
+  }
+]
+
