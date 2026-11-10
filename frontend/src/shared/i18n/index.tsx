@@ -20,7 +20,7 @@ const I18nContext = createContext<I18nContextType>({
   t: (key: string) => key,
 });
 
-export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const I18nProvider = ({ children }: { children: React.ReactNode }): React.ReactElement => {
   const [lang, setLang] = useState<Language>("mr");
 
   const t = (key: string): string => {

@@ -47,7 +47,6 @@ frontend/       React app (features, shared, i18n)
 corpus_tools/   Offline developer CLI: convert, scan, cluster (not shipped)
 templates-library/  Approved templates + manifests (synthetic or redacted only)
 conformance/    Shared DSL test vectors
-docs/           Documentation and ADRs
 deploy/         Docker Compose, Caddy, backup scripts
 samples-private/   (git-ignored) the company's archive, never committed
 ```
