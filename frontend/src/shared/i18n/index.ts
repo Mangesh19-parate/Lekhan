@@ -1,4 +1,4 @@
-"""Simple React hook & helper for typed bilingual i18n lookup."""
+/** Simple React hook & helper for typed bilingual i18n lookup. */
 
 import React, { createContext, useContext, useState } from "react";
 import en from "./en.json";
