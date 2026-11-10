@@ -394,7 +394,7 @@
       <div class="form-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h2 class="section-title" style="margin: 0; border: none;" id="secSellersTitle">विक्रेते (Sellers / लिहून देणार)</h2>
-          <button type="button" class="btn-pill" onclick="addSeller()">+ नवीन जोडा (Add)</button>
+          <button type="button" class="btn-pill" id="lblAddSellerBtn" onclick="addSeller()">+ नवीन जोडा (Add)</button>
         </div>
         <div id="sellersContainer"></div>
       </div>
@@ -402,7 +402,7 @@
       <div class="form-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h2 class="section-title" style="margin: 0; border: none;" id="secPurchasersTitle">खरेदीदार (Purchasers / लिहून घेणार)</h2>
-          <button type="button" class="btn-pill" onclick="addPurchaser()">+ नवीन जोडा (Add)</button>
+          <button type="button" class="btn-pill" id="lblAddPurchaserBtn" onclick="addPurchaser()">+ नवीन जोडा (Add)</button>
         </div>
         <div id="purchasersContainer"></div>
       </div>
@@ -453,6 +453,8 @@
     ];
 
     function renderRepeaters() {
+      const isMr = currentLang === "mr";
+
       // Sellers
       const sBox = document.getElementById("sellersContainer");
       sBox.innerHTML = "";
@@ -460,20 +462,20 @@
         sBox.innerHTML += `
           <div class="repeater-card">
             <div class="repeater-header">
-              <span>विक्रेता #${idx + 1}</span>
-              ${sellers.length > 1 ? `<button type="button" class="btn-remove" onclick="removeSeller(${idx})">काढून टाका (Remove)</button>` : ""}
+              <span>${isMr ? `विक्रेता #${idx + 1}` : `Seller #${idx + 1}`}</span>
+              ${sellers.length > 1 ? `<button type="button" class="btn-remove" onclick="removeSeller(${idx})">${isMr ? "काढून टाका (Remove)" : "Remove"}</button>` : ""}
             </div>
             <div class="form-grid">
               <div class="form-group">
-                <label class="form-label">पूर्ण नाव (Full Name)</label>
+                <label class="form-label">${isMr ? "पूर्ण नाव (Full Name)" : "Full Name"}</label>
                 <input type="text" class="form-input" value="${s.name}" onchange="sellers[${idx}].name=this.value">
               </div>
               <div class="form-group">
-                <label class="form-label">पॅन (PAN)</label>
+                <label class="form-label">${isMr ? "पॅन (PAN)" : "PAN"}</label>
                 <input type="text" class="form-input" value="${s.pan}" onchange="sellers[${idx}].pan=this.value">
               </div>
               <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">पत्ता (Address)</label>
+                <label class="form-label">${isMr ? "पत्ता (Address)" : "Address"}</label>
                 <input type="text" class="form-input" value="${s.addr}" onchange="sellers[${idx}].addr=this.value">
               </div>
             </div>
@@ -488,20 +490,20 @@
         pBox.innerHTML += `
           <div class="repeater-card">
             <div class="repeater-header">
-              <span>खरेदीदार #${idx + 1}</span>
-              ${purchasers.length > 1 ? `<button type="button" class="btn-remove" onclick="removePurchaser(${idx})">काढून टाका (Remove)</button>` : ""}
+              <span>${isMr ? `खरेदीदार #${idx + 1}` : `Purchaser #${idx + 1}`}</span>
+              ${purchasers.length > 1 ? `<button type="button" class="btn-remove" onclick="removePurchaser(${idx})">${isMr ? "काढून टाका (Remove)" : "Remove"}</button>` : ""}
             </div>
             <div class="form-grid">
               <div class="form-group">
-                <label class="form-label">पूर्ण नाव (Full Name)</label>
+                <label class="form-label">${isMr ? "पूर्ण नाव (Full Name)" : "Full Name"}</label>
                 <input type="text" class="form-input" value="${p.name}" onchange="purchasers[${idx}].name=this.value">
               </div>
               <div class="form-group">
-                <label class="form-label">पॅन (PAN)</label>
+                <label class="form-label">${isMr ? "पॅन (PAN)" : "PAN"}</label>
                 <input type="text" class="form-input" value="${p.pan}" onchange="purchasers[${idx}].pan=this.value">
               </div>
               <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">पत्ता (Address)</label>
+                <label class="form-label">${isMr ? "पत्ता (Address)" : "Address"}</label>
                 <input type="text" class="form-input" value="${p.addr}" onchange="purchasers[${idx}].addr=this.value">
               </div>
             </div>
@@ -587,25 +589,72 @@
       document.getElementById("btnLangEn").className = "lang-btn" + (lang === "en" ? " active" : "");
       document.documentElement.lang = lang;
 
+      const tSelect = document.getElementById("templateSelect");
+
       if (lang === "en") {
         document.getElementById("lblTemplateSelect").textContent = "Select Deed Template:";
+        document.getElementById("lblTemplateDesc").textContent = "Maharashtra Stamp Act & Statutory Legal Templates";
+        tSelect.options[0].text = "Sale Deed - Plot (NIT/NMC Sanctioned)";
+        tSelect.options[1].text = "Agreement to Sell Plot (Earnest Note)";
+
         document.getElementById("lblDisclaimerTitle").textContent = "Official Notice:";
         document.getElementById("lblDisclaimerText").textContent = "Generated draft deed. Must be reviewed and approved by a qualified legal professional before execution or registration.";
+
         document.getElementById("secPropertyTitle").textContent = "Property Schedule";
+        document.getElementById("lblMouza").textContent = "Mouza *";
+        document.getElementById("lblKhasra").textContent = "Khasra No. *";
+        document.getElementById("lblPlotNo").textContent = "Plot No. *";
+        document.getElementById("lblAreaSqm").textContent = "Area in Sq. Mtrs. *";
+        document.getElementById("lblEquivalentArea").textContent = "Derived Equivalent Area:";
+
         document.getElementById("secFinancialTitle").textContent = "Financial Consideration & Terms";
+        document.getElementById("lblTotalConsideration").textContent = "Total Consideration (Rs.) *";
+        document.getElementById("lblEarnestAdvance").textContent = "Earnest Money / Advance (Rs.) *";
+        document.getElementById("lblBalanceDue").textContent = "Balance Due:";
+
         document.getElementById("secSellersTitle").textContent = "Sellers";
         document.getElementById("secPurchasersTitle").textContent = "Purchasers";
+        document.getElementById("lblAddSellerBtn").textContent = "+ Add New";
+        document.getElementById("lblAddPurchaserBtn").textContent = "+ Add New";
+
         document.getElementById("btnSubmit").innerHTML = "<span>Generate Document (DOCX)</span>";
+        document.getElementById("lblResultTitle").textContent = "Document Generation in Progress...";
+        document.getElementById("downloadLink").textContent = "⬇️ Download Document (DOCX)";
+        document.getElementById("btnCopyPde").textContent = "📋 Copy Portal Data Entry (PDE) Sheet";
+        document.getElementById("pdeToast").textContent = "✓ Sub-Registrar / PDE data copied to clipboard successfully!";
       } else {
         document.getElementById("lblTemplateSelect").textContent = "साचा निवडा (Select Deed Template):";
+        document.getElementById("lblTemplateDesc").textContent = "महाराष्ट्र मुद्रांक अधिनियम व कायदेशीर साचे";
+        tSelect.options[0].text = "खरेदीखत - भूखंड (Sale Deed Plot - NIT/NMC)";
+        tSelect.options[1].text = "साठेखत / इसारपावती (Agreement to Sell Plot)";
+
         document.getElementById("lblDisclaimerTitle").textContent = "वैधानिक सूचना:";
         document.getElementById("lblDisclaimerText").textContent = "हा संगणकीय मसुदा आहे. दस्त निष्पादन किंवा नोंदणी करण्यापूर्वी पात्र विधीज्ञांकडून (Advocate) कायदेशीर तपासणी करून घेणे आवश्यक आहे.";
+
         document.getElementById("secPropertyTitle").textContent = "मिळकतीचे वर्णन (Property Schedule)";
+        document.getElementById("lblMouza").textContent = "मौजे (Mouza) *";
+        document.getElementById("lblKhasra").textContent = "खसरा क्र. (Khasra No.) *";
+        document.getElementById("lblPlotNo").textContent = "भूखंड क्र. (Plot No.) *";
+        document.getElementById("lblAreaSqm").textContent = "क्षेत्रफळ चौ.मी. (Area in Sq. Mtrs.) *";
+        document.getElementById("lblEquivalentArea").textContent = "समकक्ष क्षेत्रफळ (Derived Equivalent Area):";
+
         document.getElementById("secFinancialTitle").textContent = "मोबदला व देय रक्कम (Financial Consideration)";
-        document.getElementById("secSellersTitle").textContent = "विक्रेते (Sellers)";
-        document.getElementById("secPurchasersTitle").textContent = "खरेदीदार (Purchasers)";
+        document.getElementById("lblTotalConsideration").textContent = "एकूण ठरलेला मोबदला (Total Consideration Rs.) *";
+        document.getElementById("lblEarnestAdvance").textContent = "इसार / आगाऊ दिलेली रक्कम (Earnest Money Rs.) *";
+        document.getElementById("lblBalanceDue").textContent = "देय शिल्लक मोबदला (Balance Due):";
+
+        document.getElementById("secSellersTitle").textContent = "विक्रेते (Sellers / लिहून देणार)";
+        document.getElementById("secPurchasersTitle").textContent = "खरेदीदार (Purchasers / लिहून घेणार)";
+        document.getElementById("lblAddSellerBtn").textContent = "+ नवीन जोडा (Add)";
+        document.getElementById("lblAddPurchaserBtn").textContent = "+ नवीन जोडा (Add)";
+
         document.getElementById("btnSubmit").innerHTML = "<span>दस्त तयार करा (Generate DOCX)</span>";
+        document.getElementById("lblResultTitle").textContent = "दस्त निर्मिती प्रगतीपथावर (Generating...)";
+        document.getElementById("downloadLink").textContent = "⬇️ DOCX डाउनलोड करा (Download)";
+        document.getElementById("btnCopyPde").textContent = "📋 पॉर्टल डेटा शीट कॉपी करा (Copy PDE Sheet)";
+        document.getElementById("pdeToast").textContent = "✓ Sub-Registrar / PDE डेटा क्लिपबोर्डवर यशस्वीरित्या कॉपी झाला!";
       }
+      switchTemplate();
       updateCalculations();
       renderRepeaters();
     }
@@ -615,7 +664,7 @@
       if (val === "agreement_to_sell_plot_mr") {
         document.getElementById("lblSelectedDoc").textContent = currentLang === "mr" ? "साठेखत / इसारपावती (Agreement to Sell)" : "Agreement to Sell (Plot)";
       } else {
-        document.getElementById("lblSelectedDoc").textContent = currentLang === "mr" ? "खरेदीखत (Sale Deed - Plot)" : "Sale Deed (Plot in Layout)";
+        document.getElementById("lblSelectedDoc").textContent = currentLang === "mr" ? "खरेदीखत (Sale Deed - Plot)" : "Sale Deed (Plot)";
       }
     }
 
