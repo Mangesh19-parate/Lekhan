@@ -24,4 +24,3 @@ __all__ = [
     "ReviewStatus",
     "document_review_service",
 ]
-

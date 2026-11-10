@@ -9,6 +9,7 @@ Verifies:
 """
 
 import uuid
+
 import pytest
 
 from app.adapters.pdf import LibreOfficePdfConverter, PdfConversionError
@@ -130,8 +131,24 @@ def test_document_history_filtering_and_pagination(clean_pipeline: GenerationPip
             job_type="generate_docx",
             payload={
                 "execution_date": "2026-11-09",
-                "vendors": [{"full_name": f"Vendor {i}", "age": 40, "address": "Nagpur", "pan": "ABCDE1234F", "aadhaar_last4": "1234"}],
-                "purchasers": [{"full_name": f"Purchaser {i}", "age": 35, "address": "Nagpur", "pan": "FGHIJ5678K", "aadhaar_last4": "5678"}],
+                "vendors": [
+                    {
+                        "full_name": f"Vendor {i}",
+                        "age": 40,
+                        "address": "Nagpur",
+                        "pan": "ABCDE1234F",
+                        "aadhaar_last4": "1234",
+                    }
+                ],
+                "purchasers": [
+                    {
+                        "full_name": f"Purchaser {i}",
+                        "age": 35,
+                        "address": "Nagpur",
+                        "pan": "FGHIJ5678K",
+                        "aadhaar_last4": "5678",
+                    }
+                ],
                 "property_details": {
                     "plot_no": str(i * 10),
                     "layout_name": "Green Park",
@@ -139,10 +156,23 @@ def test_document_history_filtering_and_pagination(clean_pipeline: GenerationPip
                     "khasra_no": f"12/{i}",
                     "city_survey_no": f"CTS-{i}",
                     "area_sqm": "150.00",
-                    "boundaries": {"east": "Road", "west": "Plot", "north": "Plot", "south": "Plot"},
+                    "boundaries": {
+                        "east": "Road",
+                        "west": "Plot",
+                        "north": "Plot",
+                        "south": "Plot",
+                    },
                 },
-                "financial_terms": {"total_consideration": "2000000", "advance_paid": "400000", "balance_amount": "1600000", "payment_mode": "RTGS"},
-                "witnesses": [{"full_name": "W1", "address": "N"}, {"full_name": "W2", "address": "N"}],
+                "financial_terms": {
+                    "total_consideration": "2000000",
+                    "advance_paid": "400000",
+                    "balance_amount": "1600000",
+                    "payment_mode": "RTGS",
+                },
+                "witnesses": [
+                    {"full_name": "W1", "address": "N"},
+                    {"full_name": "W2", "address": "N"},
+                ],
             },
         )
         clean_pipeline.process_job(job)
@@ -158,7 +188,9 @@ def test_document_history_filtering_and_pagination(clean_pipeline: GenerationPip
     assert len(docs_b) == 0
 
     # 3. Search query check
-    searched, search_total = clean_pipeline.list_documents(tenant_id=tenant_a, search="plot_no\": \"20\"")
+    searched, search_total = clean_pipeline.list_documents(
+        tenant_id=tenant_a, search='plot_no": "20"'
+    )
     assert search_total == 1
     assert searched[0].data_snapshot["property_details"]["plot_no"] == "20"
 
@@ -166,4 +198,3 @@ def test_document_history_filtering_and_pagination(clean_pipeline: GenerationPip
     paginated, p_total = clean_pipeline.list_documents(tenant_id=tenant_a, limit=2, offset=0)
     assert p_total == 3
     assert len(paginated) == 2
-

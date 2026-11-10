@@ -10,6 +10,7 @@ Verifies:
 """
 
 import uuid
+
 import pytest
 
 from app.generation.jobs import JobRecord
@@ -21,6 +22,7 @@ from app.review.fsm import (
     IncompleteChecklistError,
     InvalidReviewTransitionError,
     ReviewChecklist,
+    ReviewMetadata,
     ReviewStatus,
     reopen_to_draft,
     transition_to_finalised,
@@ -233,4 +235,3 @@ def test_rule_7_no_valid_claims_and_disclaimer_presence() -> None:
     meta = ReviewMetadata()
     assert "does not constitute legal advice" in meta.disclaimer_en
     assert "कायदेशीर सल्ला नसून" in meta.disclaimer_mr
-

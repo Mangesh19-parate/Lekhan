@@ -233,4 +233,3 @@ class PropertyService:
 
 
 property_service = PropertyService()
-

@@ -13,9 +13,8 @@ from pydantic import BaseModel
 
 from app.api.auth import get_current_actor
 from app.generation.pipeline import generation_pipeline
-from app.identity.policy import Actor, authorize
+from app.identity.policy import Actor
 from app.pilot.corrections import (
-    CorrectionCategory,
     CorrectionCreateRequest,
     CorrectionEntry,
     CorrectionSeverity,
@@ -60,7 +59,9 @@ def log_pilot_correction(
 )
 def list_pilot_corrections(
     template_id: str | None = Query(None, description="Filter by template ID"),
-    status_filter: CorrectionStatus | None = Query(None, alias="status", description="Filter by status"),
+    status_filter: CorrectionStatus | None = Query(
+        None, alias="status", description="Filter by status"
+    ),
     severity: CorrectionSeverity | None = Query(None, description="Filter by severity"),
     actor: Actor = Depends(get_current_actor),
 ) -> Any:
@@ -137,4 +138,3 @@ def get_pilot_statistics(
         tenant_id=actor.tenant_id,
         total_drafts=max(1, total_drafts),
     )
-

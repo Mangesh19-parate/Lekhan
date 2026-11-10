@@ -9,7 +9,6 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 
 from app.api.auth import get_current_actor
 from app.generation.pipeline import generation_pipeline
@@ -155,4 +154,3 @@ def reopen_document_to_draft(
         )
     except (InvalidReviewTransitionError, DocumentFinalisedError) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-

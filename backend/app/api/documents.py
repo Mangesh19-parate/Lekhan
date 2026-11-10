@@ -97,10 +97,16 @@ def create_document_generation_job(
     )
 
 
-@router.get("", response_model=DocumentHistoryResponse, summary="List document history with filters")
+@router.get(
+    "", response_model=DocumentHistoryResponse, summary="List document history with filters"
+)
 def list_document_history(
-    status_filter: str | None = Query(None, alias="status", description="Filter by status (draft, reviewed, finalised)"),
-    search: str | None = Query(None, description="Search term for doc_no or party/property content"),
+    status_filter: str | None = Query(
+        None, alias="status", description="Filter by status (draft, reviewed, finalised)"
+    ),
+    search: str | None = Query(
+        None, description="Search term for doc_no or party/property content"
+    ),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     actor: Actor = Depends(get_current_actor),
@@ -139,7 +145,11 @@ def list_document_history(
     )
 
 
-@router.get("/{document_id}", response_model=DocumentDetailResponse, summary="Get document details and data snapshot")
+@router.get(
+    "/{document_id}",
+    response_model=DocumentDetailResponse,
+    summary="Get document details and data snapshot",
+)
 def get_document_details(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
@@ -261,7 +271,11 @@ class ValidationResponse(BaseModel):
     visibility: dict[str, bool]
 
 
-@router.post("/validate/{template_id}", response_model=ValidationResponse, summary="Validate draft form data with derived fields")
+@router.post(
+    "/validate/{template_id}",
+    response_model=ValidationResponse,
+    summary="Validate draft form data with derived fields",
+)
 def validate_draft_data(
     template_id: str,
     payload: ValidationRequest,
@@ -270,11 +284,19 @@ def validate_draft_data(
     """Evaluates cross-field validation rules, derived fields, and visibility."""
     import json
     from pathlib import Path
+
     from app.templates.compiler import ManifestCompiler, ManifestRuntime
 
-    manifest_path = Path(__file__).parent.parent.parent.parent / "templates-library" / template_id / "manifest.json"
+    manifest_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / template_id
+        / "manifest.json"
+    )
     if not manifest_path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Template '{template_id}' not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Template '{template_id}' not found."
+        )
 
     raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     compiled = ManifestCompiler().compile(raw_manifest)

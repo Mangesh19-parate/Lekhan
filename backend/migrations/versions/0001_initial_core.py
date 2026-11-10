@@ -1,14 +1,15 @@
 """Initial core schema: extensions and tenants table.
 
 Revision ID: 0001_initial_core
-Revises: 
+Revises:
 Create Date: 2026-11-09 20:00:00.000000
 
 """
 
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0001_initial_core"
@@ -28,12 +29,23 @@ def upgrade() -> None:
         "tenants",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("settings", postgresql.JSONB(astext_type=sa.Text()), server_default="{}", nullable=False),
-        sa.Column("feature_flags", postgresql.JSONB(astext_type=sa.Text()), server_default="{}", nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "settings", postgresql.JSONB(astext_type=sa.Text()), server_default="{}", nullable=False
+        ),
+        sa.Column(
+            "feature_flags",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default="{}",
+            nullable=False,
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
     )
 
 
 def downgrade() -> None:
     op.drop_table("tenants")
-

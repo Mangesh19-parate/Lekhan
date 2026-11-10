@@ -10,6 +10,7 @@ Verifies:
 """
 
 import uuid
+
 import pytest
 
 from app.generation.jobs import JobRecord
@@ -112,7 +113,12 @@ def test_property_trigram_search(clean_services) -> None:
     prop1 = prop_svc.create_property(
         tenant_id=tenant_id,
         category="plot",
-        attrs={"mouza": "Babulkheda", "khasra_no": "23/1", "plot_no": "104", "layout": "NIT Layout"},
+        attrs={
+            "mouza": "Babulkheda",
+            "khasra_no": "23/1",
+            "plot_no": "104",
+            "layout": "NIT Layout",
+        },
     )
     prop2 = prop_svc.create_property(
         tenant_id=tenant_id,
@@ -150,7 +156,14 @@ def test_past_document_immutability_on_reuse(clean_services) -> None:
     prop = prop_svc.create_property(
         tenant_id=tenant_id,
         category="plot",
-        attrs={"plot_no": "10", "layout_name": "Old Layout A", "mouza": "Besa", "khasra_no": "5/1", "city_survey_no": "CTS-1", "area_sqm": "150.00"},
+        attrs={
+            "plot_no": "10",
+            "layout_name": "Old Layout A",
+            "mouza": "Besa",
+            "khasra_no": "5/1",
+            "city_survey_no": "CTS-1",
+            "area_sqm": "150.00",
+        },
     )
     assert prop.version == 1
 
@@ -161,8 +174,24 @@ def test_past_document_immutability_on_reuse(clean_services) -> None:
         job_type="generate_docx",
         payload={
             "execution_date": "2026-11-09",
-            "vendors": [{"full_name": party.names["mr"], "age": 45, "address": party.addresses["mr"], "pan": "ABCDE1234F", "aadhaar_last4": "1234"}],
-            "purchasers": [{"full_name": "Purchaser 1", "age": 35, "address": "Wardha", "pan": "FGHIJ5678K", "aadhaar_last4": "5678"}],
+            "vendors": [
+                {
+                    "full_name": party.names["mr"],
+                    "age": 45,
+                    "address": party.addresses["mr"],
+                    "pan": "ABCDE1234F",
+                    "aadhaar_last4": "1234",
+                }
+            ],
+            "purchasers": [
+                {
+                    "full_name": "Purchaser 1",
+                    "age": 35,
+                    "address": "Wardha",
+                    "pan": "FGHIJ5678K",
+                    "aadhaar_last4": "5678",
+                }
+            ],
             "property_details": {
                 "plot_no": prop.attrs["plot_no"],
                 "layout_name": prop.attrs["layout_name"],
@@ -172,7 +201,12 @@ def test_past_document_immutability_on_reuse(clean_services) -> None:
                 "area_sqm": prop.attrs["area_sqm"],
                 "boundaries": {"east": "Road", "west": "Plot", "north": "Plot", "south": "Plot"},
             },
-            "financial_terms": {"total_consideration": "2000000", "advance_paid": "400000", "balance_amount": "1600000", "payment_mode": "RTGS"},
+            "financial_terms": {
+                "total_consideration": "2000000",
+                "advance_paid": "400000",
+                "balance_amount": "1600000",
+                "payment_mode": "RTGS",
+            },
             "witnesses": [{"full_name": "W1", "address": "N"}, {"full_name": "W2", "address": "N"}],
         },
     )
@@ -232,4 +266,3 @@ def test_cross_tenant_search_isolation(clean_services) -> None:
     # Searching from Tenant A returns the match
     matches_a = p_svc.search_parties(tenant_id=tenant_a, query="मुंडले")
     assert len(matches_a) == 1
-

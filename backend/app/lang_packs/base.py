@@ -56,4 +56,3 @@ class LanguagePack(Protocol):
     def format_area(self, area: Decimal, unit: str) -> str:
         """Formats land area with localized statutory unit suffix."""
         ...
-

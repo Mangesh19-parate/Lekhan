@@ -13,8 +13,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from app.templates.compiler import ManifestCompiler
 from app.templates.lint import DocxLinter
 
@@ -43,4 +41,3 @@ def test_wave_2_template_release_deed_mr_lint_and_manifest() -> None:
     assert report.can_approve is True, f"Lint errors: {report.errors}"
     assert len(report.leftover_data) == 0, f"Leftover PII found: {report.leftover_data}"
     assert len(report.errors) == 0, f"Errors: {report.errors}"
-

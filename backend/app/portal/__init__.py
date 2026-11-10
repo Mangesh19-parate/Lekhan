@@ -16,4 +16,3 @@ __all__ = [
     "PortalSheetGenerator",
     "portal_sheet_generator",
 ]
-

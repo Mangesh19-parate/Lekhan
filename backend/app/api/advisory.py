@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.advisory.engine import advisory_rules_engine
@@ -20,7 +20,11 @@ class AdvisoryEvaluateRequest(BaseModel):
     data: dict[str, Any]
 
 
-@router.post("/evaluate", response_model=list[AdvisoryAlert], summary="Evaluate lawyer-authored advisory rules")
+@router.post(
+    "/evaluate",
+    response_model=list[AdvisoryAlert],
+    summary="Evaluate lawyer-authored advisory rules",
+)
 def evaluate_advisory_alerts(
     payload: AdvisoryEvaluateRequest,
     actor: Actor = Depends(get_current_actor),
@@ -31,4 +35,3 @@ def evaluate_advisory_alerts(
         template_id=payload.template_id,
         tenant_id=actor.tenant_id,
     )
-

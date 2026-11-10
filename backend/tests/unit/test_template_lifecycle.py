@@ -97,7 +97,9 @@ def test_template_lifecycle_workflow(tmp_path: Path) -> None:
     assert exc_conflict.value.status_code == 409
 
     # 3. Separation of duties check: Submitter cannot approve!
-    submitter_as_reviewer = Actor(user_id=submitter_actor.user_id, tenant_id=tenant_id, role="reviewer")
+    submitter_as_reviewer = Actor(
+        user_id=submitter_actor.user_id, tenant_id=tenant_id, role="reviewer"
+    )
     with pytest.raises(HTTPException) as exc_sep:
         approve_template(template_id=template_id, actor=submitter_as_reviewer)
     assert exc_sep.value.status_code == 403
@@ -109,7 +111,9 @@ def test_template_lifecycle_workflow(tmp_path: Path) -> None:
         tmpl_dir = tmp_path / template_id
         tmpl_dir.mkdir(parents=True, exist_ok=True)
         manifest_file = tmpl_dir / "manifest.json"
-        manifest_file.write_text(json.dumps({"template_id": template_id, "status": "under_review"}), encoding="utf-8")
+        manifest_file.write_text(
+            json.dumps({"template_id": template_id, "status": "under_review"}), encoding="utf-8"
+        )
 
         approve_res = approve_template(template_id=template_id, actor=reviewer_actor)
         assert approve_res["status"] == "approved"
@@ -137,7 +141,9 @@ def test_quality_lint_gate_blocks_approval(tmp_path: Path) -> None:
         tmpl_dir = tmp_path / template_id
         tmpl_dir.mkdir(parents=True, exist_ok=True)
         manifest_file = tmpl_dir / "manifest.json"
-        manifest_file.write_text(json.dumps({"template_id": template_id, "status": "under_review"}), encoding="utf-8")
+        manifest_file.write_text(
+            json.dumps({"template_id": template_id, "status": "under_review"}), encoding="utf-8"
+        )
         docx_file = tmpl_dir / "template.docx"
         docx_file.write_bytes(b"dummy_docx_content")
 
@@ -153,4 +159,3 @@ def test_quality_lint_gate_blocks_approval(tmp_path: Path) -> None:
                 approve_template(template_id=template_id, actor=reviewer_actor)
             assert exc_info.value.status_code == 422
             assert "failed quality lint gate" in exc_info.value.detail
-

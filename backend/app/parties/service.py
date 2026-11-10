@@ -257,4 +257,3 @@ class PartyService:
 
 
 party_service = PartyService()
-

@@ -1,14 +1,11 @@
 """Unit tests for Week 12 Form Engine, i18n tokens, and server-side validation endpoint."""
 
 import json
-from pathlib import Path
 from decimal import Decimal
-import pytest
+from pathlib import Path
 
-from app.api.auth import get_current_actor
 from app.api.documents import ValidationRequest, validate_draft_data
 from app.identity.policy import Actor
-
 
 ROOT_DIR = Path(__file__).parent.parent.parent.parent
 
@@ -72,7 +69,9 @@ def test_server_side_validation_endpoint_success() -> None:
         },
     }
 
-    resp = validate_draft_data("sale_deed_plot_mr", ValidationRequest(data=request_data), actor=actor)
+    resp = validate_draft_data(
+        "sale_deed_plot_mr", ValidationRequest(data=request_data), actor=actor
+    )
 
     assert resp.valid is True
     assert len(resp.violations) == 0
@@ -97,9 +96,10 @@ def test_server_side_validation_endpoint_violation() -> None:
         },
     }
 
-    resp = validate_draft_data("sale_deed_plot_mr", ValidationRequest(data=request_data), actor=actor)
+    resp = validate_draft_data(
+        "sale_deed_plot_mr", ValidationRequest(data=request_data), actor=actor
+    )
 
     assert resp.valid is False
     assert len(resp.violations) >= 1
     assert any(v["id"] == "earnest_le_total" for v in resp.violations)
-

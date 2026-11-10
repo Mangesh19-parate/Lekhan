@@ -114,4 +114,3 @@ def test_marathi_plot_sale_deed_spike_generation(tmp_path: Path) -> None:
         footer_xml = z.read("word/footer1.xml").decode("utf-8")
         assert 'w:instr="PAGE"' in footer_xml
         assert 'w:instr="NUMPAGES"' in footer_xml
-

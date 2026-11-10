@@ -86,4 +86,3 @@ class LoginThrottler:
 
 # Global singleton instance
 login_throttler = LoginThrottler()
-

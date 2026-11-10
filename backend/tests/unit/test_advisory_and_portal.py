@@ -10,7 +10,7 @@ Verifies:
 """
 
 import uuid
-from decimal import Decimal
+
 import pytest
 
 from app.advisory.engine import AdvisoryRulesEngine
@@ -172,4 +172,3 @@ def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGene
     assert "[1] PARTIES SUMMARY" in text
     assert "[2] PROPERTY PARTICULARS" in text
     assert "[3] FINANCIAL CONSIDERATION" in text
-

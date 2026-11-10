@@ -21,17 +21,19 @@ W_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 VAR_TAG_REGEX = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
 BLOCK_TAG_REGEX = re.compile(r"\{%\s*([^%]+?)\s*%\}")
 
-STANDARD_BUILTINS = frozenset({
-    "loop",
-    "loop.index",
-    "loop.index0",
-    "loop.first",
-    "loop.last",
-    "loop.length",
-    "true",
-    "false",
-    "none",
-})
+STANDARD_BUILTINS = frozenset(
+    {
+        "loop",
+        "loop.index",
+        "loop.index0",
+        "loop.first",
+        "loop.last",
+        "loop.length",
+        "true",
+        "false",
+        "none",
+    }
+)
 
 
 def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple[str, int]]]]:
@@ -71,7 +73,9 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
                         for match in BLOCK_TAG_REGEX.finditer(text):
                             stmt = match.group(1).strip()
                             # Extract collection in 'for x in collection'
-                            for_match = re.search(r"\bfor\s+\w+\s+in\s+([a-zA-Z_][a-zA-Z0-9_\.]*)", stmt)
+                            for_match = re.search(
+                                r"\bfor\s+\w+\s+in\s+([a-zA-Z_][a-zA-Z0-9_\.]*)", stmt
+                            )
                             if for_match:
                                 coll = for_match.group(1).strip()
                                 found_vars.add(coll)
@@ -82,7 +86,9 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
                                 for token in re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_\.]*\b", stmt):
                                     if token not in ("if", "elif", "and", "or", "not", "in", "is"):
                                         found_vars.add(token)
-                                        locations.setdefault(token, []).append((info.filename, p_idx))
+                                        locations.setdefault(token, []).append(
+                                            (info.filename, p_idx)
+                                        )
 
                 except Exception:
                     pass
@@ -90,9 +96,7 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
     return found_vars, locations
 
 
-def check_tag_alignment(
-    docx_bytes: bytes, manifest: dict[str, Any]
-) -> list[LintFinding]:
+def check_tag_alignment(docx_bytes: bytes, manifest: dict[str, Any]) -> list[LintFinding]:
     """Compares document tags against manifest declarations.
 
     Emits:
@@ -147,14 +151,16 @@ def check_tag_alignment(
         if tag not in declared_fields and root_part not in declared_fields:
             locs = locations.get(tag, [("word/document.xml", 0)])
             part, p_idx = locs[0]
-            findings.append(LintFinding(
-                code="UNDEFINED_TAG",
-                severity=LintSeverity.ERROR,
-                message=f"Undefined tag '{{{{ {tag} }}}}' in template is not declared in manifest.",
-                part=part,
-                paragraph_idx=p_idx,
-                meta={"tag": tag},
-            ))
+            findings.append(
+                LintFinding(
+                    code="UNDEFINED_TAG",
+                    severity=LintSeverity.ERROR,
+                    message=f"Undefined tag '{{{{ {tag} }}}}' in template is not declared in manifest.",
+                    part=part,
+                    paragraph_idx=p_idx,
+                    meta={"tag": tag},
+                )
+            )
 
     # 2. Check for Unused Manifest Fields (in manifest but not DOCX)
     for field_name in sorted(declared_fields):
@@ -165,13 +171,14 @@ def check_tag_alignment(
         # Check if field or any of its subpaths appear in found_tags
         used = any(tag == field_name or tag.startswith(f"{field_name}.") for tag in found_tags)
         if not used:
-            findings.append(LintFinding(
-                code="UNUSED_FIELD",
-                severity=LintSeverity.WARNING,
-                message=f"Declared manifest field '{field_name}' is not referenced anywhere in the DOCX.",
-                part="manifest",
-                meta={"field": field_name},
-            ))
+            findings.append(
+                LintFinding(
+                    code="UNUSED_FIELD",
+                    severity=LintSeverity.WARNING,
+                    message=f"Declared manifest field '{field_name}' is not referenced anywhere in the DOCX.",
+                    part="manifest",
+                    meta={"field": field_name},
+                )
+            )
 
     return findings
-

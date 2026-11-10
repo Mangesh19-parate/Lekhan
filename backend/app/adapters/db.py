@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -51,4 +52,3 @@ def ping_db() -> bool:
     except Exception as exc:
         logger.warning("Database ping failed: %s", exc)
         return False
-

@@ -1,13 +1,13 @@
 """Unit and property tests for Template Compiler, Manifest Schema v1, and Kahn DAG."""
 
-from decimal import Decimal
 import json
+from decimal import Decimal
 from pathlib import Path
+
 import pytest
 
 from app.templates.compiler.compiler import (
     CompilationError,
-    CompiledManifest,
     ManifestCompiler,
 )
 from app.templates.compiler.dag import (
@@ -17,10 +17,10 @@ from app.templates.compiler.dag import (
 from app.templates.compiler.runtime import ManifestRuntime
 from app.templates.compiler.schema import ManifestSchemaV1
 
-
 # ---------------------------------------------------------------------------
 # 1. Dependency Graph & Kahn Topological Sort Tests
 # ---------------------------------------------------------------------------
+
 
 def test_dag_linear_ordering() -> None:
     """Verifies that a linear chain A -> B -> C sorts in exact order [A, B, C]."""
@@ -90,6 +90,7 @@ def test_dag_multi_node_cycle_rejection() -> None:
 # 2. Manifest Schema v1 & Normalization Tests
 # ---------------------------------------------------------------------------
 
+
 def test_manifest_schema_normalization() -> None:
     """Verifies that shorthand list-of-strings fields and repeaters normalize to dictionaries."""
     raw = {
@@ -100,13 +101,7 @@ def test_manifest_schema_normalization() -> None:
         "document_type": "sale_deed",
         "property_type": "plot",
         "fields": ["property.mouza", "property.khasra_no"],
-        "repeaters": {
-            "witnesses": {
-                "min": 2,
-                "max": 2,
-                "label_mr": "साक्षीदार"
-            }
-        }
+        "repeaters": {"witnesses": {"min": 2, "max": 2, "label_mr": "साक्षीदार"}},
     }
 
     manifest = ManifestSchemaV1.model_validate(raw)
@@ -120,6 +115,7 @@ def test_manifest_schema_normalization() -> None:
 # 3. Manifest Compiler & Cycle / Undefined Reference Rejection
 # ---------------------------------------------------------------------------
 
+
 def test_compiler_rejects_undefined_variable() -> None:
     """Verifies that referencing an undeclared variable in derived fields triggers error."""
     manifest_data = {
@@ -129,16 +125,14 @@ def test_compiler_rejects_undefined_variable() -> None:
         "name_mr": "चाचणी",
         "document_type": "sale_deed",
         "property_type": "plot",
-        "fields": {
-            "financial.total": {"name": "financial.total", "type": "decimal"}
-        },
+        "fields": {"financial.total": {"name": "financial.total", "type": "decimal"}},
         "derived_fields": {
             "financial.balance": {
                 "name": "financial.balance",
                 "type": "decimal",
-                "expression": "financial.total - financial.non_existent_advance"
+                "expression": "financial.total - financial.non_existent_advance",
             }
-        }
+        },
     }
 
     compiler = ManifestCompiler()
@@ -146,7 +140,10 @@ def test_compiler_rejects_undefined_variable() -> None:
         compiler.compile(manifest_data)
 
     errors = exc_info.value.errors
-    assert any(e["code"] == "UNDEFINED_VARIABLE" and "financial.non_existent_advance" in e["message"] for e in errors)
+    assert any(
+        e["code"] == "UNDEFINED_VARIABLE" and "financial.non_existent_advance" in e["message"]
+        for e in errors
+    )
 
 
 def test_compiler_rejects_cyclic_derived_fields() -> None:
@@ -158,21 +155,11 @@ def test_compiler_rejects_cyclic_derived_fields() -> None:
         "name_mr": "चाचणी",
         "document_type": "sale_deed",
         "property_type": "plot",
-        "fields": {
-            "base_rate": {"name": "base_rate", "type": "decimal"}
-        },
+        "fields": {"base_rate": {"name": "base_rate", "type": "decimal"}},
         "derived_fields": {
-            "field_a": {
-                "name": "field_a",
-                "type": "decimal",
-                "expression": "field_b + base_rate"
-            },
-            "field_b": {
-                "name": "field_b",
-                "type": "decimal",
-                "expression": "field_a - base_rate"
-            }
-        }
+            "field_a": {"name": "field_a", "type": "decimal", "expression": "field_b + base_rate"},
+            "field_b": {"name": "field_b", "type": "decimal", "expression": "field_a - base_rate"},
+        },
     }
 
     compiler = ManifestCompiler()
@@ -187,9 +174,15 @@ def test_compiler_rejects_cyclic_derived_fields() -> None:
 # 4. End-to-End Compilation of Wave 1 Manifest Examples
 # ---------------------------------------------------------------------------
 
+
 def test_compile_sale_deed_plot_manifest() -> None:
     """Verifies that the upgraded sale_deed_plot_mr manifest compiles successfully."""
-    manifest_path = Path(__file__).parent.parent.parent.parent / "templates-library" / "sale_deed_plot_mr" / "manifest.json"
+    manifest_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / "sale_deed_plot_mr"
+        / "manifest.json"
+    )
     assert manifest_path.exists()
 
     raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -206,7 +199,12 @@ def test_compile_sale_deed_plot_manifest() -> None:
 
 def test_compile_agreement_to_sell_plot_manifest() -> None:
     """Verifies that the agreement_to_sell_plot_mr manifest compiles successfully."""
-    manifest_path = Path(__file__).parent.parent.parent.parent / "templates-library" / "agreement_to_sell_plot_mr" / "manifest.json"
+    manifest_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / "agreement_to_sell_plot_mr"
+        / "manifest.json"
+    )
     assert manifest_path.exists()
 
     raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -222,9 +220,15 @@ def test_compile_agreement_to_sell_plot_manifest() -> None:
 # 5. Runtime Evaluation Tests (Derived fields, validations, visibility)
 # ---------------------------------------------------------------------------
 
+
 def test_runtime_derived_field_evaluation() -> None:
     """Verifies that derived fields are evaluated in Kahn order with exact Decimal precision."""
-    manifest_path = Path(__file__).parent.parent.parent.parent / "templates-library" / "sale_deed_plot_mr" / "manifest.json"
+    manifest_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / "sale_deed_plot_mr"
+        / "manifest.json"
+    )
     raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     compiled = ManifestCompiler().compile(raw_manifest)
 
@@ -255,7 +259,12 @@ def test_runtime_derived_field_evaluation() -> None:
 
 def test_runtime_validations() -> None:
     """Verifies that cross-field validation rules catch rule violations."""
-    manifest_path = Path(__file__).parent.parent.parent.parent / "templates-library" / "sale_deed_plot_mr" / "manifest.json"
+    manifest_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / "sale_deed_plot_mr"
+        / "manifest.json"
+    )
     compiled = ManifestCompiler().compile(json.loads(manifest_path.read_text(encoding="utf-8")))
     runtime = ManifestRuntime()
 
@@ -284,7 +293,12 @@ def test_runtime_validations() -> None:
 
 def test_runtime_visibility_evaluation() -> None:
     """Verifies that visibility conditions evaluate dynamically based on context."""
-    manifest_path = Path(__file__).parent.parent.parent.parent / "templates-library" / "agreement_to_sell_plot_mr" / "manifest.json"
+    manifest_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / "agreement_to_sell_plot_mr"
+        / "manifest.json"
+    )
     compiled = ManifestCompiler().compile(json.loads(manifest_path.read_text(encoding="utf-8")))
     runtime = ManifestRuntime()
 
@@ -300,6 +314,7 @@ def test_runtime_visibility_evaluation() -> None:
 # ---------------------------------------------------------------------------
 # 6. Property-Style Invariant Tests (Topological Sort & Acyclicity)
 # ---------------------------------------------------------------------------
+
 
 def test_dag_property_topological_precedence() -> None:
     """Property test: for any random acyclic graph, every dependency u of v precedes v."""
@@ -322,5 +337,6 @@ def test_dag_property_topological_precedence() -> None:
     # Verify invariant: for every edge u -> v, pos[u] < pos[v]
     for u in graph._nodes:
         for v in graph.get_dependents(u):
-            assert pos[u] < pos[v], f"Invariant violated: {u} (pos {pos[u]}) must precede dependent {v} (pos {pos[v]})"
-
+            assert (
+                pos[u] < pos[v]
+            ), f"Invariant violated: {u} (pos {pos[u]}) must precede dependent {v} (pos {pos[v]})"

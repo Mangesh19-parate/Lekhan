@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 from fastapi.responses import JSONResponse
 
 from app.shared.logging import get_correlation_id
@@ -54,4 +55,3 @@ def problem_json_response(
         media_type="application/problem+json",
         headers={"X-Correlation-ID": cid},
     )
-

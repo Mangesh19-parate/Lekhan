@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 
 class LintSeverity(str, Enum):
@@ -91,4 +91,3 @@ class LintReport:
             "fonts": self.fonts,
             "split_runs_repaired": self.split_runs_repaired,
         }
-

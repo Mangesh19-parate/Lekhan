@@ -1,2 +1,1 @@
 """Properties domain module."""
-

@@ -111,7 +111,6 @@ SINGLE_CHAR_MAP: dict[str, str] = {
     "X": "ग्",
     "?": "घ्",
     "P": "च्",
-    "T": "ज्",
     ".": "ण्",
     "R": "त्",
     "F": "थ्",
@@ -440,4 +439,3 @@ def merge_adjacent_runs(runs: Sequence[RunSegment]) -> list[RunSegment]:
 
     merged.append(current)
     return merged
-

@@ -10,4 +10,3 @@ __all__ = [
     "init_sentry",
     "metrics_collector",
 ]
-

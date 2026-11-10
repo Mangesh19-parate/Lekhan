@@ -9,15 +9,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_actor
-from app.identity.policy import Actor, Resource, authorize
-from app.parties.service import PartyRecord, party_service
+from app.identity.policy import Actor, authorize
+from app.parties.service import party_service
 
 router = APIRouter(prefix="/api/v1/parties", tags=["parties"])
 
 
 class PartyCreatePayload(BaseModel):
     kind: str = Field(..., description="individual or company")
-    names: dict[str, str] = Field(..., description="Names per language, e.g. {'mr': '...', 'en': '...'}")
+    names: dict[str, str] = Field(
+        ..., description="Names per language, e.g. {'mr': '...', 'en': '...'}"
+    )
     gender: str | None = None
     marital_status: str | None = None
     age_or_dob: dict[str, Any] | None = None
@@ -35,9 +37,15 @@ class PartySearchMatch(BaseModel):
     similarity: float
 
 
-@router.get("/search", response_model=list[PartySearchMatch], summary="Trigram search parties in Marathi and English")
+@router.get(
+    "/search",
+    response_model=list[PartySearchMatch],
+    summary="Trigram search parties in Marathi and English",
+)
 def search_parties(
-    q: str = Query(..., min_length=2, description="Name, PAN, or address fragment in Marathi or English"),
+    q: str = Query(
+        ..., min_length=2, description="Name, PAN, or address fragment in Marathi or English"
+    ),
     threshold: float = Query(0.25, ge=0.0, le=1.0),
     limit: int = Query(20, ge=1, le=50),
     actor: Actor = Depends(get_current_actor),
@@ -120,4 +128,3 @@ def reuse_party(
         return party
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Party not found.")
-

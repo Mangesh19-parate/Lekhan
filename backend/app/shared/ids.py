@@ -56,4 +56,3 @@ def uuid7() -> uuid.UUID:
 def uuid7_str() -> str:
     """Returns UUIDv7 as a canonical string."""
     return str(uuid7())
-

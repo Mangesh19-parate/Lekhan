@@ -17,7 +17,6 @@ from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, 
 from pydantic import BaseModel, EmailStr, Field
 
 from app.config import get_settings
-from app.identity.policy import Action, Actor, Decision, Resource, authorize
 from app.identity.mfa import (
     build_otpauth_uri,
     generate_recovery_codes,
@@ -25,9 +24,9 @@ from app.identity.mfa import (
     verify_and_consume_recovery_code,
     verify_totp_code,
 )
+from app.identity.policy import Actor
 from app.identity.service import COOKIE_NAME, session_store
 from app.identity.throttling import login_throttler
-from app.shared.errors import problem_json_response
 from app.shared.logging import get_logger
 from app.shared.security import hash_password, verify_password
 
@@ -39,6 +38,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 # --- Schemas ---
 
+
 class LoginPayload(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)
@@ -46,7 +46,9 @@ class LoginPayload(BaseModel):
 
 class PasswordChangePayload(BaseModel):
     current_password: str
-    new_password: str = Field(..., min_length=12, description="Minimum 12 characters per docs/AUTH.md")
+    new_password: str = Field(
+        ..., min_length=12, description="Minimum 12 characters per docs/AUTH.md"
+    )
 
 
 class UserProfile(BaseModel):
@@ -122,6 +124,7 @@ SYNTHETIC_USERS: dict[str, dict[str, Any]] = {
 
 # --- Dependencies ---
 
+
 def get_current_actor(
     lekhan_session: str | None = Cookie(None, alias=COOKIE_NAME),
 ) -> Actor:
@@ -176,6 +179,7 @@ def require_csrf(
 
 # --- Endpoints ---
 
+
 @router.post("/login", response_model=AuthResponse, summary="User login")
 def login(
     payload: LoginPayload,
@@ -191,7 +195,9 @@ def login(
     if is_locked:
         logger.warning("Throttled login attempt for %s from IP %s", payload.email, client_ip)
         raise HTTPException(
-            status_code=status.HTTP_423_LOCKED if remaining_seconds > 60 else status.HTTP_429_TOO_MANY_REQUESTS,
+            status_code=status.HTTP_423_LOCKED
+            if remaining_seconds > 60
+            else status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Account temporarily locked due to repeated failures. Retry in {remaining_seconds}s.",
             headers={"Retry-After": str(remaining_seconds)},
         )
@@ -319,6 +325,7 @@ def change_password(
 
 # --- Multi-Factor Authentication (MFA / TOTP) Endpoints (PRD FR-01, Features F-005) ---
 
+
 class MfaSetupResponse(BaseModel):
     secret: str
     otpauth_uri: str
@@ -435,4 +442,3 @@ def disable_mfa(
         user["mfa_secret"] = None
         user["mfa_recovery_codes"] = []
     return {"status": "ok", "message": "MFA disabled"}
-

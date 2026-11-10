@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import tarfile
 import tempfile
@@ -150,4 +151,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     res = restore_backup(archive_path=args.archive)
     print(json.dumps(res, indent=2))
-

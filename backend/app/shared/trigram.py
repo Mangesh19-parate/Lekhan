@@ -70,4 +70,3 @@ def trigram_similarity(query: str, target: str) -> float:
 
     base_similarity = intersection_len / union_len
     return min(1.0, base_similarity + substring_boost)
-

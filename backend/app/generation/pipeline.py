@@ -97,7 +97,8 @@ class GenerationPipelineFSM:
 
             # Extract sanitized immutable data snapshot (excluding ephemeral fields per ADR 005)
             data_snapshot = {
-                k: v for k, v in job.payload.items()
+                k: v
+                for k, v in job.payload.items()
                 if not (k.startswith("ephemeral_") or k.startswith("_"))
             }
 
@@ -142,7 +143,9 @@ class GenerationPipelineFSM:
             job.error = {"error": str(exc), "failed_at_state": job.state}
             raise
 
-    def get_document(self, doc_id: uuid.UUID, tenant_id: uuid.UUID) -> GeneratedDocumentRecord | None:
+    def get_document(
+        self, doc_id: uuid.UUID, tenant_id: uuid.UUID
+    ) -> GeneratedDocumentRecord | None:
         """Retrieves document enforcing strict tenant scoping (cross-tenant returns None)."""
         doc = self._documents.get(doc_id)
         if not doc or doc.tenant_id != tenant_id:
@@ -159,10 +162,7 @@ class GenerationPipelineFSM:
     ) -> tuple[list[GeneratedDocumentRecord], int]:
         """Lists tenant documents with filtering, search, and pagination."""
         # 1. Filter by tenant
-        tenant_docs = [
-            doc for doc in self._documents.values()
-            if doc.tenant_id == tenant_id
-        ]
+        tenant_docs = [doc for doc in self._documents.values() if doc.tenant_id == tenant_id]
 
         # 2. Filter by status
         if status:
@@ -172,8 +172,10 @@ class GenerationPipelineFSM:
         if search:
             q = search.lower().strip()
             tenant_docs = [
-                d for d in tenant_docs
-                if q in d.doc_no.lower() or q in json.dumps(d.data_snapshot, ensure_ascii=False).lower()
+                d
+                for d in tenant_docs
+                if q in d.doc_no.lower()
+                or q in json.dumps(d.data_snapshot, ensure_ascii=False).lower()
             ]
 
         # 4. Sort by creation time descending

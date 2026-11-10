@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Literal
@@ -162,7 +161,9 @@ class Tokenizer:
             # Number literals (including decimals)
             if ch.isdigit():
                 start = self.pos
-                while self.pos < self.length and (self.text[self.pos].isdigit() or self.text[self.pos] == "."):
+                while self.pos < self.length and (
+                    self.text[self.pos].isdigit() or self.text[self.pos] == "."
+                ):
                     self.pos += 1
                 num_str = self.text[start : self.pos]
                 num_val = Decimal(num_str) if "." in num_str else int(num_str)

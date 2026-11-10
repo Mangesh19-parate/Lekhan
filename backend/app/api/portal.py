@@ -75,4 +75,3 @@ def download_portal_sheet_text(
             "Cache-Control": "no-cache, no-store, must-revalidate",
         },
     )
-

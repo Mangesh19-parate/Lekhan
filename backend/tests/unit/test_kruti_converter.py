@@ -72,9 +72,30 @@ def test_latin_typed_in_kruti_detector() -> None:
 def test_merge_adjacent_runs() -> None:
     """Verifies that adjacent runs sharing identical font and style are merged."""
     runs = [
-        RunSegment(text="foØ", font_name="Kruti Dev 010", bold=False, italic=False, size_pt=12.0, is_kruti=True),
-        RunSegment(text="srk", font_name="Kruti Dev 010", bold=False, italic=False, size_pt=12.0, is_kruti=True),
-        RunSegment(text=" (Seller)", font_name="Times New Roman", bold=False, italic=False, size_pt=12.0, is_kruti=False),
+        RunSegment(
+            text="foØ",
+            font_name="Kruti Dev 010",
+            bold=False,
+            italic=False,
+            size_pt=12.0,
+            is_kruti=True,
+        ),
+        RunSegment(
+            text="srk",
+            font_name="Kruti Dev 010",
+            bold=False,
+            italic=False,
+            size_pt=12.0,
+            is_kruti=True,
+        ),
+        RunSegment(
+            text=" (Seller)",
+            font_name="Times New Roman",
+            bold=False,
+            italic=False,
+            size_pt=12.0,
+            is_kruti=False,
+        ),
     ]
 
     merged = merge_adjacent_runs(runs)
@@ -84,4 +105,3 @@ def test_merge_adjacent_runs() -> None:
     assert merged[0].is_kruti is True
     assert merged[1].text == " (Seller)"
     assert merged[1].is_kruti is False
-

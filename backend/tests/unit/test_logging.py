@@ -22,4 +22,3 @@ def test_correlation_id_propagated_from_header() -> None:
     response = client.get("/health/live", headers={"X-Correlation-ID": custom_cid})
     assert response.status_code == 200
     assert response.headers.get("X-Correlation-ID") == custom_cid
-

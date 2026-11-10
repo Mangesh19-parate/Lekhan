@@ -2,6 +2,7 @@
 
 import uuid
 from decimal import Decimal
+
 import pytest
 
 from app.audit.service import audit_service
@@ -23,6 +24,7 @@ def clean_services() -> None:
 
 
 # --- 1. Multi-Lingual Party Storage Tests ---
+
 
 def test_party_multi_lingual_names_and_addresses() -> None:
     """Verifies that names and addresses are stored per script without auto-transliteration."""
@@ -50,6 +52,7 @@ def test_party_multi_lingual_names_and_addresses() -> None:
 
 
 # --- 2. Optimistic Locking & Version Archiving Tests ---
+
 
 def test_party_optimistic_locking_and_version_snapshot() -> None:
     """Verifies optimistic locking increments version and archives prior snapshot in party_versions."""
@@ -91,6 +94,7 @@ def test_party_optimistic_locking_and_version_snapshot() -> None:
 
 # --- 3. Property Entity & Exact Decimal Handling ---
 
+
 def test_property_creation_with_decimal_measurements() -> None:
     """Verifies exact Decimal handling for area and Ready Reckoner rates."""
     prop = property_service.create_property(
@@ -112,6 +116,7 @@ def test_property_creation_with_decimal_measurements() -> None:
 
 
 # --- 4. Matters & MatterParties Association ---
+
 
 def test_matter_creation_and_party_association() -> None:
     """Verifies matters creation, uniqueness, and party role association."""
@@ -143,6 +148,7 @@ def test_matter_creation_and_party_association() -> None:
 
 
 # --- 5. Audit Log Hash Chaining & Tamper Detection ---
+
 
 def test_audit_log_hash_chain_and_tamper_detection() -> None:
     """Verifies SHA-256 hash chaining and proves tamper detection."""
@@ -179,4 +185,3 @@ def test_audit_log_hash_chain_and_tamper_detection() -> None:
 
     # 3. Verification must fail immediately!
     assert audit_service.verify_audit_chain(TENANT_ID) is False
-

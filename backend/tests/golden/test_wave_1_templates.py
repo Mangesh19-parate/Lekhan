@@ -6,11 +6,11 @@ Validates:
 3. Template 3: English Flat Sale Deed (sale_deed_flat_en)
 """
 
-import io
 import json
-from pathlib import Path
 import zipfile
 from decimal import Decimal
+from pathlib import Path
+
 import pytest
 
 from app.lang_packs import get_language_pack
@@ -23,6 +23,7 @@ TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-library"
 # ---------------------------------------------------------------------------
 # Template 1: Marathi Plot Sale Deed (sale_deed_plot_mr)
 # ---------------------------------------------------------------------------
+
 
 def test_template_1_sale_deed_plot_mr_lint_and_manifest() -> None:
     """Verifies that Template 1 manifest is valid Schema v1 and template.docx passes lint cleanly."""
@@ -46,6 +47,7 @@ def test_template_1_sale_deed_plot_mr_lint_and_manifest() -> None:
 # ---------------------------------------------------------------------------
 # Template 2: Marathi Plot Agreement to Sell (agreement_to_sell_plot_mr)
 # ---------------------------------------------------------------------------
+
 
 def test_template_2_agreement_to_sell_plot_mr_lint_and_manifest() -> None:
     """Verifies that Template 2 manifest compiles and template.docx passes lint cleanly."""
@@ -84,6 +86,7 @@ def test_template_2_agreement_to_sell_plot_mr_lint_and_manifest() -> None:
 # ---------------------------------------------------------------------------
 # Template 3: English Flat Sale Deed (sale_deed_flat_en)
 # ---------------------------------------------------------------------------
+
 
 def test_template_3_sale_deed_flat_en_lint_and_manifest() -> None:
     """Verifies that Template 3 English flat sale deed compiles and passes lint cleanly."""
@@ -126,6 +129,7 @@ def test_template_3_sale_deed_flat_en_lint_and_manifest() -> None:
 # Template 4: Marathi Flat Sale Deed (sale_deed_flat_mr)
 # ---------------------------------------------------------------------------
 
+
 def test_template_4_sale_deed_flat_mr_lint_and_manifest() -> None:
     """Verifies that Template 4 Marathi flat sale deed compiles and passes lint cleanly."""
     tmpl_dir = TEMPLATES_DIR / "sale_deed_flat_mr"
@@ -161,6 +165,7 @@ def test_template_4_sale_deed_flat_mr_lint_and_manifest() -> None:
 # Template 5: Marathi Commercial Shop Sale Deed (sale_deed_shop_mr)
 # ---------------------------------------------------------------------------
 
+
 def test_template_5_sale_deed_shop_mr_lint_and_manifest() -> None:
     """Verifies that Template 5 commercial shop deed compiles and passes lint cleanly."""
     tmpl_dir = TEMPLATES_DIR / "sale_deed_shop_mr"
@@ -195,6 +200,7 @@ def test_template_5_sale_deed_shop_mr_lint_and_manifest() -> None:
 # Template 6: Marathi General Power of Attorney (general_poa_mr)
 # ---------------------------------------------------------------------------
 
+
 def test_template_6_general_poa_mr_lint_and_manifest() -> None:
     """Verifies that Template 6 General POA compiles and passes lint cleanly."""
     tmpl_dir = TEMPLATES_DIR / "general_poa_mr"
@@ -217,6 +223,7 @@ def test_template_6_general_poa_mr_lint_and_manifest() -> None:
 # ---------------------------------------------------------------------------
 # Template 7: Marathi Agricultural Land Sale Deed (sale_deed_agricultural_mr)
 # ---------------------------------------------------------------------------
+
 
 def test_template_7_sale_deed_agricultural_mr_lint_and_manifest() -> None:
     """Verifies that Template 7 Agricultural Sale Deed compiles and passes lint cleanly."""
@@ -253,6 +260,7 @@ def test_template_7_sale_deed_agricultural_mr_lint_and_manifest() -> None:
 # Template 8: Marathi Flat Agreement to Sell (agreement_to_sell_flat_mr)
 # ---------------------------------------------------------------------------
 
+
 def test_template_8_agreement_to_sell_flat_mr_lint_and_manifest() -> None:
     """Verifies that Template 8 Marathi Flat Agreement to Sell compiles and passes lint cleanly."""
     tmpl_dir = TEMPLATES_DIR / "agreement_to_sell_flat_mr"
@@ -287,6 +295,7 @@ def test_template_8_agreement_to_sell_flat_mr_lint_and_manifest() -> None:
 # ---------------------------------------------------------------------------
 # Template 9: English Flat Agreement to Sell (agreement_to_sell_flat_en)
 # ---------------------------------------------------------------------------
+
 
 def test_template_9_agreement_to_sell_flat_en_lint_and_manifest() -> None:
     """Verifies that Template 9 English Flat Agreement to Sell compiles and passes lint cleanly."""
@@ -323,6 +332,7 @@ def test_template_9_agreement_to_sell_flat_en_lint_and_manifest() -> None:
 # Template 10: English General Power of Attorney (general_poa_en)
 # ---------------------------------------------------------------------------
 
+
 def test_template_10_general_poa_en_lint_and_manifest() -> None:
     """Verifies that Template 10 English General POA compiles and passes lint cleanly."""
     tmpl_dir = TEMPLATES_DIR / "general_poa_en"
@@ -345,6 +355,7 @@ def test_template_10_general_poa_en_lint_and_manifest() -> None:
 # ---------------------------------------------------------------------------
 # OpenXML Layout Compliance (PAGE Field and Legal Page Size for All 10)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "tmpl_rel_path",
@@ -376,4 +387,3 @@ def test_openxml_compliance(tmpl_rel_path: str) -> None:
         # 3. Check Legal paper dimensions (12240 x 20160 dxa)
         doc_xml = zf.read("word/document.xml").decode("utf-8")
         assert 'w:w="12240"' in doc_xml and 'w:h="20160"' in doc_xml
-

@@ -27,7 +27,7 @@ def get_run_pr_key(r_elem: ET.Element) -> str:
     r_pr = r_elem.find(f"{{{W_NAMESPACE}}}rPr")
     if r_pr is None:
         return ""
-    return ET.tostring(r_pr, encoding="utf-8").decode("utf-8")
+    return str(ET.tostring(r_pr, encoding="utf-8").decode("utf-8"))
 
 
 def merge_paragraph_runs(p_elem: ET.Element) -> tuple[int, list[str]]:
@@ -49,9 +49,7 @@ def merge_paragraph_runs(p_elem: ET.Element) -> tuple[int, list[str]]:
         return 0, []
 
     # Check if whole paragraph contains tags
-    full_p_text = "".join(
-        t.text or "" for t in p_elem.iter(f"{{{W_NAMESPACE}}}t")
-    )
+    full_p_text = "".join(t.text or "" for t in p_elem.iter(f"{{{W_NAMESPACE}}}t"))
     if "{{" not in full_p_text and "{%" not in full_p_text:
         return 0, []
 
@@ -83,9 +81,8 @@ def merge_paragraph_runs(p_elem: ET.Element) -> tuple[int, list[str]]:
                     continue
                 else:
                     # Check if a tag was split across this formatting boundary
-                    if (
-                        ("{" in (t1.text or "") and "}" in (t2.text or ""))
-                        or ("%" in (t1.text or "") and "%" in (t2.text or ""))
+                    if ("{" in (t1.text or "") and "}" in (t2.text or "")) or (
+                        "%" in (t1.text or "") and "%" in (t2.text or "")
                     ):
                         conflicts.append(f"{t1.text} | {t2.text}")
 
@@ -127,13 +124,15 @@ def repair_and_check_split_runs(
                                 part_merges += m_count
 
                                 for conflict in conflicts:
-                                    findings.append(LintFinding(
-                                        code="SPLIT_RUN_FORMATTING_CONFLICT",
-                                        severity=LintSeverity.WARNING,
-                                        message=f"Tag split across runs with different formatting: '{conflict}'.",
-                                        part=item.filename,
-                                        paragraph_idx=p_idx,
-                                    ))
+                                    findings.append(
+                                        LintFinding(
+                                            code="SPLIT_RUN_FORMATTING_CONFLICT",
+                                            severity=LintSeverity.WARNING,
+                                            message=f"Tag split across runs with different formatting: '{conflict}'.",
+                                            part=item.filename,
+                                            paragraph_idx=p_idx,
+                                        )
+                                    )
 
                             if part_merges > 0:
                                 total_merges += part_merges
@@ -144,21 +143,24 @@ def repair_and_check_split_runs(
                     zout.writestr(item, content)
 
         if total_merges > 0:
-            findings.append(LintFinding(
-                code="SPLIT_RUNS_AUTO_MERGED",
-                severity=LintSeverity.INFO,
-                message=f"Successfully auto-merged {total_merges} split run(s).",
-                part="document",
-                meta={"merge_count": total_merges},
-            ))
+            findings.append(
+                LintFinding(
+                    code="SPLIT_RUNS_AUTO_MERGED",
+                    severity=LintSeverity.INFO,
+                    message=f"Successfully auto-merged {total_merges} split run(s).",
+                    part="document",
+                    meta={"merge_count": total_merges},
+                )
+            )
 
         return out_buf.getvalue(), total_merges, findings
 
     except Exception as exc:
-        findings.append(LintFinding(
-            code="SPLIT_RUN_PROCESSING_ERROR",
-            severity=LintSeverity.ERROR,
-            message=f"Failed to process runs: {exc}",
-        ))
+        findings.append(
+            LintFinding(
+                code="SPLIT_RUN_PROCESSING_ERROR",
+                severity=LintSeverity.ERROR,
+                message=f"Failed to process runs: {exc}",
+            )
+        )
         return docx_bytes, 0, findings
-

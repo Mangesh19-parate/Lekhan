@@ -7,6 +7,7 @@ Zero real personal data. All names, PANs, Aadhaar numbers, and addresses are str
 from __future__ import annotations
 
 import uuid
+
 from app.generation.jobs import JobRecord
 from app.generation.pipeline import generation_pipeline
 from app.pilot.corrections import (
@@ -56,8 +57,24 @@ def seed_pilot_environment() -> dict[str, int]:
         job_type="generate_docx",
         payload={
             "execution_date": "2026-11-09",
-            "vendors": [{"full_name": "Kashinath D. Patil (Synthetic)", "age": 52, "address": "Ramdaspeth, Nagpur", "pan": "ABCDE1234F", "aadhaar_last4": "1234"}],
-            "purchasers": [{"full_name": "Gajanan M. Wankhede (Synthetic)", "age": 44, "address": "Dharampeth, Nagpur", "pan": "FGHIJ5678K", "aadhaar_last4": "5678"}],
+            "vendors": [
+                {
+                    "full_name": "Kashinath D. Patil (Synthetic)",
+                    "age": 52,
+                    "address": "Ramdaspeth, Nagpur",
+                    "pan": "ABCDE1234F",
+                    "aadhaar_last4": "1234",
+                }
+            ],
+            "purchasers": [
+                {
+                    "full_name": "Gajanan M. Wankhede (Synthetic)",
+                    "age": 44,
+                    "address": "Dharampeth, Nagpur",
+                    "pan": "FGHIJ5678K",
+                    "aadhaar_last4": "5678",
+                }
+            ],
             "property_details": {
                 "plot_no": "104",
                 "layout_name": "NIT Approved Layout",
@@ -65,10 +82,23 @@ def seed_pilot_environment() -> dict[str, int]:
                 "khasra_no": "23/1",
                 "city_survey_no": "CTS-402",
                 "area_sqm": "175.00",
-                "boundaries": {"east": "Internal 9M Road", "west": "Plot 103", "north": "Plot 92", "south": "Plot 105"},
+                "boundaries": {
+                    "east": "Internal 9M Road",
+                    "west": "Plot 103",
+                    "north": "Plot 92",
+                    "south": "Plot 105",
+                },
             },
-            "financial_terms": {"total_consideration": "4200000", "advance_paid": "1000000", "balance_amount": "3200000", "payment_mode": "RTGS"},
-            "witnesses": [{"full_name": "Synthetic Witness 1", "address": "Nagpur"}, {"full_name": "Synthetic Witness 2", "address": "Nagpur"}],
+            "financial_terms": {
+                "total_consideration": "4200000",
+                "advance_paid": "1000000",
+                "balance_amount": "3200000",
+                "payment_mode": "RTGS",
+            },
+            "witnesses": [
+                {"full_name": "Synthetic Witness 1", "address": "Nagpur"},
+                {"full_name": "Synthetic Witness 2", "address": "Nagpur"},
+            ],
         },
     )
     doc1 = generation_pipeline.process_job(job1)
@@ -178,4 +208,3 @@ def seed_pilot_environment() -> dict[str, int]:
 if __name__ == "__main__":
     result = seed_pilot_environment()
     print("Seed complete:", result)
-

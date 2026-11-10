@@ -157,4 +157,3 @@ def authorize(
                     return Decision.not_found("Resource not found")
 
     return Decision.allow()
-

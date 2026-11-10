@@ -160,12 +160,7 @@ class AdvisoryRulesEngine:
 
     def _is_agricultural_payload(self, payload: dict[str, Any]) -> bool:
         prop = payload.get("property_details") or payload.get("property") or {}
-        return (
-            "area_hectare_r" in prop
-            or "potkharab_area" in prop
-            or "gat_khasra_no" in prop
-        )
+        return "area_hectare_r" in prop or "potkharab_area" in prop or "gat_khasra_no" in prop
 
 
 advisory_rules_engine = AdvisoryRulesEngine()
-

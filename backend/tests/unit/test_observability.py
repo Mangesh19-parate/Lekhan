@@ -8,7 +8,7 @@ Verifies:
 """
 
 from app.observability.metrics import MetricsCollector
-from app.observability.sentry import sanitize_pii_from_dict, sentry_before_send
+from app.observability.sentry import sentry_before_send
 
 
 def test_sentry_pii_scrubbing() -> None:
@@ -71,9 +71,18 @@ def test_metrics_collector_and_prometheus_export() -> None:
 
     # 1. Prometheus text format export
     prom_text = collector.export_prometheus_text()
-    assert 'lekhan_http_requests_total{method="GET",endpoint="/health/live",status="200"} 2' in prom_text
-    assert 'lekhan_http_requests_total{method="POST",endpoint="/api/v1/documents",status="201"} 1' in prom_text
-    assert 'lekhan_document_generations_total{template_id="sale_deed_plot_mr",status="succeeded"} 1' in prom_text
+    assert (
+        'lekhan_http_requests_total{method="GET",endpoint="/health/live",status="200"} 2'
+        in prom_text
+    )
+    assert (
+        'lekhan_http_requests_total{method="POST",endpoint="/api/v1/documents",status="201"} 1'
+        in prom_text
+    )
+    assert (
+        'lekhan_document_generations_total{template_id="sale_deed_plot_mr",status="succeeded"} 1'
+        in prom_text
+    )
     assert 'lekhan_pdf_conversions_total{status="succeeded"} 1' in prom_text
     assert 'lekhan_template_lint_runs_total{status="passed"} 1' in prom_text
 
@@ -84,4 +93,3 @@ def test_metrics_collector_and_prometheus_export() -> None:
     assert json_summary["pdf_conversions_total"] == 1
     assert "GET /health/live" in json_summary["endpoints"]
     assert json_summary["endpoints"]["GET /health/live"]["count"] == 2
-

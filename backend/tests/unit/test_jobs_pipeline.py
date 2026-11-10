@@ -1,11 +1,11 @@
 """Unit tests for background jobs queue and generation pipeline FSM v0."""
 
 import uuid
-from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.storage import LocalObjectStore, default_storage
+from app.adapters.storage import default_storage
 from app.generation.jobs import job_queue
 from app.generation.pipeline import generation_pipeline
 from app.main import app
@@ -122,6 +122,8 @@ def test_api_document_creation_and_download() -> None:
     download_url = gen_data["download_url"]
     dl_res = client.get(download_url, cookies={"lekhan_session": cookie_val})
     assert dl_res.status_code == 200
-    assert "application/vnd.openxmlformats-officedocument.wordprocessingml.document" in dl_res.headers["content-type"]
+    assert (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        in dl_res.headers["content-type"]
+    )
     assert len(dl_res.content) > 1000
-

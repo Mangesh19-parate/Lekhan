@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import time
-from typing import Callable
+from typing import Any, Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -36,4 +37,3 @@ class ObservabilityMetricsMiddleware(BaseHTTPMiddleware):
             )
             if response is not None:
                 response.headers["X-Correlation-ID"] = correlation_id
-

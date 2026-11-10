@@ -32,8 +32,7 @@ class PdfConverter(Protocol):
         self,
         docx_bytes: bytes,
         timeout: float = DEFAULT_CONVERSION_TIMEOUT_SECONDS,
-    ) -> bytes:
-        ...
+    ) -> bytes: ...
 
 
 class PdfConversionError(Exception):
@@ -69,7 +68,11 @@ class LibreOfficePdfConverter:
                     return p
 
         # 3. Check standard Linux / macOS paths
-        for p in ("/usr/bin/soffice", "/usr/bin/libreoffice", "/Applications/LibreOffice.app/Contents/MacOS/soffice"):
+        for p in (
+            "/usr/bin/soffice",
+            "/usr/bin/libreoffice",
+            "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+        ):
             if os.path.exists(p):
                 return p
 
@@ -86,7 +89,9 @@ class LibreOfficePdfConverter:
 
         # If LibreOffice is not installed, fall back to convenience stub generator
         if not self.binary_path:
-            logger.warning("LibreOffice binary not detected on system; generating valid convenience copy PDF stub.")
+            logger.warning(
+                "LibreOffice binary not detected on system; generating valid convenience copy PDF stub."
+            )
             return self._generate_fallback_convenience_pdf(docx_bytes)
 
         # Acquire concurrency slot
@@ -137,7 +142,9 @@ class LibreOfficePdfConverter:
 
             if proc.returncode != 0:
                 err_msg = stderr.decode("utf-8", errors="replace")
-                raise PdfConversionError(f"LibreOffice exited with code {proc.returncode}: {err_msg}")
+                raise PdfConversionError(
+                    f"LibreOffice exited with code {proc.returncode}: {err_msg}"
+                )
 
             out_pdf = temp_path / "document.pdf"
             if not out_pdf.exists():
@@ -189,4 +196,3 @@ class LibreOfficePdfConverter:
 
 
 default_pdf_converter = LibreOfficePdfConverter()
-

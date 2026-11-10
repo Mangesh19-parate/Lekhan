@@ -54,12 +54,14 @@ class ManifestRuntime:
             is_valid = bool(self.evaluator.evaluate(ast_node, context_data))
 
             if not is_valid:
-                violations.append({
-                    "id": val_rule["id"],
-                    "severity": val_rule["severity"],
-                    "message_en": val_rule["message_en"],
-                    "message_mr": val_rule["message_mr"],
-                })
+                violations.append(
+                    {
+                        "id": val_rule["id"],
+                        "severity": val_rule["severity"],
+                        "message_en": val_rule["message_en"],
+                        "message_mr": val_rule["message_mr"],
+                    }
+                )
 
         return violations
 
@@ -89,4 +91,3 @@ class ManifestRuntime:
                 current[part] = {}
             current = current[part]
         current[parts[-1]] = value
-

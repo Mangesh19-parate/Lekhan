@@ -5,7 +5,7 @@ Never use float for area or property measurements per AGENTS.md Hard Rule 8.
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 # Exact conversion factors agreed for Maharashtra property registry
 # 1 Sq. Mtr = 10.7639104 Sq. Ft. (Rounded to 4 decimal places for statutory calculation)
@@ -38,4 +38,3 @@ def hectare_r_to_sqm(hectare: Decimal, r: Decimal) -> Decimal:
 def format_in_words_mr_area(sqm: Decimal, sqft: Decimal) -> str:
     """Formats area for Marathi deed clause."""
     return f"{sqm} चौ. मी. (समकक्ष {sqft} चौ. फूट)"
-

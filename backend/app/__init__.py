@@ -1,2 +1,1 @@
 """Lekhan Backend Application Package."""
-

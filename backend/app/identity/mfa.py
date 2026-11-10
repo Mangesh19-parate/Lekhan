@@ -16,7 +16,6 @@ import hmac
 import secrets
 import struct
 import time
-from typing import Any
 
 
 def generate_totp_secret() -> str:
@@ -116,4 +115,3 @@ def build_otpauth_uri(
         f"otpauth://totp/{safe_issuer}:{safe_user}"
         f"?secret={secret}&issuer={safe_issuer}&algorithm=SHA1&digits=6&period=30"
     )
-

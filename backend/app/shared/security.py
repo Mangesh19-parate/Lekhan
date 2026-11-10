@@ -14,8 +14,9 @@ import hmac
 import secrets
 
 try:
-    from argon2 import PasswordHasher
-    from argon2.exceptions import VerifyMismatchError
+    from argon2 import PasswordHasher  # type: ignore[import-not-found]
+    from argon2.exceptions import VerifyMismatchError  # type: ignore[import-not-found]
+
     _hasher: PasswordHasher | None = PasswordHasher(
         time_cost=2,
         memory_cost=65536,
@@ -30,7 +31,7 @@ except ImportError:
 def hash_password(password: str) -> str:
     """Hashes a password with argon2id (or PBKDF2-HMAC-SHA256 if argon2 is unavailable)."""
     if _hasher is not None:
-        return _hasher.hash(password)
+        return str(_hasher.hash(password))
     # Fallback when argon2 C-extensions are not yet compiled
     salt = secrets.token_bytes(16)
     kdf = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
@@ -43,7 +44,7 @@ def verify_password(hash_str: str, password: str) -> bool:
         if _hasher is None:
             return False
         try:
-            return _hasher.verify(hash_str, password)
+            return bool(_hasher.verify(hash_str, password))
         except VerifyMismatchError:
             return False
         except Exception:
@@ -77,4 +78,3 @@ def verify_csrf_token(stored_hash: bytes, supplied_token: str) -> bool:
     """Compares supplied CSRF token against stored SHA-256 hash in constant time."""
     supplied_hash = hash_token(supplied_token)
     return hmac.compare_digest(stored_hash, supplied_hash)
-

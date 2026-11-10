@@ -9,7 +9,6 @@ Strict compliance with docs/PLAN.md Week 9 and docs/ARCHITECTURE.md Section 3.3:
 from __future__ import annotations
 
 from collections import deque
-from typing import Any
 
 
 class CyclicDependencyError(ValueError):
@@ -137,4 +136,3 @@ class DependencyGraph:
         # Fallback if no clean DFS path found
         sample = sorted(unresolved_nodes)
         return sample + [sample[0]] if sample else ["unknown_cycle"]
-

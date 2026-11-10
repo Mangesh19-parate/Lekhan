@@ -21,7 +21,9 @@ def get_language_pack(code: str = "mr") -> LanguagePack:
     """Retrieves language pack by ISO 639-1 code ('mr' or 'en')."""
     pack = _REGISTRY.get(code.lower().strip())
     if not pack:
-        raise ValueError(f"Unsupported language code '{code}'. Supported: {sorted(_REGISTRY.keys())}")
+        raise ValueError(
+            f"Unsupported language code '{code}'. Supported: {sorted(_REGISTRY.keys())}"
+        )
     return pack
 
 
@@ -38,4 +40,3 @@ def get_template_filters(language_code: str = "mr") -> dict[str, Callable[..., A
         "to_digits": lambda val: pack.to_digits(str(val)),
         "to_western": lambda val: pack.to_western_digits(str(val)),
     }
-

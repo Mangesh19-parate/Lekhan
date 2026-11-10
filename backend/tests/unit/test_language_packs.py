@@ -2,11 +2,11 @@
 
 from datetime import date
 from decimal import Decimal
+
 import pytest
 
 from app.lang_packs import (
     EnglishLanguagePack,
-    LanguagePack,
     MarathiLanguagePack,
     format_currency_indian_en,
     format_currency_indian_mr,
@@ -38,15 +38,15 @@ SAMPLE_AMOUNTS = [
     Decimal("1234"),
     Decimal("15000"),
     Decimal("99999"),
-    Decimal("100000"),        # 1 Lakh
-    Decimal("525000"),        # 5.25 Lakh
-    Decimal("1550000"),       # 15.5 Lakh
-    Decimal("2500000"),       # 25 Lakh
+    Decimal("100000"),  # 1 Lakh
+    Decimal("525000"),  # 5.25 Lakh
+    Decimal("1550000"),  # 15.5 Lakh
+    Decimal("2500000"),  # 25 Lakh
     Decimal("9999999"),
-    Decimal("10000000"),      # 1 Crore
-    Decimal("25000000"),      # 2.5 Crore
+    Decimal("10000000"),  # 1 Crore
+    Decimal("25000000"),  # 2.5 Crore
     Decimal("12345678"),
-    Decimal("1550000.50"),    # With paise
+    Decimal("1550000.50"),  # With paise
     Decimal("25000.75"),
 ]
 
@@ -54,6 +54,7 @@ SAMPLE_AMOUNTS = [
 # ---------------------------------------------------------------------------
 # 1. Marathi Round-Trip Inverse-Parser Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("amount", SAMPLE_AMOUNTS)
 def test_marathi_roundtrip_inverse_parser(amount: Decimal) -> None:
@@ -70,15 +71,13 @@ def test_marathi_specific_phrasings() -> None:
     assert number_to_words_mr(100, currency=False) == "शंभर"
     assert number_to_words_mr(105, currency=False) == "एकशे पाच"
     assert number_to_words_mr(1550000) == "पंधरा लाख पन्नास हजार रुपये फक्त"
-    assert (
-        number_to_words_mr(Decimal("1250000.50"))
-        == "बारा लाख पन्नास हजार रुपये आणि पन्नास पैसे फक्त"
-    )
+    assert number_to_words_mr(Decimal("1250000.50")) == "बारा लाख पन्नास हजार रुपये आणि पन्नास पैसे फक्त"
 
 
 # ---------------------------------------------------------------------------
 # 2. English Round-Trip Inverse-Parser Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("amount", SAMPLE_AMOUNTS)
 def test_english_roundtrip_inverse_parser(amount: Decimal) -> None:
@@ -103,6 +102,7 @@ def test_english_specific_phrasings() -> None:
 # 3. Currency Formatters (Indian Number Grouping)
 # ---------------------------------------------------------------------------
 
+
 def test_indian_currency_grouping_en() -> None:
     """Verifies Indian digit grouping in English conveyancing."""
     assert format_currency_indian_en(1310000) == "Rs. 13,10,000/-"
@@ -120,6 +120,7 @@ def test_indian_currency_grouping_mr() -> None:
 # 4. Devanagari Digits Transliteration
 # ---------------------------------------------------------------------------
 
+
 def test_digit_transliteration() -> None:
     """Verifies Western <-> Devanagari digit converters."""
     assert to_devanagari_digits("13,10,000") == "१३,१०,०००"
@@ -130,6 +131,7 @@ def test_digit_transliteration() -> None:
 # ---------------------------------------------------------------------------
 # 5. Honorifics, Dates, and Name Joining
 # ---------------------------------------------------------------------------
+
 
 def test_marathi_honorifics_and_names() -> None:
     """Verifies Marathi statutory honorifics and name lists."""
@@ -165,6 +167,7 @@ def test_english_honorifics_and_names() -> None:
 # 6. Language Registry and Jinja Template Filters
 # ---------------------------------------------------------------------------
 
+
 def test_language_pack_registry() -> None:
     """Verifies registry lookup and Jinja filter generator."""
     mr = get_language_pack("mr")
@@ -181,4 +184,3 @@ def test_language_pack_registry() -> None:
     assert "words_currency" in filters
     assert "curr_fmt" in filters
     assert filters["words"](100) == "शंभर"
-

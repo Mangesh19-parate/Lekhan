@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -140,7 +140,9 @@ class AuditService:
                 prev_hash=record.prev_hash,
             )
             if recomputed != record.hash:
-                logger.error("Audit chain broken at record %d: digest mismatch (tampered content)", record.id)
+                logger.error(
+                    "Audit chain broken at record %d: digest mismatch (tampered content)", record.id
+                )
                 return False
 
             expected_prev = record.hash
@@ -154,4 +156,3 @@ class AuditService:
 
 
 audit_service = AuditService()
-

@@ -140,8 +140,9 @@ def create_backup(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Lekhan Automated Backup Utility")
-    parser.add_argument("--dest", type=Path, default=Path("./var/backups"), help="Destination directory for backups")
+    parser.add_argument(
+        "--dest", type=Path, default=Path("./var/backups"), help="Destination directory for backups"
+    )
     args = parser.parse_args()
     created = create_backup(destination_dir=args.dest)
     print(f"Backup created at: {created}")
-

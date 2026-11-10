@@ -26,7 +26,9 @@ def run_worker_once() -> bool:
     try:
         if job.type == "generate_docx":
             doc = generation_pipeline.process_job(job)
-            logger.info("Job %s completed successfully. Document reference: %s", job.id, doc.file_ref)
+            logger.info(
+                "Job %s completed successfully. Document reference: %s", job.id, doc.file_ref
+            )
         else:
             logger.warning("Unknown job type: %s", job.type)
             job.status = "dead"
@@ -48,4 +50,3 @@ def run_worker_loop() -> None:
 
 if __name__ == "__main__":
     run_worker_loop()
-

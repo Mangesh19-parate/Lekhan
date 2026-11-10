@@ -10,13 +10,13 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
+
 import pytest
+from backend.scripts.backup import create_backup
+from backend.scripts.restore import restore_backup
 
 from app.generation.jobs import JobRecord
 from app.generation.pipeline import GenerationPipelineFSM
-from app.numbering.service import DocumentNumberingService
-from backend.scripts.backup import create_backup
-from backend.scripts.restore import RestoreIntegrityError, restore_backup
 
 
 @pytest.fixture
@@ -45,8 +45,24 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
         job_type="generate_docx",
         payload={
             "execution_date": "2026-11-09",
-            "vendors": [{"full_name": "Test Vendor", "age": 45, "address": "Nagpur", "pan": "ABCDE1234F", "aadhaar_last4": "1234"}],
-            "purchasers": [{"full_name": "Test Purchaser", "age": 40, "address": "Nagpur", "pan": "FGHIJ5678K", "aadhaar_last4": "5678"}],
+            "vendors": [
+                {
+                    "full_name": "Test Vendor",
+                    "age": 45,
+                    "address": "Nagpur",
+                    "pan": "ABCDE1234F",
+                    "aadhaar_last4": "1234",
+                }
+            ],
+            "purchasers": [
+                {
+                    "full_name": "Test Purchaser",
+                    "age": 40,
+                    "address": "Nagpur",
+                    "pan": "FGHIJ5678K",
+                    "aadhaar_last4": "5678",
+                }
+            ],
             "property_details": {
                 "plot_no": "99",
                 "layout_name": "Shree Park",
@@ -56,7 +72,12 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
                 "area_sqm": "150.00",
                 "boundaries": {"east": "Road", "west": "Plot", "north": "Plot", "south": "Plot"},
             },
-            "financial_terms": {"total_consideration": "2000000", "advance_paid": "400000", "balance_amount": "1600000", "payment_mode": "RTGS"},
+            "financial_terms": {
+                "total_consideration": "2000000",
+                "advance_paid": "400000",
+                "balance_amount": "1600000",
+                "payment_mode": "RTGS",
+            },
             "witnesses": [{"full_name": "W1", "address": "N"}, {"full_name": "W2", "address": "N"}],
         },
     )
@@ -96,4 +117,3 @@ def test_restore_tampered_archive_fails(temp_backup_env) -> None:
 
     with pytest.raises(Exception):
         restore_backup(archive_path=archive_file)
-

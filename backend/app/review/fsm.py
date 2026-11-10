@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import datetime
 from enum import Enum
-from typing import Any
+
 from pydantic import BaseModel, Field
 
 DISCLAIMER_EN = (
@@ -162,4 +162,3 @@ def reopen_to_draft(
         reviewed_by=None,
         reviewed_at=None,
     )
-

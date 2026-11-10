@@ -21,4 +21,3 @@ def test_is_dev_and_is_test_flags() -> None:
     test_settings = Settings(ENV="test")
     assert test_settings.is_dev is False
     assert test_settings.is_test is True
-

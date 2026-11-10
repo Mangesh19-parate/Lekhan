@@ -10,7 +10,6 @@ from __future__ import annotations
 import contextvars
 import logging
 import sys
-from typing import Any
 
 from app.shared.ids import uuid7_str
 
@@ -62,4 +61,3 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.addFilter(CorrelationIdFilter())
     return logger
-

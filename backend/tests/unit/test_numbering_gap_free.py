@@ -8,7 +8,6 @@ Tests:
 
 import concurrent.futures
 import uuid
-import pytest
 
 from app.numbering.service import DocumentNumberingService
 
@@ -31,7 +30,9 @@ def test_gap_free_numbering_50_parallel() -> None:
 
     # 2. Zero duplicates check
     unique_numbers = set(results)
-    assert len(unique_numbers) == worker_count, f"Duplicate detected: {len(results) - len(unique_numbers)} collisions"
+    assert (
+        len(unique_numbers) == worker_count
+    ), f"Duplicate detected: {len(results) - len(unique_numbers)} collisions"
 
     # 3. Gap-free sequence check (must be exactly 1 to 50)
     sequences = sorted([int(num.split("/")[-1]) for num in results])
@@ -65,6 +66,7 @@ def test_series_and_prefix_formatting() -> None:
     assert deed_no == "DEED/2026/00001"
 
     # Custom prefix
-    custom_no = service.next_doc_no(tenant_id=tenant_id, series_key="DOC", year=2026, prefix="LEKHAN-NAGPUR")
+    custom_no = service.next_doc_no(
+        tenant_id=tenant_id, series_key="DOC", year=2026, prefix="LEKHAN-NAGPUR"
+    )
     assert custom_no == "LEKHAN-NAGPUR/2026/00001"
-

@@ -6,9 +6,7 @@ enabling copy-paste entry into government registration portals without manual re
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
-from typing import Any
 
 from app.generation.pipeline import GeneratedDocumentRecord
 from app.lang_packs.english import number_to_words_en
@@ -50,7 +48,9 @@ class PortalSheetGenerator:
                                 name_en=str(name_raw),
                                 age=int(p.get("age", 0)) if p.get("age") else None,
                                 pan_masked=p.get("pan"),
-                                aadhaar_last4=str(p.get("aadhaar_last4", "")) if p.get("aadhaar_last4") else None,
+                                aadhaar_last4=str(p.get("aadhaar_last4", ""))
+                                if p.get("aadhaar_last4")
+                                else None,
                                 address=str(p.get("address", "")),
                                 mobile=p.get("mobile"),
                             )
@@ -74,7 +74,11 @@ class PortalSheetGenerator:
             or snapshot.get("property.flat_no", "")
         )
         floor = prop_data.get("floor_no") or snapshot.get("property.floor_no")
-        bld = prop_data.get("building_name") or prop_data.get("layout_name") or snapshot.get("property.building_name")
+        bld = (
+            prop_data.get("building_name")
+            or prop_data.get("layout_name")
+            or snapshot.get("property.building_name")
+        )
 
         area_str = str(
             prop_data.get("area_sqm")
@@ -91,7 +95,9 @@ class PortalSheetGenerator:
             floor_no=str(floor) if floor else None,
             building_name=str(bld) if bld else None,
             area_metric=area_str,
-            boundaries={str(k): str(v) for k, v in boundaries_data.items()} if isinstance(boundaries_data, dict) else {},
+            boundaries={str(k): str(v) for k, v in boundaries_data.items()}
+            if isinstance(boundaries_data, dict)
+            else {},
         )
 
         # 3. Parse Financial Consideration
@@ -109,7 +115,9 @@ class PortalSheetGenerator:
             total_int = 0
 
         words_mr = number_to_words_mr(total_int, currency=True) if total_int > 0 else "रुपये शून्य फक्त"
-        words_en = number_to_words_en(total_int, currency=True) if total_int > 0 else "Rupees Zero Only"
+        words_en = (
+            number_to_words_en(total_int, currency=True) if total_int > 0 else "Rupees Zero Only"
+        )
 
         portal_fin = PortalFinancial(
             total_consideration=f"{total_int:,}",
@@ -158,48 +166,53 @@ class PortalSheetGenerator:
         ]
 
         for i, p in enumerate(parties, 1):
-            lines.extend([
-                f"Party #{i} - {p.role}:",
-                f"  Full Name:       {p.name_mr}",
-                f"  Age:             {p.age or 'N/A'}",
-                f"  PAN:             {p.pan_masked or 'N/A'}",
-                f"  Aadhaar Last 4:  {p.aadhaar_last4 or 'N/A'}",
-                f"  Address:         {p.address}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"Party #{i} - {p.role}:",
+                    f"  Full Name:       {p.name_mr}",
+                    f"  Age:             {p.age or 'N/A'}",
+                    f"  PAN:             {p.pan_masked or 'N/A'}",
+                    f"  Aadhaar Last 4:  {p.aadhaar_last4 or 'N/A'}",
+                    f"  Address:         {p.address}",
+                    "",
+                ]
+            )
 
-        lines.extend([
-            "[2] PROPERTY PARTICULARS (मिळकतीचा तपशील)",
-            "--------------------------------------------------------------------------------",
-            f"  District / Taluka:        {prop.district} / {prop.taluka}",
-            f"  Mouza / Village:          {prop.mouza}",
-            f"  Gat / Survey / Khasra No: {prop.khasra_survey_cts}",
-            f"  Unit / Plot / Flat No:    {prop.unit_or_plot_no}",
-            f"  Building / Layout Name:   {prop.building_name or 'N/A'}",
-            f"  Floor:                    {prop.floor_no or 'Ground'}",
-            f"  Area (Metric):            {prop.area_metric}",
-        ])
+        lines.extend(
+            [
+                "[2] PROPERTY PARTICULARS (मिळकतीचा तपशील)",
+                "--------------------------------------------------------------------------------",
+                f"  District / Taluka:        {prop.district} / {prop.taluka}",
+                f"  Mouza / Village:          {prop.mouza}",
+                f"  Gat / Survey / Khasra No: {prop.khasra_survey_cts}",
+                f"  Unit / Plot / Flat No:    {prop.unit_or_plot_no}",
+                f"  Building / Layout Name:   {prop.building_name or 'N/A'}",
+                f"  Floor:                    {prop.floor_no or 'Ground'}",
+                f"  Area (Metric):            {prop.area_metric}",
+            ]
+        )
 
         if prop.boundaries:
             lines.append("  Four Boundaries (चतुःसीमा):")
             for direction, boundary in prop.boundaries.items():
                 lines.append(f"    - {direction.capitalize()}: {boundary}")
 
-        lines.extend([
-            "",
-            "[3] FINANCIAL CONSIDERATION (मोबदला व देय रक्कम)",
-            "--------------------------------------------------------------------------------",
-            f"  Total Consideration (Rs.):  {fin.total_consideration}/-",
-            f"  Amount in Words (Marathi):  {fin.amount_in_words_mr}",
-            f"  Amount in Words (English):  {fin.amount_in_words_en}",
-            f"  Earnest / Advance Paid:     Rs. {fin.earnest_amount}/-",
-            f"  Balance Consideration:      Rs. {fin.balance_amount}/-",
-            f"  Payment Mode / Details:     {fin.payment_mode}",
-            "================================================================================",
-        ])
+        lines.extend(
+            [
+                "",
+                "[3] FINANCIAL CONSIDERATION (मोबदला व देय रक्कम)",
+                "--------------------------------------------------------------------------------",
+                f"  Total Consideration (Rs.):  {fin.total_consideration}/-",
+                f"  Amount in Words (Marathi):  {fin.amount_in_words_mr}",
+                f"  Amount in Words (English):  {fin.amount_in_words_en}",
+                f"  Earnest / Advance Paid:     Rs. {fin.earnest_amount}/-",
+                f"  Balance Consideration:      Rs. {fin.balance_amount}/-",
+                f"  Payment Mode / Details:     {fin.payment_mode}",
+                "================================================================================",
+            ]
+        )
 
         return "\n".join(lines)
 
 
 portal_sheet_generator = PortalSheetGenerator()
-

@@ -14,7 +14,7 @@ from typing import Any
 
 from app.templates.lint.fonts import audit_docx_fonts
 from app.templates.lint.leftover_scanner import scan_docx_for_leftover_data
-from app.templates.lint.models import LintFinding, LintReport, LintSeverity
+from app.templates.lint.models import LintReport
 from app.templates.lint.split_runs import repair_and_check_split_runs
 from app.templates.lint.structural import check_structural_safety
 from app.templates.lint.tag_checker import check_tag_alignment
@@ -44,7 +44,10 @@ class DocxLinter:
             report.add_finding(finding)
 
         # Fatal structural flaws abort further processing
-        if any(f.code in ("FILE_TOO_LARGE", "ZIP_BOMB_DETECTED", "CORRUPT_ZIP_ARCHIVE") for f in structural_findings):
+        if any(
+            f.code in ("FILE_TOO_LARGE", "ZIP_BOMB_DETECTED", "CORRUPT_ZIP_ARCHIVE")
+            for f in structural_findings
+        ):
             return docx_bytes, report
 
         # 2. Split-run detection & auto-merging
@@ -77,4 +80,3 @@ class DocxLinter:
 
 
 default_linter = DocxLinter()
-

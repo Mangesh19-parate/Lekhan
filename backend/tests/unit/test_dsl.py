@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+
 import pytest
 
 from app.templates.dsl.ast import LitNode, OpNode, VarNode, node_from_dict
@@ -19,9 +20,7 @@ def test_conformance_vectors() -> None:
 
     AGENTS.md rule: Do not edit expected values to make tests pass.
     """
-    conformance_path = (
-        Path(__file__).parent.parent.parent.parent / "conformance" / "dsl.json"
-    )
+    conformance_path = Path(__file__).parent.parent.parent.parent / "conformance" / "dsl.json"
     assert conformance_path.exists(), f"Conformance file missing at {conformance_path}"
 
     vectors = json.loads(conformance_path.read_text(encoding="utf-8"))
@@ -36,7 +35,9 @@ def test_conformance_vectors() -> None:
 
         # 1. Parse string expression and verify generated AST matches canonical JSON
         parsed_ast = parse_condition(expr)
-        assert parsed_ast.to_dict() == expected_ast_dict, f"[{cid}] AST mismatch for expression: {expr}"
+        assert (
+            parsed_ast.to_dict() == expected_ast_dict
+        ), f"[{cid}] AST mismatch for expression: {expr}"
 
         # 2. Evaluate parsed AST against inputs
         res = evaluator.evaluate(parsed_ast, input_data)
@@ -119,4 +120,3 @@ def test_ast_serialization_roundtrip() -> None:
 
     assert d1 == d2
     assert node1 == node2
-

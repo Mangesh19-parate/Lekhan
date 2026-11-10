@@ -9,7 +9,6 @@ Verifies:
 """
 
 import time
-import pytest
 
 from app.identity.mfa import (
     build_otpauth_uri,
@@ -90,4 +89,3 @@ def test_build_otpauth_uri() -> None:
     assert uri.startswith("otpauth://totp/Lekhan:advocate%40lekhan.local")
     assert f"secret={secret}" in uri
     assert "period=30" in uri
-

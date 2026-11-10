@@ -1,2 +1,1 @@
 """Golden tests package."""
-

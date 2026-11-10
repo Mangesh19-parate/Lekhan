@@ -81,4 +81,3 @@ class DocumentNumberingService:
 
 
 document_numbering_service = DocumentNumberingService()
-

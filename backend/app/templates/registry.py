@@ -24,7 +24,9 @@ from app.shared.ids import uuid7
 class TemplateImmutabilityError(AppError):
     """Raised when attempting to modify an approved or retired template version."""
 
-    def __init__(self, message: str = "Approved template versions are immutable. Create a new version.") -> None:
+    def __init__(
+        self, message: str = "Approved template versions are immutable. Create a new version."
+    ) -> None:
         super().__init__(message=message, code="TEMPLATE_IMMUTABLE", status_code=409)
 
 
@@ -111,7 +113,9 @@ class TemplateRegistry:
             raise KeyError(f"Template {template_id} not found.")
 
         # Determine next sequential version number
-        existing_versions = [v.version for v in self._versions.values() if v.template_id == template_id]
+        existing_versions = [
+            v.version for v in self._versions.values() if v.template_id == template_id
+        ]
         next_version = (max(existing_versions) + 1) if existing_versions else 1
 
         # Run DOCX lint and repair split runs if valid archive
@@ -119,6 +123,7 @@ class TemplateRegistry:
         if docx_bytes.startswith(b"PK") and len(docx_bytes) > 200:
             try:
                 from app.templates.lint import default_linter
+
                 repaired_bytes, report = default_linter.lint_and_repair(docx_bytes, manifest)
                 docx_bytes = repaired_bytes
                 lint_report = report.to_dict()
@@ -127,7 +132,11 @@ class TemplateRegistry:
 
         file_sha256 = hashlib.sha256(docx_bytes).digest()
         file_key = f"templates/{template_id}/v{next_version}.docx"
-        self.storage.put(file_key, docx_bytes, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        self.storage.put(
+            file_key,
+            docx_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
 
         version_id = uuid7()
         version_record = TemplateVersionRecord(
@@ -152,31 +161,42 @@ class TemplateRegistry:
             raise KeyError(f"Template version {version_id} not found.")
 
         if version.status != "draft":
-            raise ValueError(f"Cannot submit template in status '{version.status}'. Expected 'draft'.")
+            raise ValueError(
+                f"Cannot submit template in status '{version.status}'. Expected 'draft'."
+            )
 
         if version.manifest_schema == 1:
             from app.templates.compiler import ManifestCompiler
+
             ManifestCompiler().compile(version.manifest)
 
         version.status = "under_review"
         return version
 
-    def approve_version(self, version_id: uuid.UUID, reviewer_id: uuid.UUID) -> TemplateVersionRecord:
+    def approve_version(
+        self, version_id: uuid.UUID, reviewer_id: uuid.UUID
+    ) -> TemplateVersionRecord:
         """Approves a template version, enforcing separation of duties and freezing immutability."""
         version = self._versions.get(version_id)
         if not version:
             raise KeyError(f"Template version {version_id} not found.")
 
         if version.status != "under_review":
-            raise ValueError(f"Cannot approve template in status '{version.status}'. Expected 'under_review'.")
+            raise ValueError(
+                f"Cannot approve template in status '{version.status}'. Expected 'under_review'."
+            )
 
         # Separation of duties: submitter/creator cannot approve own template version
         if version.created_by is not None and version.created_by == reviewer_id:
-            raise PermissionError("Separation of duties violation: Submitter cannot approve their own template version.")
+            raise PermissionError(
+                "Separation of duties violation: Submitter cannot approve their own template version."
+            )
 
         # Hard Rule: DOCX lint errors or leftover client data block approval
         if version.lint_report and not version.lint_report.get("can_approve", True):
-            raise ValueError("Template approval blocked: DOCX lint or leftover client data checks failed.")
+            raise ValueError(
+                "Template approval blocked: DOCX lint or leftover client data checks failed."
+            )
 
         now = datetime.datetime.now(datetime.timezone.utc)
         version.status = "approved"
@@ -222,4 +242,3 @@ class TemplateRegistry:
 
 
 template_registry = TemplateRegistry()
-

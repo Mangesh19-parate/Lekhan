@@ -97,6 +97,7 @@ class VersionedMixin:
 
 # --- Core Organization & Auth Entities ---
 
+
 class Tenant(Base, UUIDv7PKMixin):
     """Tenant organization entity."""
 
@@ -121,7 +122,9 @@ class Tenant(Base, UUIDv7PKMixin):
         nullable=False,
     )
 
-    users: Mapped[list[User]] = relationship("User", back_populates="tenant", cascade="all, delete-orphan")
+    users: Mapped[list[User]] = relationship(
+        "User", back_populates="tenant", cascade="all, delete-orphan"
+    )
 
 
 class User(Base, UUIDv7PKMixin, TenantScopedMixin):
@@ -130,7 +133,9 @@ class User(Base, UUIDv7PKMixin, TenantScopedMixin):
     __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
-        CheckConstraint("role IN ('admin','template_admin','reviewer','drafter')", name="chk_user_role"),
+        CheckConstraint(
+            "role IN ('admin','template_admin','reviewer','drafter')", name="chk_user_role"
+        ),
         CheckConstraint("ui_language IN ('en','mr','hi')", name="chk_user_ui_language"),
     )
 
@@ -142,7 +147,9 @@ class User(Base, UUIDv7PKMixin, TenantScopedMixin):
     mfa_secret_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     failed_logins: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    locked_until: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_until: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -150,7 +157,9 @@ class User(Base, UUIDv7PKMixin, TenantScopedMixin):
     )
 
     tenant: Mapped[Tenant] = relationship("Tenant", back_populates="users")
-    sessions: Mapped[list[Session]] = relationship("Session", back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[list[Session]] = relationship(
+        "Session", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Session(Base):
@@ -193,13 +202,16 @@ class Session(Base):
 
 # --- Entities: Parties, Properties, Matters, Audit (docs/DATABASE.md) ---
 
+
 class Party(Base, UUIDv7PKMixin, TenantScopedMixin, TimestampMixin, VersionedMixin):
     """Party entity storing names and addresses per language (never auto-transliterated)."""
 
     __tablename__ = "parties"
     __table_args__ = (
         CheckConstraint("kind IN ('individual','company','firm','society')", name="chk_party_kind"),
-        CheckConstraint("gender IS NULL OR gender IN ('male','female','other')", name="chk_party_gender"),
+        CheckConstraint(
+            "gender IS NULL OR gender IN ('male','female','other')", name="chk_party_gender"
+        ),
     )
 
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -215,9 +227,13 @@ class Party(Base, UUIDv7PKMixin, TenantScopedMixin, TimestampMixin, VersionedMix
     id_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     id_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     id_blind_index: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
 
-    versions: Mapped[list[PartyVersion]] = relationship("PartyVersion", back_populates="party", cascade="all, delete-orphan")
+    versions: Mapped[list[PartyVersion]] = relationship(
+        "PartyVersion", back_populates="party", cascade="all, delete-orphan"
+    )
 
 
 class PartyVersion(Base):
@@ -232,7 +248,9 @@ class PartyVersion(Base):
     )
     version: Mapped[int] = mapped_column(Integer, primary_key=True)
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    changed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    changed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     changed_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -247,8 +265,14 @@ class Property(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
 
     __tablename__ = "properties"
     __table_args__ = (
-        CheckConstraint("category IN ('plot','flat','shop','agri','house_on_plot')", name="chk_property_category"),
-        CheckConstraint("area_unit IS NULL OR area_unit IN ('sqm','sqft','hectare_r','guntha','acre')", name="chk_property_area_unit"),
+        CheckConstraint(
+            "category IN ('plot','flat','shop','agri','house_on_plot')",
+            name="chk_property_category",
+        ),
+        CheckConstraint(
+            "area_unit IS NULL OR area_unit IN ('sqm','sqft','hectare_r','guntha','acre')",
+            name="chk_property_area_unit",
+        ),
     )
 
     category: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -258,7 +282,9 @@ class Property(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
     boundaries: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     rr_division: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rr_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
-    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -278,15 +304,21 @@ class Matter(Base, UUIDv7PKMixin, TenantScopedMixin):
     matter_no: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)
-    assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    parties: Mapped[list[MatterParty]] = relationship("MatterParty", back_populates="matter", cascade="all, delete-orphan")
+    parties: Mapped[list[MatterParty]] = relationship(
+        "MatterParty", back_populates="matter", cascade="all, delete-orphan"
+    )
 
 
 class MatterParty(Base):
@@ -334,16 +366,26 @@ class AuditLog(Base):
 
 # --- Week 7 Entities: Templates, TemplateVersions, Documents, Jobs, Counters ---
 
+
 class Template(Base, UUIDv7PKMixin):
     """Template header (metadata). May belong to a tenant or platform library (NULL tenant_id)."""
 
     __tablename__ = "templates"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "doc_type", "property_category", "language", "name", name="uq_templates_identity"),
+        UniqueConstraint(
+            "tenant_id",
+            "doc_type",
+            "property_category",
+            "language",
+            "name",
+            name="uq_templates_identity",
+        ),
         CheckConstraint("language IN ('mr','en','hi')", name="chk_template_language"),
     )
 
-    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True
+    )
     doc_type: Mapped[str] = mapped_column(String(64), nullable=False)
     property_category: Mapped[str | None] = mapped_column(String(32), nullable=True)
     language: Mapped[str] = mapped_column(String(8), nullable=False)
@@ -354,7 +396,9 @@ class Template(Base, UUIDv7PKMixin):
         nullable=False,
     )
 
-    versions: Mapped[list[TemplateVersion]] = relationship("TemplateVersion", back_populates="template", cascade="all, delete-orphan")
+    versions: Mapped[list[TemplateVersion]] = relationship(
+        "TemplateVersion", back_populates="template", cascade="all, delete-orphan"
+    )
 
 
 class TemplateVersion(Base, UUIDv7PKMixin):
@@ -363,11 +407,19 @@ class TemplateVersion(Base, UUIDv7PKMixin):
     __tablename__ = "template_versions"
     __table_args__ = (
         UniqueConstraint("template_id", "version", name="uq_template_version"),
-        CheckConstraint("status IN ('draft','under_review','approved','retired')", name="chk_template_version_status"),
-        CheckConstraint("status <> 'approved' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)", name="chk_approved_requires_approver"),
+        CheckConstraint(
+            "status IN ('draft','under_review','approved','retired')",
+            name="chk_template_version_status",
+        ),
+        CheckConstraint(
+            "status <> 'approved' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)",
+            name="chk_approved_requires_approver",
+        ),
     )
 
-    template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), nullable=False)
+    template_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), nullable=False
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     manifest_schema: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     manifest: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
@@ -376,9 +428,15 @@ class TemplateVersion(Base, UUIDv7PKMixin):
     file_sha256: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
     lint_report: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
-    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    approved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    approved_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -397,8 +455,12 @@ class Document(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
         CheckConstraint("status IN ('draft','reviewed','finalised')", name="chk_document_status"),
     )
 
-    matter_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("matters.id"), nullable=True)
-    template_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("template_versions.id"), nullable=False)
+    matter_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("matters.id"), nullable=True
+    )
+    template_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("template_versions.id"), nullable=False
+    )
     engine_version: Mapped[str] = mapped_column(String(32), default="0.1.0", nullable=False)
     language: Mapped[str] = mapped_column(String(8), nullable=False)
     doc_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -408,7 +470,9 @@ class Document(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
     docx_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
     pdf_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -422,7 +486,9 @@ class Job(Base, UUIDv7PKMixin, TenantScopedMixin):
     __tablename__ = "jobs"
     __table_args__ = (
         UniqueConstraint("tenant_id", "idempotency_key", name="uq_jobs_tenant_idempotency"),
-        CheckConstraint("status IN ('queued','running','succeeded','failed','dead')", name="chk_job_status"),
+        CheckConstraint(
+            "status IN ('queued','running','succeeded','failed','dead')", name="chk_job_status"
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -435,7 +501,9 @@ class Job(Base, UUIDv7PKMixin, TenantScopedMixin):
         nullable=False,
     )
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    locked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     error: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(

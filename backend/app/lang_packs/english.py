@@ -10,8 +10,8 @@ Implements:
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal, ROUND_HALF_UP
 import re
+from decimal import ROUND_HALF_UP, Decimal
 
 EN_ONES: dict[int, str] = {
     0: "Zero",
@@ -134,7 +134,11 @@ def words_to_number_en(text: str) -> Decimal:
 
     paise = 0
     if "paise" in clean:
-        main_part, paise_part = clean.split("paise", 1)[0].split("and", 1) if "and" in clean else (clean.replace("paise", ""), "0")
+        main_part, paise_part = (
+            clean.split("paise", 1)[0].split("and", 1)
+            if "and" in clean
+            else (clean.replace("paise", ""), "0")
+        )
         clean = main_part.strip()
         # Parse paise
         paise_words = [w for w in paise_part.replace("paise", "").strip().split() if w]
@@ -226,11 +230,7 @@ class EnglishLanguagePack:
     def format_date(self, d: datetime.date, style: str = "formal") -> str:
         # Ordinal suffix 1st, 2nd, 3rd, 4th...
         day = d.day
-        suffix = (
-            "th"
-            if 11 <= day <= 13
-            else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-        )
+        suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
         return f"{day}{suffix} {d.strftime('%B %Y')}"
 
     def to_digits(self, s: str) -> str:
@@ -273,4 +273,3 @@ class EnglishLanguagePack:
         }
         unit_label = unit_map.get(unit.lower(), unit)
         return f"{area} {unit_label}"
-

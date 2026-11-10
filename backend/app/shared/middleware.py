@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Awaitable, Callable
 
 from fastapi import Request, Response
@@ -33,7 +32,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             response.headers["X-Correlation-ID"] = cid
             return response
-        except Exception as exc:
+        except Exception:
             logger.exception("Unhandled request error caught in middleware")
             return problem_json_response(
                 status_code=500,
@@ -42,4 +41,3 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
             )
         finally:
             correlation_id_ctx.reset(token)
-

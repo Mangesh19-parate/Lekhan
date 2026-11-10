@@ -10,7 +10,6 @@ Tracks:
 from __future__ import annotations
 
 import threading
-import time
 from collections import defaultdict
 from typing import Any
 
@@ -74,35 +73,51 @@ class MetricsCollector:
         ]
         with self._lock:
             for (m, ep, code), count in sorted(self._http_requests.items()):
-                lines.append(f'lekhan_http_requests_total{{method="{m}",endpoint="{ep}",status="{code}"}} {count}')
+                lines.append(
+                    f'lekhan_http_requests_total{{method="{m}",endpoint="{ep}",status="{code}"}} {count}'
+                )
 
-            lines.extend([
-                "# HELP lekhan_http_request_duration_seconds Total latency of HTTP requests",
-                "# TYPE lekhan_http_request_duration_seconds summary",
-            ])
+            lines.extend(
+                [
+                    "# HELP lekhan_http_request_duration_seconds Total latency of HTTP requests",
+                    "# TYPE lekhan_http_request_duration_seconds summary",
+                ]
+            )
             for (m, ep), total_time in sorted(self._http_duration_sum.items()):
                 c = self._http_duration_count[(m, ep)]
-                lines.append(f'lekhan_http_request_duration_seconds_sum{{method="{m}",endpoint="{ep}"}} {total_time:.4f}')
-                lines.append(f'lekhan_http_request_duration_seconds_count{{method="{m}",endpoint="{ep}"}} {c}')
+                lines.append(
+                    f'lekhan_http_request_duration_seconds_sum{{method="{m}",endpoint="{ep}"}} {total_time:.4f}'
+                )
+                lines.append(
+                    f'lekhan_http_request_duration_seconds_count{{method="{m}",endpoint="{ep}"}} {c}'
+                )
 
-            lines.extend([
-                "# HELP lekhan_document_generations_total Total legal document generation jobs",
-                "# TYPE lekhan_document_generations_total counter",
-            ])
+            lines.extend(
+                [
+                    "# HELP lekhan_document_generations_total Total legal document generation jobs",
+                    "# TYPE lekhan_document_generations_total counter",
+                ]
+            )
             for (tmpl, st), count in sorted(self._doc_generations.items()):
-                lines.append(f'lekhan_document_generations_total{{template_id="{tmpl}",status="{st}"}} {count}')
+                lines.append(
+                    f'lekhan_document_generations_total{{template_id="{tmpl}",status="{st}"}} {count}'
+                )
 
-            lines.extend([
-                "# HELP lekhan_pdf_conversions_total Total PDF export conversions",
-                "# TYPE lekhan_pdf_conversions_total counter",
-            ])
+            lines.extend(
+                [
+                    "# HELP lekhan_pdf_conversions_total Total PDF export conversions",
+                    "# TYPE lekhan_pdf_conversions_total counter",
+                ]
+            )
             for st, count in sorted(self._pdf_conversions.items()):
                 lines.append(f'lekhan_pdf_conversions_total{{status="{st}"}} {count}')
 
-            lines.extend([
-                "# HELP lekhan_template_lint_runs_total Total template lint operations",
-                "# TYPE lekhan_template_lint_runs_total counter",
-            ])
+            lines.extend(
+                [
+                    "# HELP lekhan_template_lint_runs_total Total template lint operations",
+                    "# TYPE lekhan_template_lint_runs_total counter",
+                ]
+            )
             for st, count in sorted(self._lint_runs.items()):
                 lines.append(f'lekhan_template_lint_runs_total{{status="{st}"}} {count}')
 
@@ -121,7 +136,12 @@ class MetricsCollector:
                     f"{m} {ep}": {
                         "count": self._http_duration_count[(m, ep)],
                         "avg_latency_ms": round(
-                            (self._http_duration_sum[(m, ep)] / max(1, self._http_duration_count[(m, ep)])) * 1000, 2
+                            (
+                                self._http_duration_sum[(m, ep)]
+                                / max(1, self._http_duration_count[(m, ep)])
+                            )
+                            * 1000,
+                            2,
                         ),
                     }
                     for (m, ep) in self._http_duration_sum
@@ -142,4 +162,3 @@ class MetricsCollector:
 
 
 metrics_collector = MetricsCollector()
-

@@ -122,9 +122,7 @@ class SessionStore:
 
     def delete_all_for_user(self, user_id: uuid.UUID) -> None:
         """Revokes all active sessions for a user (password change / lockout)."""
-        to_delete = [
-            id_hash for id_hash, s in self._sessions.items() if s.user_id == user_id
-        ]
+        to_delete = [id_hash for id_hash, s in self._sessions.items() if s.user_id == user_id]
         for h in to_delete:
             self._sessions.pop(h, None)
 
@@ -135,4 +133,3 @@ class SessionStore:
 
 # Global singleton instance
 session_store = SessionStore()
-

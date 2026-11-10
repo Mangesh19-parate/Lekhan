@@ -1,6 +1,7 @@
 """Unit tests for Template Registry and immutable version guarantees."""
 
 import uuid
+
 import pytest
 
 from app.adapters.storage import LocalObjectStore
@@ -72,4 +73,3 @@ def test_immutable_approved_template_version(registry: TemplateRegistry) -> None
     # Attempting to modify approved version must fail!
     with pytest.raises(TemplateImmutabilityError):
         registry.update_version_content(v1.id, new_manifest={"fields": ["illegal"]})
-

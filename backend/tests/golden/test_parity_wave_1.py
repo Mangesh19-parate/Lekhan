@@ -8,8 +8,8 @@ Verifies layout and structural parity across all 10 templates:
 """
 
 from pathlib import Path
-import pytest
 
+import pytest
 from corpus_tools.parity_runner import ParityRunner
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-library"
@@ -58,4 +58,3 @@ def test_individual_template_parity(template_id: str) -> None:
     assert len(report.legacy_fonts_detected) == 0
     assert report.paragraph_count >= 5
     assert report.parity_passed is True
-

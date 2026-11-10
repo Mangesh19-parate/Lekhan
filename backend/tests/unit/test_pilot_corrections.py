@@ -9,6 +9,7 @@ Verifies:
 """
 
 import uuid
+
 import pytest
 
 from app.pilot.corrections import (
@@ -161,4 +162,3 @@ def test_tenant_isolation_corrections(service: PilotCorrectionsService) -> None:
             resolution_notes="Unauthorized resolve",
             resolved_by="attacker",
         )
-

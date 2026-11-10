@@ -74,20 +74,26 @@ class ASTEvaluator:
         # Unary NOT
         if op == "not":
             if len(node.args) != 1:
-                raise DSLEvaluationError(f"'not' operator requires exactly 1 argument, got {len(node.args)}")
+                raise DSLEvaluationError(
+                    f"'not' operator requires exactly 1 argument, got {len(node.args)}"
+                )
             return not bool(self._eval_node(node.args[0], data, next_depth))
 
         # Unary is_empty predicate
         if op == "is_empty":
             if len(node.args) != 1:
-                raise DSLEvaluationError(f"'is_empty' requires exactly 1 argument, got {len(node.args)}")
+                raise DSLEvaluationError(
+                    f"'is_empty' requires exactly 1 argument, got {len(node.args)}"
+                )
             val = self._eval_node(node.args[0], data, next_depth)
             return val is None or val == "" or val == [] or val == {}
 
         # Unary count
         if op == "count":
             if len(node.args) != 1:
-                raise DSLEvaluationError(f"'count' requires exactly 1 argument, got {len(node.args)}")
+                raise DSLEvaluationError(
+                    f"'count' requires exactly 1 argument, got {len(node.args)}"
+                )
             val = self._eval_node(node.args[0], data, next_depth)
             if isinstance(val, (list, tuple, dict, str)):
                 return len(val)
@@ -112,7 +118,9 @@ class ASTEvaluator:
                 d_left = Decimal(str(left))
                 d_right = Decimal(str(right))
             except Exception as exc:
-                raise DSLEvaluationError(f"Arithmetic operator '{op}' requires numeric operands, got {type(left)} and {type(right)}") from exc
+                raise DSLEvaluationError(
+                    f"Arithmetic operator '{op}' requires numeric operands, got {type(left)} and {type(right)}"
+                ) from exc
 
             if op == "add":
                 return d_left + d_right

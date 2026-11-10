@@ -1,2 +1,1 @@
 """Parties domain module."""
-

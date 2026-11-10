@@ -9,4 +9,3 @@ def test_tenant_model_instantiation() -> None:
     assert tenant.name == "Nagpur Legal Associates"
     assert tenant.settings == {}
     assert tenant.feature_flags == {}
-

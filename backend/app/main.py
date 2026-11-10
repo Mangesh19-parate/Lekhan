@@ -1,6 +1,7 @@
 """FastAPI main entrypoint for Lekhan (Backend Core with Auth, Tenancy, and Jobs)."""
 
 from typing import Any
+
 from fastapi import FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -15,7 +16,6 @@ from app.api.portal import router as portal_router
 from app.api.properties import router as properties_router
 from app.api.review import router as review_router
 from app.api.templates_admin import router as templates_admin_router
-from app.observability import ObservabilityMetricsMiddleware, init_sentry, metrics_collector
 from app.config import get_settings
 from app.generation.spike_engine import (
     PlotSaleDeedInput,
@@ -23,6 +23,7 @@ from app.generation.spike_engine import (
     generate_plot_sale_deed_docx,
 )
 from app.lang_packs.marathi import number_to_words_mr
+from app.observability import ObservabilityMetricsMiddleware, init_sentry, metrics_collector
 from app.shared.logging import get_logger, setup_logging
 from app.shared.middleware import CorrelationIdMiddleware
 
@@ -73,6 +74,7 @@ app.include_router(portal_router)
 
 # --- Health Probes (docs/PLAN.md Week 4) ---
 
+
 @app.get("/health/live", summary="Liveness probe")
 def health_live() -> dict[str, str]:
     """Basic liveness check verifying the HTTP process is running."""
@@ -91,6 +93,7 @@ def health_ready() -> dict[str, Any]:
 
 # --- Observability Metrics (docs/PLAN.md Week 18, PRD Section 10) ---
 
+
 @app.get("/metrics", summary="Prometheus metrics exposition", response_class=Response)
 def get_prometheus_metrics() -> Response:
     """Returns metrics in Prometheus text exposition format."""
@@ -106,6 +109,7 @@ def get_metrics_json() -> dict[str, Any]:
 
 # --- Live Calculation Helper ---
 
+
 @app.get("/api/v1/helpers/amount-to-words", summary="Live Marathi Amount in Words")
 def amount_to_words(amount: int) -> dict[str, str]:
     """Returns the live Marathi currency amount in words."""
@@ -114,6 +118,7 @@ def amount_to_words(amount: int) -> dict[str, str]:
 
 
 # --- Generation Direct Endpoint (Spike legacy compatibility) ---
+
 
 @app.post(
     "/api/v1/documents/generate-spike",
@@ -136,7 +141,9 @@ def generate_spike_document(payload: PlotSaleDeedInput) -> Response:
             detail=f"Document generation failed: {e}",
         ) from e
 
-    filename = f"Sale_Deed_Plot_{payload.property_details.plot_no}_{payload.property_details.mouza}.docx"
+    filename = (
+        f"Sale_Deed_Plot_{payload.property_details.plot_no}_{payload.property_details.mouza}.docx"
+    )
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -149,21 +156,26 @@ def generate_spike_document(payload: PlotSaleDeedInput) -> Response:
 
 # --- Standalone Interactive Form UI (Week 7 Milestone & Week 12 Form Engine) ---
 
+
 @app.get("/form", response_class=HTMLResponse, summary="Schema-Driven Form Engine UI")
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def get_form_engine_ui() -> str:
     """Serves the complete schema-driven dynamic drafting form styled per DESIGN.md."""
     from pathlib import Path
+
     html_path = Path(__file__).parent / "static" / "form_engine.html"
     if html_path.exists():
         return html_path.read_text(encoding="utf-8")
     return "<h1>Lekhan Form Engine</h1>"
 
 
-@app.get("/templates/admin", response_class=HTMLResponse, summary="Template Admin & Lifecycle Dashboard")
+@app.get(
+    "/templates/admin", response_class=HTMLResponse, summary="Template Admin & Lifecycle Dashboard"
+)
 def get_template_admin_ui() -> str:
     """Serves the template admin and DocxLinter audit dashboard."""
     from pathlib import Path
+
     html_path = Path(__file__).parent / "static" / "template_admin.html"
     if html_path.exists():
         return html_path.read_text(encoding="utf-8")
@@ -174,6 +186,7 @@ def get_template_admin_ui() -> str:
 def get_pilot_ui() -> str:
     """Serves the Gate 2 Pilot Drafter Feedback & Corrections Dashboard."""
     from pathlib import Path
+
     html_path = Path(__file__).parent / "static" / "pilot_dashboard.html"
     if html_path.exists():
         return html_path.read_text(encoding="utf-8")
@@ -184,6 +197,7 @@ def get_pilot_ui() -> str:
 def get_spike_ui() -> str:
     """Serves the bilingual Marathi drafting form styled per DESIGN.md."""
     from pathlib import Path
+
     html_path = Path(__file__).parent / "static" / "spike.html"
     if html_path.exists():
         return html_path.read_text(encoding="utf-8")

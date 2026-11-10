@@ -47,7 +47,10 @@ class JobQueue:
             # Check idempotency deduplication per tenant
             if idempotency_key:
                 for existing in self._jobs.values():
-                    if existing.tenant_id == tenant_id and existing.idempotency_key == idempotency_key:
+                    if (
+                        existing.tenant_id == tenant_id
+                        and existing.idempotency_key == idempotency_key
+                    ):
                         return existing
 
             job_id = uuid7()
@@ -95,4 +98,3 @@ class JobQueue:
 
 
 job_queue = JobQueue()
-

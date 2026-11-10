@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.templates.dsl.ast import ASTNode, LitNode, OpNode, VarNode
-from app.templates.dsl.tokens import Token, TokenType, Tokenizer
+from app.templates.dsl.tokens import Token, Tokenizer, TokenType
 
 # Operator Precedence Levels
 PRECEDENCE: dict[TokenType, int] = {
@@ -65,7 +65,9 @@ class PrattParser:
     def consume(self, expected_type: TokenType | None = None) -> Token:
         tok = self.current()
         if expected_type and tok.type != expected_type:
-            raise ValueError(f"Expected token {expected_type} at position {tok.pos}, got {tok.type} ('{tok.value}')")
+            raise ValueError(
+                f"Expected token {expected_type} at position {tok.pos}, got {tok.type} ('{tok.value}')"
+            )
         self.pos += 1
         return tok
 
@@ -73,7 +75,9 @@ class PrattParser:
         """Parses the full token stream into a root ASTNode."""
         node = self.parse_expression(0)
         if self.current().type != "EOF":
-            raise ValueError(f"Unexpected trailing tokens starting with '{self.current().value}' at {self.current().pos}")
+            raise ValueError(
+                f"Unexpected trailing tokens starting with '{self.current().value}' at {self.current().pos}"
+            )
         return node
 
     def parse_expression(self, rbp: int = 0) -> ASTNode:
@@ -126,7 +130,10 @@ class PrattParser:
             name = str(tok.value)
 
             # Built-in function call: is_empty(var), count(var), contains(container, item)
-            if name in ("is_empty", "count", "contains", "any", "all") and self.current().type == "LPAREN":
+            if (
+                name in ("is_empty", "count", "contains", "any", "all")
+                and self.current().type == "LPAREN"
+            ):
                 self.consume("LPAREN")
                 args: list[ASTNode] = []
                 while self.current().type != "RPAREN" and self.current().type != "EOF":

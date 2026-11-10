@@ -184,14 +184,17 @@ def generate_plot_sale_deed_docx(
     in_buf = io.BytesIO(template_path.read_bytes())
     out_buf = io.BytesIO()
 
-    with zipfile.ZipFile(in_buf, "r") as zin, zipfile.ZipFile(out_buf, "w", zipfile.ZIP_DEFLATED) as zout:
+    with (
+        zipfile.ZipFile(in_buf, "r") as zin,
+        zipfile.ZipFile(out_buf, "w", zipfile.ZIP_DEFLATED) as zout,
+    ):
         for item in zin.infolist():
             content = zin.read(item.filename)
             if item.filename == "word/document.xml":
                 doc_xml = content.decode("utf-8")
                 for placeholder, val in replacements.items():
                     # Handle multi-line replacements by converting newline to Word break
-                    xml_val = val.replace("\n", '<w:br/>')
+                    xml_val = val.replace("\n", "<w:br/>")
                     doc_xml = doc_xml.replace(placeholder, xml_val)
 
                 # 6. Verification Gate: Assert NO leftover tags {{ or {%
@@ -206,4 +209,3 @@ def generate_plot_sale_deed_docx(
             zout.writestr(item, content)
 
     return out_buf.getvalue()
-

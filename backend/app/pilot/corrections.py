@@ -7,9 +7,10 @@ on generated drafts. Measures success against PRD target: falling corrections un
 from __future__ import annotations
 
 import datetime
+import uuid
 from enum import Enum
 from typing import Any
-import uuid
+
 from pydantic import BaseModel, Field
 
 from app.audit.service import audit_service
@@ -132,10 +133,7 @@ class PilotCorrectionsService:
         severity: CorrectionSeverity | None = None,
     ) -> list[CorrectionEntry]:
         """Lists tenant-scoped correction entries with optional filtering."""
-        results = [
-            c for c in self._corrections.values()
-            if c.tenant_id == tenant_id
-        ]
+        results = [c for c in self._corrections.values() if c.tenant_id == tenant_id]
         if template_id:
             results = [c for c in results if c.template_id == template_id]
         if status:
@@ -203,7 +201,11 @@ class PilotCorrectionsService:
         total = len(tenant_items)
         resolved = sum(1 for c in tenant_items if c.status == CorrectionStatus.RESOLVED)
         pending = total - resolved
-        blocking = sum(1 for c in tenant_items if c.severity == CorrectionSeverity.BLOCKING and c.status != CorrectionStatus.RESOLVED)
+        blocking = sum(
+            1
+            for c in tenant_items
+            if c.severity == CorrectionSeverity.BLOCKING and c.status != CorrectionStatus.RESOLVED
+        )
 
         categories: dict[str, int] = {}
         for c in tenant_items:
@@ -216,21 +218,47 @@ class PilotCorrectionsService:
             templates[tmpl] = templates.get(tmpl, 0) + 1
 
         rate = (resolved / total * 100.0) if total > 0 else 100.0
-        avg_per_draft = (total / max(1, total_drafts))
+        avg_per_draft = total / max(1, total_drafts)
 
         # Compile top resolved descriptions for changelog & audit
         resolved_descriptions = [
-            c.description for c in tenant_items
+            c.description
+            for c in tenant_items
             if c.status == CorrectionStatus.RESOLVED and c.description
         ][:5]
 
         # 4-week pilot trend (Weeks 19 to 23 demonstrating falling corrections under 5/draft target)
         weekly_trend = [
-            {"week": "Week 19 (Pilot Kickoff)", "logged": 12, "avg_per_draft": 6.0, "status": "triaged"},
-            {"week": "Week 20 (Reuse & Search)", "logged": 8, "avg_per_draft": 4.0, "status": "triaged"},
-            {"week": "Week 21 (Alerts & Portal)", "logged": 5, "avg_per_draft": 2.5, "status": "resolved"},
-            {"week": "Week 22 (Admin & MFA)", "logged": 3, "avg_per_draft": 1.5, "status": "resolved"},
-            {"week": "Week 23 (Buffer & Wave 2)", "logged": 1, "avg_per_draft": 0.5, "status": "target_achieved"},
+            {
+                "week": "Week 19 (Pilot Kickoff)",
+                "logged": 12,
+                "avg_per_draft": 6.0,
+                "status": "triaged",
+            },
+            {
+                "week": "Week 20 (Reuse & Search)",
+                "logged": 8,
+                "avg_per_draft": 4.0,
+                "status": "triaged",
+            },
+            {
+                "week": "Week 21 (Alerts & Portal)",
+                "logged": 5,
+                "avg_per_draft": 2.5,
+                "status": "resolved",
+            },
+            {
+                "week": "Week 22 (Admin & MFA)",
+                "logged": 3,
+                "avg_per_draft": 1.5,
+                "status": "resolved",
+            },
+            {
+                "week": "Week 23 (Buffer & Wave 2)",
+                "logged": 1,
+                "avg_per_draft": 0.5,
+                "status": "target_achieved",
+            },
         ]
 
         return PilotStats(
@@ -251,4 +279,3 @@ class PilotCorrectionsService:
 
 
 pilot_corrections_service = PilotCorrectionsService()
-

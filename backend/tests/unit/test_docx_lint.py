@@ -2,9 +2,8 @@
 
 import io
 import json
-from pathlib import Path
 import zipfile
-import pytest
+from pathlib import Path
 
 from app.templates.lint.fonts import audit_docx_fonts
 from app.templates.lint.leftover_scanner import scan_docx_for_leftover_data
@@ -53,6 +52,7 @@ def create_minimal_docx_bytes(
 # 1. Split-Run Tag Detection and Auto-Merging
 # ---------------------------------------------------------------------------
 
+
 def test_split_run_auto_merge_identical_formatting() -> None:
     """Verifies that tags split across runs with identical formatting are merged."""
     body = (
@@ -90,13 +90,18 @@ def test_split_run_conflicting_formatting_warning() -> None:
 # 2. Structural Safety Checks (Macros, Zip Bomb, External Rels)
 # ---------------------------------------------------------------------------
 
+
 def test_reject_macro_enabled_template() -> None:
     """Verifies rejection of macro-enabled files containing vbaProject.bin."""
     extra = {"word/vbaProject.bin": b"VBA-MACRO-DATA"}
-    docx_bytes = create_minimal_docx_bytes("<w:p><w:r><w:t>Hello</w:t></w:r></w:p>", extra_files=extra)
+    docx_bytes = create_minimal_docx_bytes(
+        "<w:p><w:r><w:t>Hello</w:t></w:r></w:p>", extra_files=extra
+    )
 
     findings = check_structural_safety(docx_bytes)
-    assert any(f.code == "MACRO_ENABLED_FILE" and f.severity == LintSeverity.ERROR for f in findings)
+    assert any(
+        f.code == "MACRO_ENABLED_FILE" and f.severity == LintSeverity.ERROR for f in findings
+    )
 
 
 def test_reject_external_relationships() -> None:
@@ -109,7 +114,9 @@ def test_reject_external_relationships() -> None:
         "</Relationships>"
     ).encode("utf-8")
     extra = {"word/_rels/document.xml.rels": rels_content}
-    docx_bytes = create_minimal_docx_bytes("<w:p><w:r><w:t>Hello</w:t></w:r></w:p>", extra_files=extra)
+    docx_bytes = create_minimal_docx_bytes(
+        "<w:p><w:r><w:t>Hello</w:t></w:r></w:p>", extra_files=extra
+    )
 
     findings = check_structural_safety(docx_bytes)
     assert any(f.code == "EXTERNAL_RELATIONSHIP_FOUND" for f in findings)
@@ -125,12 +132,11 @@ def test_reject_external_relationships() -> None:
 # 3. Leftover Client Data & PII Detection
 # ---------------------------------------------------------------------------
 
+
 def test_detect_leftover_pan_and_aadhaar() -> None:
     """Verifies that leftover PAN and Aadhaar literals outside tags are flagged."""
     # Synthetic PAN and Aadhaar literals outside tags
-    body = (
-        "<w:p><w:r><w:t>विक्रेत्याचा पॅन: ABCDE1234F आणि आधार: 9876 5432 1098</w:t></w:r></w:p>"
-    )
+    body = "<w:p><w:r><w:t>विक्रेत्याचा पॅन: ABCDE1234F आणि आधार: 9876 5432 1098</w:t></w:r></w:p>"
     docx_bytes = create_minimal_docx_bytes(body)
     leftovers = scan_docx_for_leftover_data(docx_bytes)
 
@@ -146,9 +152,7 @@ def test_detect_leftover_pan_and_aadhaar() -> None:
 
 def test_templated_placeholders_not_flagged_as_leftover() -> None:
     """Verifies that Jinja placeholders like {{ party.pan }} are not flagged as leftovers."""
-    body = (
-        "<w:p><w:r><w:t>पॅन: {{ party.pan }} आधार: {{ party.aadhaar_no }}</w:t></w:r></w:p>"
-    )
+    body = "<w:p><w:r><w:t>पॅन: {{ party.pan }} आधार: {{ party.aadhaar_no }}</w:t></w:r></w:p>"
     docx_bytes = create_minimal_docx_bytes(body)
     leftovers = scan_docx_for_leftover_data(docx_bytes)
 
@@ -159,28 +163,30 @@ def test_templated_placeholders_not_flagged_as_leftover() -> None:
 # 4. Font Audit & Kruti Dev Legacy Detection
 # ---------------------------------------------------------------------------
 
+
 def test_detect_prohibited_kruti_dev_font() -> None:
     """Verifies that legacy Kruti Dev fonts are rejected with ERROR."""
     body = (
         '<w:p><w:r><w:rPr><w:rFonts w:ascii="Kruti Dev 010" w:cs="Kruti Dev 010"/></w:rPr>'
-        '<w:t>djkji=</w:t></w:r></w:p>'
+        "<w:t>djkji=</w:t></w:r></w:p>"
     )
     docx_bytes = create_minimal_docx_bytes(body)
     fonts, findings = audit_docx_fonts(docx_bytes)
 
     assert "Kruti Dev 010" in fonts
-    assert any(f.code == "LEGACY_FONT_KRUTI_FOUND" and f.severity == LintSeverity.ERROR for f in findings)
+    assert any(
+        f.code == "LEGACY_FONT_KRUTI_FOUND" and f.severity == LintSeverity.ERROR for f in findings
+    )
 
 
 # ---------------------------------------------------------------------------
 # 5. Master DocxLinter & Manifest Tag Alignment
 # ---------------------------------------------------------------------------
 
+
 def test_docx_linter_undefined_tag_and_unused_field() -> None:
     """Verifies detection of undefined tags (error) and unused fields (warning)."""
-    body = (
-        "<w:p><w:r><w:t>{{ property.mouza }} आणि {{ undefined_secret_tag }}</w:t></w:r></w:p>"
-    )
+    body = "<w:p><w:r><w:t>{{ property.mouza }} आणि {{ undefined_secret_tag }}</w:t></w:r></w:p>"
     manifest = {
         "manifest_schema": 1,
         "fields": ["property.mouza", "financial.unreferenced_field"],
@@ -191,17 +197,32 @@ def test_docx_linter_undefined_tag_and_unused_field() -> None:
     report = linter.lint(docx_bytes, manifest=manifest)
 
     # Undefined tag is an error and blocks approval
-    assert any(e.code == "UNDEFINED_TAG" and "undefined_secret_tag" in e.message for e in report.errors)
+    assert any(
+        e.code == "UNDEFINED_TAG" and "undefined_secret_tag" in e.message for e in report.errors
+    )
     assert report.can_approve is False
 
     # Unreferenced field is a warning
-    assert any(w.code == "UNUSED_FIELD" and "financial.unreferenced_field" in w.message for w in report.warnings)
+    assert any(
+        w.code == "UNUSED_FIELD" and "financial.unreferenced_field" in w.message
+        for w in report.warnings
+    )
 
 
 def test_sale_deed_plot_mr_template_lint_clean() -> None:
     """Verifies that approved sale_deed_plot_mr template passes lint cleanly."""
-    template_path = Path(__file__).parent.parent.parent.parent / "templates-library" / "sale_deed_plot_mr" / "template.docx"
-    manifest_path = Path(__file__).parent.parent.parent.parent / "templates-library" / "sale_deed_plot_mr" / "manifest.json"
+    template_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / "sale_deed_plot_mr"
+        / "template.docx"
+    )
+    manifest_path = (
+        Path(__file__).parent.parent.parent.parent
+        / "templates-library"
+        / "sale_deed_plot_mr"
+        / "manifest.json"
+    )
 
     assert template_path.exists()
     assert manifest_path.exists()
@@ -213,7 +234,8 @@ def test_sale_deed_plot_mr_template_lint_clean() -> None:
     report = linter.lint(docx_bytes, manifest=manifest_data)
 
     # Must be free of leftover data and approval-blocking errors
-    assert len(report.leftover_data) == 0, f"Leftover data found in approved template: {report.leftover_data}"
+    assert (
+        len(report.leftover_data) == 0
+    ), f"Leftover data found in approved template: {report.leftover_data}"
     assert len(report.errors) == 0, f"Errors found in approved template: {report.errors}"
     assert report.can_approve is True
-

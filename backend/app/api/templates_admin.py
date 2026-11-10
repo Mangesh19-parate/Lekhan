@@ -11,7 +11,6 @@ Provides:
 from __future__ import annotations
 
 import json
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +19,7 @@ from pydantic import BaseModel
 
 from app.api.auth import get_current_actor
 from app.audit.service import audit_service
-from app.identity.policy import Actor, Resource, authorize
+from app.identity.policy import Actor, authorize
 from app.templates.lint import DocxLinter
 
 router = APIRouter(prefix="/api/v1/templates", tags=["templates_admin"])
@@ -129,7 +128,9 @@ async def upload_template(
     try:
         manifest_data = json.loads(manifest_json)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON manifest: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON manifest: {exc}"
+        )
 
     docx_bytes = await docx_file.read()
 
@@ -141,7 +142,9 @@ async def upload_template(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     manifest_data["status"] = "draft"
-    (target_dir / "manifest.json").write_text(json.dumps(manifest_data, indent=2, ensure_ascii=False), encoding="utf-8")
+    (target_dir / "manifest.json").write_text(
+        json.dumps(manifest_data, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     (target_dir / "template.docx").write_bytes(docx_bytes)
 
     _TEMPLATE_LIFECYCLE_META[template_id] = {
@@ -197,7 +200,9 @@ def submit_template_for_review(
     return {"template_id": template_id, "status": "under_review"}
 
 
-@router.post("/{template_id}/approve", summary="Approve template version (Separation of Duties enforced)")
+@router.post(
+    "/{template_id}/approve", summary="Approve template version (Separation of Duties enforced)"
+)
 def approve_template(
     template_id: str,
     actor: Actor = Depends(get_current_actor),
@@ -247,7 +252,9 @@ def approve_template(
     if manifest_file.exists():
         raw_manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
         raw_manifest["status"] = "approved"
-        manifest_file.write_text(json.dumps(raw_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+        manifest_file.write_text(
+            json.dumps(raw_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     audit_service.log_event(
         tenant_id=actor.tenant_id,
@@ -278,7 +285,9 @@ def retire_template(
     if manifest_file.exists():
         raw_manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
         raw_manifest["status"] = "retired"
-        manifest_file.write_text(json.dumps(raw_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+        manifest_file.write_text(
+            json.dumps(raw_manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     audit_service.log_event(
         tenant_id=actor.tenant_id,

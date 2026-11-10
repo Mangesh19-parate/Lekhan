@@ -11,7 +11,6 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from typing import Any
 from xml.etree import ElementTree as ET
 
 from app.templates.lint.models import LeftoverFinding
@@ -79,57 +78,73 @@ def scan_docx_for_leftover_data(docx_bytes: bytes) -> list[LeftoverFinding]:
                             # 1. PAN Scan
                             pan_matches = PAN_REGEX.findall(clean_text)
                             if pan_matches:
-                                findings.append(LeftoverFinding(
-                                    category="PAN",
-                                    count=len(pan_matches),
-                                    part=info.filename,
-                                    paragraph_idx=p_idx,
-                                    masked_sample=mask_sensitive_value(pan_matches[0], "PAN"),
-                                ))
+                                findings.append(
+                                    LeftoverFinding(
+                                        category="PAN",
+                                        count=len(pan_matches),
+                                        part=info.filename,
+                                        paragraph_idx=p_idx,
+                                        masked_sample=mask_sensitive_value(pan_matches[0], "PAN"),
+                                    )
+                                )
 
                             # 2. Aadhaar Scan
                             aadhaar_matches = AADHAAR_REGEX.findall(clean_text)
                             if aadhaar_matches:
-                                findings.append(LeftoverFinding(
-                                    category="AADHAAR",
-                                    count=len(aadhaar_matches),
-                                    part=info.filename,
-                                    paragraph_idx=p_idx,
-                                    masked_sample=mask_sensitive_value(aadhaar_matches[0], "AADHAAR"),
-                                ))
+                                findings.append(
+                                    LeftoverFinding(
+                                        category="AADHAAR",
+                                        count=len(aadhaar_matches),
+                                        part=info.filename,
+                                        paragraph_idx=p_idx,
+                                        masked_sample=mask_sensitive_value(
+                                            aadhaar_matches[0], "AADHAAR"
+                                        ),
+                                    )
+                                )
 
                             # 3. Phone Scan
                             phone_matches = PHONE_REGEX.findall(clean_text)
                             if phone_matches:
-                                findings.append(LeftoverFinding(
-                                    category="PHONE",
-                                    count=len(phone_matches),
-                                    part=info.filename,
-                                    paragraph_idx=p_idx,
-                                    masked_sample=mask_sensitive_value(phone_matches[0], "PHONE"),
-                                ))
+                                findings.append(
+                                    LeftoverFinding(
+                                        category="PHONE",
+                                        count=len(phone_matches),
+                                        part=info.filename,
+                                        paragraph_idx=p_idx,
+                                        masked_sample=mask_sensitive_value(
+                                            phone_matches[0], "PHONE"
+                                        ),
+                                    )
+                                )
 
                             # 4. IFSC Scan
                             ifsc_matches = IFSC_REGEX.findall(clean_text)
                             if ifsc_matches:
-                                findings.append(LeftoverFinding(
-                                    category="IFSC",
-                                    count=len(ifsc_matches),
-                                    part=info.filename,
-                                    paragraph_idx=p_idx,
-                                    masked_sample=mask_sensitive_value(ifsc_matches[0], "IFSC"),
-                                ))
+                                findings.append(
+                                    LeftoverFinding(
+                                        category="IFSC",
+                                        count=len(ifsc_matches),
+                                        part=info.filename,
+                                        paragraph_idx=p_idx,
+                                        masked_sample=mask_sensitive_value(ifsc_matches[0], "IFSC"),
+                                    )
+                                )
 
                             # 5. Untagged Large Financial Amounts
                             amt_matches = UNTAGGED_AMOUNT_REGEX.findall(clean_text)
                             if amt_matches:
-                                findings.append(LeftoverFinding(
-                                    category="AMOUNT",
-                                    count=len(amt_matches),
-                                    part=info.filename,
-                                    paragraph_idx=p_idx,
-                                    masked_sample=mask_sensitive_value(amt_matches[0], "AMOUNT"),
-                                ))
+                                findings.append(
+                                    LeftoverFinding(
+                                        category="AMOUNT",
+                                        count=len(amt_matches),
+                                        part=info.filename,
+                                        paragraph_idx=p_idx,
+                                        masked_sample=mask_sensitive_value(
+                                            amt_matches[0], "AMOUNT"
+                                        ),
+                                    )
+                                )
 
                     except Exception:
                         pass
@@ -138,4 +153,3 @@ def scan_docx_for_leftover_data(docx_bytes: bytes) -> list[LeftoverFinding]:
         pass
 
     return findings
-

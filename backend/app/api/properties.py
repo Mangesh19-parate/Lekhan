@@ -11,14 +11,16 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_actor
 from app.identity.policy import Actor, authorize
-from app.properties.service import PropertyRecord, property_service
+from app.properties.service import property_service
 
 router = APIRouter(prefix="/api/v1/properties", tags=["properties"])
 
 
 class PropertyCreatePayload(BaseModel):
     category: str = Field(..., description="plot, flat, shop, agricultural, na")
-    attrs: dict[str, Any] = Field(..., description="Attributes e.g. mouza, khasra_no, flat_no, etc.")
+    attrs: dict[str, Any] = Field(
+        ..., description="Attributes e.g. mouza, khasra_no, flat_no, etc."
+    )
     area_value: Decimal | None = None
     area_unit: str | None = None
     boundaries: dict[str, str] | None = None
@@ -35,10 +37,14 @@ class PropertySearchMatch(BaseModel):
     similarity: float
 
 
-@router.get("/search", response_model=list[PropertySearchMatch], summary="Trigram search properties")
+@router.get(
+    "/search", response_model=list[PropertySearchMatch], summary="Trigram search properties"
+)
 def search_properties(
     q: str = Query(..., min_length=2, description="Mouza, Khasra, layout, building, or CTS number"),
-    category: str | None = Query(None, description="Optional category filter (plot, flat, shop, agricultural)"),
+    category: str | None = Query(
+        None, description="Optional category filter (plot, flat, shop, agricultural)"
+    ),
     threshold: float = Query(0.25, ge=0.0, le=1.0),
     limit: int = Query(20, ge=1, le=50),
     actor: Actor = Depends(get_current_actor),
@@ -104,7 +110,9 @@ def get_property(
     return prop
 
 
-@router.post("/{property_id}/reuse", summary="Reuse property in a new matter with version preservation")
+@router.post(
+    "/{property_id}/reuse", summary="Reuse property in a new matter with version preservation"
+)
 def reuse_property(
     property_id: uuid.UUID,
     payload: PropertyReusePayload,
@@ -121,4 +129,3 @@ def reuse_property(
         return prop
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found.")
-

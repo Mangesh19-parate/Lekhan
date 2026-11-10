@@ -7,7 +7,7 @@ Sub-Registrar / IGR Public Data Entry (PDE) and SARATHI portals without double e
 from __future__ import annotations
 
 import uuid
-from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -51,5 +51,6 @@ class PortalDataSheet(BaseModel):
     parties: list[PortalParty]
     property: PortalProperty
     financial: PortalFinancial
-    copy_paste_text: str = Field(..., description="Plain-text formatted block for direct portal copy-paste")
-
+    copy_paste_text: str = Field(
+        ..., description="Plain-text formatted block for direct portal copy-paste"
+    )

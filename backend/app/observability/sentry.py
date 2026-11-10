@@ -70,7 +70,7 @@ def init_sentry(dsn: str | None = None, environment: str = "dev") -> bool:
         return False
 
     try:
-        import sentry_sdk
+        import sentry_sdk  # type: ignore[import-not-found]
 
         sentry_sdk.init(
             dsn=sentry_dsn,
@@ -87,4 +87,3 @@ def init_sentry(dsn: str | None = None, environment: str = "dev") -> bool:
     except Exception as exc:
         logger.error("Failed to initialize Sentry: %s", exc)
         return False
-

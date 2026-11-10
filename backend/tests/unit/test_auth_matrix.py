@@ -11,11 +11,10 @@ Fulfills docs/AUTH.md Section 13 Test Matrix requirements:
 """
 
 import uuid
-import pytest
+
 from fastapi.testclient import TestClient
 
-from app.api.auth import SYNTHETIC_USERS
-from app.identity.policy import Action, Actor, Resource, authorize
+from app.identity.policy import Actor, Resource, authorize
 from app.identity.service import session_store
 from app.identity.throttling import login_throttler
 from app.main import app
@@ -26,14 +25,27 @@ client = TestClient(app)
 TENANT_A = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
 TENANT_B = uuid.UUID("0193132e-504f-7a1b-8000-000000000002")
 
-ADMIN_A = Actor(user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000010"), tenant_id=TENANT_A, role="admin")
-T_ADMIN_A = Actor(user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000020"), tenant_id=TENANT_A, role="template_admin")
-REVIEWER_A = Actor(user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000030"), tenant_id=TENANT_A, role="reviewer")
-DRAFTER_A1 = Actor(user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000041"), tenant_id=TENANT_A, role="drafter")
-DRAFTER_A2 = Actor(user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000042"), tenant_id=TENANT_A, role="drafter")
+ADMIN_A = Actor(
+    user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000010"), tenant_id=TENANT_A, role="admin"
+)
+T_ADMIN_A = Actor(
+    user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000020"),
+    tenant_id=TENANT_A,
+    role="template_admin",
+)
+REVIEWER_A = Actor(
+    user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000030"), tenant_id=TENANT_A, role="reviewer"
+)
+DRAFTER_A1 = Actor(
+    user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000041"), tenant_id=TENANT_A, role="drafter"
+)
+DRAFTER_A2 = Actor(
+    user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000042"), tenant_id=TENANT_A, role="drafter"
+)
 
 
 # --- 1. Policy Role Matrix Tests ---
+
 
 def test_user_management_role_permissions() -> None:
     """Only admin can manage users; others are denied."""
@@ -75,9 +87,12 @@ def test_document_creation_and_review_permissions() -> None:
 
 # --- 2. Cross-Tenant Isolation Tests (Must return 404) ---
 
+
 def test_cross_tenant_access_returns_404() -> None:
     """Accessing any resource belonging to another tenant MUST return status 404."""
-    resource_tenant_b = Resource(tenant_id=TENANT_B, resource_type="document", owner_id=uuid.uuid4())
+    resource_tenant_b = Resource(
+        tenant_id=TENANT_B, resource_type="document", owner_id=uuid.uuid4()
+    )
 
     decision_admin = authorize(ADMIN_A, "view_document", resource_tenant_b)
     assert decision_admin.allowed is False
@@ -89,6 +104,7 @@ def test_cross_tenant_access_returns_404() -> None:
 
 
 # --- 3. Separation of Duties ---
+
 
 def test_separation_of_duties_submitter_cannot_approve() -> None:
     """The user who submitted a template version cannot approve it, even if they hold reviewer role."""
@@ -108,9 +124,12 @@ def test_separation_of_duties_submitter_cannot_approve() -> None:
 
 # --- 4. Drafter IDOR Isolation ---
 
+
 def test_drafter_cannot_access_other_drafters_document() -> None:
     """A drafter cannot view or edit a document owned by another drafter."""
-    doc_owned_by_a1 = Resource(tenant_id=TENANT_A, resource_type="document", owner_id=DRAFTER_A1.user_id)
+    doc_owned_by_a1 = Resource(
+        tenant_id=TENANT_A, resource_type="document", owner_id=DRAFTER_A1.user_id
+    )
 
     # Drafter 1 can view own document
     assert authorize(DRAFTER_A1, "view_document", doc_owned_by_a1).allowed is True
@@ -123,6 +142,7 @@ def test_drafter_cannot_access_other_drafters_document() -> None:
 
 # --- 5. Security & Password Tests ---
 
+
 def test_password_hashing_and_verification() -> None:
     """Verifies that password hashing produces valid hashes and verifies in constant time."""
     raw = "SecureLegalP@ssw0rd2026!"
@@ -132,6 +152,7 @@ def test_password_hashing_and_verification() -> None:
 
 
 # --- 6. API Login, Cookie & Throttling Integration Tests ---
+
 
 def test_login_success_sets_http_only_cookie() -> None:
     """Verifies successful login returns 200, CSRF token, and sets HttpOnly cookie."""
@@ -214,4 +235,3 @@ def test_csrf_protection_on_password_change() -> None:
     )
     assert success_res.status_code == 200
     assert success_res.json()["status"] == "ok"
-

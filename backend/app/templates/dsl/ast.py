@@ -5,29 +5,31 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Union
+from typing import Any
 
-ALLOWED_OPS = frozenset({
-    "eq",
-    "ne",
-    "gt",
-    "gte",
-    "lt",
-    "lte",
-    "and",
-    "or",
-    "not",
-    "in",
-    "contains",
-    "is_empty",
-    "count",
-    "any",
-    "all",
-    "add",
-    "sub",
-    "mul",
-    "div",
-})
+ALLOWED_OPS = frozenset(
+    {
+        "eq",
+        "ne",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "and",
+        "or",
+        "not",
+        "in",
+        "contains",
+        "is_empty",
+        "count",
+        "any",
+        "all",
+        "add",
+        "sub",
+        "mul",
+        "div",
+    }
+)
 
 
 class ASTNode(ABC):
@@ -72,7 +74,9 @@ class OpNode(ASTNode):
 
     def __post_init__(self) -> None:
         if self.op not in ALLOWED_OPS:
-            raise ValueError(f"Unknown or unauthorized operator: '{self.op}'. Allowed: {sorted(ALLOWED_OPS)}")
+            raise ValueError(
+                f"Unknown or unauthorized operator: '{self.op}'. Allowed: {sorted(ALLOWED_OPS)}"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {

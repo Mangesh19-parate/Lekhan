@@ -22,14 +22,16 @@ KRUTI_DEV_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-APPROVED_DEVANAGARI_FONTS = frozenset({
-    "noto serif devanagari",
-    "noto sans devanagari",
-    "mangal",
-    "aparajita",
-    "kokila",
-    "nirmala ui",
-})
+APPROVED_DEVANAGARI_FONTS = frozenset(
+    {
+        "noto serif devanagari",
+        "noto sans devanagari",
+        "mangal",
+        "aparajita",
+        "kokila",
+        "nirmala ui",
+    }
+)
 
 
 def audit_docx_fonts(docx_bytes: bytes) -> tuple[list[str], list[LintFinding]]:
@@ -57,16 +59,18 @@ def audit_docx_fonts(docx_bytes: bytes) -> tuple[list[str], list[LintFinding]]:
 
                                     # Check for prohibited Kruti Dev legacy fonts
                                     if KRUTI_DEV_PATTERN.search(font_name_clean):
-                                        findings.append(LintFinding(
-                                            code="LEGACY_FONT_KRUTI_FOUND",
-                                            severity=LintSeverity.ERROR,
-                                            message=(
-                                                f"Prohibited legacy Kruti font '{font_name_clean}' detected in '{info.filename}'. "
-                                                f"Approved templates must use canonical Unicode fonts (Noto Serif Devanagari / Mangal)."
-                                            ),
-                                            part=info.filename,
-                                            meta={"font": font_name_clean},
-                                        ))
+                                        findings.append(
+                                            LintFinding(
+                                                code="LEGACY_FONT_KRUTI_FOUND",
+                                                severity=LintSeverity.ERROR,
+                                                message=(
+                                                    f"Prohibited legacy Kruti font '{font_name_clean}' detected in '{info.filename}'. "
+                                                    f"Approved templates must use canonical Unicode fonts (Noto Serif Devanagari / Mangal)."
+                                                ),
+                                                part=info.filename,
+                                                meta={"font": font_name_clean},
+                                            )
+                                        )
 
                     except Exception:
                         pass
@@ -76,16 +80,15 @@ def audit_docx_fonts(docx_bytes: bytes) -> tuple[list[str], list[LintFinding]]:
 
     # Check for recommended Devanagari font presence if Devanagari text is expected
     sorted_fonts = sorted(found_fonts)
-    has_approved_devanagari = any(
-        f.lower() in APPROVED_DEVANAGARI_FONTS for f in sorted_fonts
-    )
+    has_approved_devanagari = any(f.lower() in APPROVED_DEVANAGARI_FONTS for f in sorted_fonts)
     if not has_approved_devanagari and sorted_fonts:
-        findings.append(LintFinding(
-            code="NO_APPROVED_DEVANAGARI_FONT",
-            severity=LintSeverity.WARNING,
-            message="No standard Devanagari font (Noto Serif Devanagari or Mangal) was found in font definitions.",
-            part="word/fontTable.xml",
-        ))
+        findings.append(
+            LintFinding(
+                code="NO_APPROVED_DEVANAGARI_FONT",
+                severity=LintSeverity.WARNING,
+                message="No standard Devanagari font (Noto Serif Devanagari or Mangal) was found in font definitions.",
+                part="word/fontTable.xml",
+            )
+        )
 
     return sorted_fonts, findings
-

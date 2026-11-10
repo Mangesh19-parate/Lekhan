@@ -10,7 +10,6 @@ Verifies:
 from __future__ import annotations
 
 import uuid
-import pytest
 
 from app.pilot.corrections import (
     CorrectionCategory,
@@ -71,6 +70,7 @@ def test_pilot_stats_target_achievement() -> None:
     assert result["corrections_resolved"] == 5
 
     from app.pilot.corrections import pilot_corrections_service
+
     stats = pilot_corrections_service.get_pilot_stats(PILOT_TENANT_ID, total_drafts=4)
 
     # PRD Target 1: Falling corrections under 5 per draft
@@ -87,4 +87,3 @@ def test_pilot_stats_target_achievement() -> None:
 
     # Top resolved corrections captured
     assert len(stats.top_corrections_resolved) > 0
-

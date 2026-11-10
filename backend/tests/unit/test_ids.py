@@ -27,4 +27,3 @@ def test_uuid7_time_ordering() -> None:
     # String / binary comparison must strictly preserve creation order
     sorted_ids = sorted(ids)
     assert ids == sorted_ids
-

@@ -7,6 +7,7 @@ compliance requirements, tax deductions, and registry checklists.
 from __future__ import annotations
 
 from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -22,4 +23,3 @@ class AdvisoryAlert(BaseModel):
     advice_mr: str
     statutory_ref: str
     action_needed: str | None = None
-

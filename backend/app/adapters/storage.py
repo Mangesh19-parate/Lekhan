@@ -8,7 +8,6 @@ Adheres strictly to AGENTS.md Hard Rule 9 & ARCHITECTURE.md Section 5:
 from __future__ import annotations
 
 import os
-import tempfile
 import uuid
 from pathlib import Path
 from typing import Protocol
@@ -99,4 +98,3 @@ class LocalObjectStore:
 
 # Global default storage singleton
 default_storage: ObjectStore = LocalObjectStore()
-
