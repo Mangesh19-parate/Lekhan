@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="mr-IN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lekhan - Gate 2 Pilot Drafter Dashboard</title>
+  <style>
+    :root {
+      --brand-900: #0f172a;
+      --brand-700: #1d4ed8;
+      --brand-600: #2563eb;
+      --brand-50: #eff6ff;
+      --surface-canvas: #f8fafc;
+      --surface-card: #ffffff;
+      --border-subtle: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --status-draft: #64748b;
+      --status-review: #d97706;
+      --status-approved: #16a34a;
+      --status-retired: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Nirmala UI", sans-serif;
+      background: var(--surface-canvas);
+      color: var(--text-main);
+      padding: 24px;
+    }
+    .header {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 20px; font-weight: 700; color: var(--brand-900); }
+    .header p { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+    .badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+      background: var(--brand-50);
+      color: var(--brand-700);
+    }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .stat-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+    .stat-value { font-size: 24px; font-weight: 700; margin-top: 8px; color: var(--brand-900); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 24px;
+    }
+    .card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 8px;
+    }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    textarea { resize: vertical; min-height: 60px; }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary { background: var(--brand-600); color: #fff; }
+    .btn-primary:hover { background: var(--brand-700); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
+    th { background: var(--surface-canvas); color: var(--text-muted); font-weight: 600; }
+    .chip {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .chip-logged { background: #fef3c7; color: #b45309; }
+    .chip-resolved { background: #dcfce7; color: #15803d; }
+    .chip-blocking { background: #fee2e2; color: #b91c1c; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>Gate 2 Pilot Feedback &amp; Corrections Log</h1>
+      <p>Tracking corrections from 2–3 drafters on live matters | Target: &lt; 5 corrections/draft</p>
+    </div>
+    <div>
+      <span class="badge">Gate 2 Active</span>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-title">Total Logged</div>
+      <div id="statTotal" class="stat-value">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Pending Triage</div>
+      <div id="statPending" class="stat-value">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Resolution Rate</div>
+      <div id="statRate" class="stat-value">100%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Avg Per Draft</div>
+      <div id="statAvg" class="stat-value">0.0</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Log Draft Correction</h2>
+        <form id="correctionForm" onsubmit="submitCorrection(event)">
+          <div class="form-group">
+            <label>Template</label>
+            <select id="templateSelect" required>
+              <option value="sale_deed_plot_mr">Sale Deed Plot (MR)</option>
+              <option value="agreement_to_sell_plot_mr">Agreement to Sell Plot (MR)</option>
+              <option value="sale_deed_flat_en">Sale Deed Flat (EN)</option>
+              <option value="sale_deed_flat_mr">Sale Deed Flat (MR)</option>
+              <option value="sale_deed_shop_mr">Sale Deed Shop (MR)</option>
+              <option value="sale_deed_agricultural_mr">Sale Deed Agricultural (MR)</option>
+              <option value="agreement_to_sell_flat_mr">Agreement to Sell Flat (MR)</option>
+              <option value="agreement_to_sell_flat_en">Agreement to Sell Flat (EN)</option>
+              <option value="general_poa_mr">General POA (MR)</option>
+              <option value="general_poa_en">General POA (EN)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Category</label>
+            <select id="categorySelect" required>
+              <option value="grammar">Grammar / Gender / Verb Agreement</option>
+              <option value="legal_clause">Legal Clause / Statutory Wording</option>
+              <option value="layout_spacing">Layout / Spacing / Line Breaks</option>
+              <option value="numbering">Numbering / Amount in Words</option>
+              <option value="missing_field">Missing Field / Blank</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Severity</label>
+            <select id="severitySelect" required>
+              <option value="cosmetic">Cosmetic (Spelling, spacing)</option>
+              <option value="minor" selected>Minor (Wording tweak, non-blocking)</option>
+              <option value="blocking">Blocking (Prevents registration / lawyer rejected)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Original Text (Optional)</label>
+            <input type="text" id="origText" placeholder="Generated draft wording">
+          </div>
+
+          <div class="form-group">
+            <label>Corrected Text (Optional)</label>
+            <input type="text" id="corrText" placeholder="Preferred lawyer wording">
+          </div>
+
+          <div class="form-group">
+            <label>Details / Description</label>
+            <textarea id="descText" required placeholder="Explain why this change is needed"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width:100%">Submit Correction</button>
+        </form>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Pilot Corrections Log (Triage &amp; Fixes)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Template</th>
+              <th>Category</th>
+              <th>Severity</th>
+              <th>Description</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="correctionsBody">
+            <tr><td colspan="6">Loading corrections...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/v1/pilot/stats');
+        if (!res.ok) return;
+        const s = await res.json();
+        document.getElementById('statTotal').textContent = s.total_logged;
+        document.getElementById('statPending').textContent = s.total_pending;
+        document.getElementById('statRate').textContent = s.resolution_rate_percent + '%';
+        document.getElementById('statAvg').textContent = s.avg_corrections_per_draft;
+      } catch (e) { console.error(e); }
+    }
+
+    async function loadCorrections() {
+      try {
+        const res = await fetch('/api/v1/pilot/corrections');
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('correctionsBody');
+        tbody.innerHTML = '';
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted)">No corrections logged yet. All drafts clean!</td></tr>';
+          return;
+        }
+
+        list.forEach(c => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><code>${c.template_id}</code></td>
+            <td>${c.category}</td>
+            <td><span class="chip chip-${c.severity}">${c.severity}</span></td>
+            <td>
+              <strong>${c.description}</strong>
+              ${c.corrected_text ? `<br><small style="color:#15803d">Target: ${c.corrected_text}</small>` : ''}
+              ${c.resolution_notes ? `<br><small style="color:#0284c7">Fix: ${c.resolution_notes}</small>` : ''}
+            </td>
+            <td><span class="chip chip-${c.status}">${c.status}</span></td>
+            <td>
+              ${c.status !== 'resolved' ? `<button class="btn" style="padding:4px 8px;font-size:11px;" onclick="resolveCorrection('${c.id}')">Resolve</button>` : '✓ Done'}
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    async function submitCorrection(e) {
+      e.preventDefault();
+      const payload = {
+        template_id: document.getElementById('templateSelect').value,
+        category: document.getElementById('categorySelect').value,
+        severity: document.getElementById('severitySelect').value,
+        original_text: document.getElementById('origText').value || null,
+        corrected_text: document.getElementById('corrText').value || null,
+        description: document.getElementById('descText').value,
+      };
+
+      try {
+        const res = await fetch('/api/v1/pilot/corrections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          document.getElementById('descText').value = '';
+          document.getElementById('origText').value = '';
+          document.getElementById('corrText').value = '';
+          await loadStats();
+          await loadCorrections();
+        }
+      } catch (e) { alert('Error logging correction: ' + e.message); }
+    }
+
+    async function resolveCorrection(id) {
+      const notes = prompt('Enter resolution notes / fix details:');
+      if (!notes) return;
+      try {
+        const res = await fetch(`/api/v1/pilot/corrections/${id}/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resolution_notes: notes })
+        });
+        if (res.ok) {
+          await loadStats();
+          await loadCorrections();
+        }
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    loadStats();
+    loadCorrections();
+  </script>
+</body>
+</html>
+

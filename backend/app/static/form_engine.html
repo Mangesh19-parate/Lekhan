@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lekhan | लेखन - Schema-Driven Form Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* DESIGN.md Tokens for Lekhan */
+    :root {
+      --brand-600: #006241;
+      --brand-500: #00754A;
+      --brand-900: #1E3932;
+      --brand-800: #2B5148;
+      --brand-100: #D4E9E2;
+      --approved-500: #CBA258;
+      --approved-100: #FAF6EE;
+      --surface-canvas: #F2F0EB;
+      --surface-sunken: #EDEBE9;
+      --surface-card: #FFFFFF;
+      --surface-quiet: #F9F9F9;
+      --text-primary: rgba(0, 0, 0, 0.87);
+      --text-secondary: rgba(0, 0, 0, 0.58);
+      --text-on-dark: #FFFFFF;
+      --danger-600: #C82014;
+      --danger-tint: rgba(200, 32, 20, 0.05);
+      --warning-500: #FBBC05;
+      --line-subtle: rgba(0, 0, 0, 0.12);
+      --focus-ring: 0 0 0 3px rgba(0, 117, 74, 0.35);
+      --radius-input: 8px;
+      --radius-card: 12px;
+      --radius-pill: 50px;
+      --shadow-card: 0 0 0.5px rgba(0,0,0,.14), 0 1px 1px rgba(0,0,0,.24);
+      --shadow-dialog: 0 8px 12px rgba(0,0,0,.14), 0 0 6px rgba(0,0,0,.24);
+      --font-ui: "Inter", "Noto Sans Devanagari", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font-ui);
+      background-color: var(--surface-canvas);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :lang(mr) { letter-spacing: 0; line-height: 1.65; }
+
+    /* Layout */
+    .top-bar {
+      background-color: var(--brand-900);
+      color: var(--text-on-dark);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--approved-500);
+      color: #12241f;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+    }
+    .lang-switcher {
+      display: flex;
+      gap: 6px;
+      background: rgba(255,255,255,0.1);
+      padding: 3px;
+      border-radius: var(--radius-pill);
+    }
+    .lang-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-on-dark);
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .lang-btn.active {
+      background: var(--brand-500);
+      color: #ffffff;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 24px auto 80px auto;
+      padding: 0 16px;
+    }
+
+    /* Template Switcher */
+    .template-selector-card {
+      background: var(--surface-card);
+      border-radius: var(--radius-card);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--line-subtle);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .select-dropdown {
+      padding: 8px 12px;
+      border-radius: var(--radius-input);
+      border: 1px solid var(--line-subtle);
+      font-size: 14px;
+      font-family: inherit;
+      background: #ffffff;
+      outline: none;
+    }
+
+    /* Disclaimer */
+    .disclaimer-banner {
+      background: var(--surface-sunken);
+      border-left: 4px solid var(--brand-500);
+      padding: 12px 16px;
+      border-radius: var(--radius-card);
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* Sections */
+    .form-card {
+      background: var(--surface-card);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--line-subtle);
+      box-shadow: var(--shadow-card);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--brand-600);
+      margin: 0 0 16px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line-subtle);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 640px) {
+      .form-grid { grid-template-columns: 1fr; }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .form-input {
+      height: 40px;
+      padding: 8px 12px;
+      font-size: 14px;
+      border-radius: var(--radius-input);
+      border: 1px solid var(--line-subtle);
+      background: #ffffff;
+      outline: none;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .form-input:focus {
+      border-color: var(--brand-500);
+      box-shadow: var(--focus-ring);
+    }
+
+    /* Live Amount in words */
+    .amount-words-pill {
+      margin-top: 4px;
+      background: var(--brand-100);
+      border: 1px solid rgba(0, 117, 74, 0.2);
+      border-radius: var(--radius-input);
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--brand-800);
+      font-weight: 600;
+    }
+
+    /* Derived Value Banner */
+    .derived-row {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+    .derived-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--brand-600);
+    }
+
+    /* Repeater Table */
+    .repeater-card {
+      background: var(--surface-quiet);
+      border: 1px solid var(--line-subtle);
+      border-radius: var(--radius-input);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .repeater-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--brand-800);
+    }
+    .btn-pill {
+      height: 34px;
+      padding: 0 16px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--brand-500);
+      background: transparent;
+      color: var(--brand-500);
+      transition: all 0.2s;
+    }
+    .btn-pill:hover { background: var(--brand-100); }
+    .btn-remove {
+      color: var(--danger-600);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Sticky Bottom Action Bar */
+    .bottom-bar {
+      position: sticky;
+      bottom: 20px;
+      background: var(--brand-900);
+      color: #ffffff;
+      padding: 14px 20px;
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-dialog);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 40;
+    }
+    .btn-primary {
+      height: 42px;
+      padding: 0 24px;
+      border-radius: var(--radius-pill);
+      background: var(--brand-500);
+      color: #ffffff;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary:hover { background: #008f5a; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Notification Box */
+    .notification-box {
+      display: none;
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: var(--radius-card);
+      background: var(--surface-card);
+      border: 1px solid var(--line-subtle);
+      box-shadow: var(--shadow-card);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar per DESIGN.md §3 -->
+  <header class="top-bar">
+    <div class="brand-title">
+      <span>LEKHAN | लेखन</span>
+      <span class="brand-badge" id="appRoleBadge">Advocate Portal</span>
+    </div>
+    <div class="lang-switcher">
+      <button class="lang-btn active" id="btnLangMr" onclick="setLanguage('mr')">मराठी</button>
+      <button class="lang-btn" id="btnLangEn" onclick="setLanguage('en')">English</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Template Selector -->
+    <div class="template-selector-card">
+      <div>
+        <strong id="lblTemplateSelect">साचा निवडा (Select Deed Template):</strong>
+        <div style="font-size: 12px; color: var(--text-secondary);" id="lblTemplateDesc">महाराष्ट्र मुद्रांक अधिनियम व कायदेशीर साचे</div>
+      </div>
+      <select id="templateSelect" class="select-dropdown" onchange="switchTemplate()">
+        <option value="sale_deed_plot_mr">खरेदीखत - भूखंड (Sale Deed Plot - NIT/NMC)</option>
+        <option value="agreement_to_sell_plot_mr">साठेखत / इसारपावती (Agreement to Sell Plot)</option>
+      </select>
+    </div>
+
+    <!-- Legal Disclaimer per DESIGN.md §4.5 -->
+    <div class="disclaimer-banner">
+      <strong id="lblDisclaimerTitle">वैधानिक सूचना:</strong>
+      <span id="lblDisclaimerText">हा संगणकीय मसुदा आहे. दस्त निष्पादन किंवा नोंदणी करण्यापूर्वी पात्र विधीज्ञांकडून (Advocate) कायदेशीर तपासणी करून घेणे आवश्यक आहे.</span>
+    </div>
+
+    <form id="draftingForm" onsubmit="handleGenerate(event)">
+
+      <!-- Section: Property Schedule -->
+      <div class="form-card">
+        <h2 class="section-title" id="secPropertyTitle">मिळकतीचे वर्णन (Property Schedule)</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" id="lblMouza">मौजे (Mouza) *</label>
+            <input type="text" id="prop_mouza" class="form-input" value="सोनेगाव" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" id="lblKhasra">खसरा क्र. (Khasra No.) *</label>
+            <input type="text" id="prop_khasra" class="form-input" value="४५/२" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" id="lblPlotNo">भूखंड क्र. (Plot No.) *</label>
+            <input type="text" id="prop_plot" class="form-input" value="१२" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" id="lblAreaSqm">क्षेत्रफळ चौ.मी. (Area in Sq. Mtrs.) *</label>
+            <input type="number" id="prop_area_sqm" class="form-input" value="150" step="0.01" oninput="updateCalculations()" required>
+          </div>
+        </div>
+
+        <div class="derived-row">
+          <span style="color: var(--text-secondary);" id="lblEquivalentArea">समकक्ष क्षेत्रफळ (Derived Equivalent Area):</span>
+          <span class="derived-val" id="dispAreaSqft">1614.59 चौ. फूट (Sq. Ft.)</span>
+        </div>
+      </div>
+
+      <!-- Section: Financial Consideration -->
+      <div class="form-card">
+        <h2 class="section-title" id="secFinancialTitle">मोबदला व देय रक्कम (Financial Consideration)</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" id="lblTotalConsideration">एकूण ठरलेला मोबदला (Total Consideration Rs.) *</label>
+            <input type="number" id="fin_total" class="form-input" value="2500000" oninput="updateCalculations()" required>
+            <div class="amount-words-pill" id="dispTotalWords">पंधरा लाख रुपये फक्त</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" id="lblEarnestAdvance">इसार / आगाऊ दिलेली रक्कम (Earnest Money Rs.) *</label>
+            <input type="number" id="fin_advance" class="form-input" value="500000" oninput="updateCalculations()" required>
+            <div class="amount-words-pill" id="dispAdvanceWords">पाच लाख रुपये फक्त</div>
+          </div>
+        </div>
+
+        <div class="derived-row">
+          <span style="color: var(--text-secondary);" id="lblBalanceDue">देय शिल्लक मोबदला (Balance Due):</span>
+          <span class="derived-val" id="dispBalance">₹ 20,00,000/-</span>
+        </div>
+        <div class="amount-words-pill" id="dispBalanceWords" style="margin-top: 8px;">वीस लाख रुपये फक्त</div>
+      </div>
+
+      <!-- Section: Repeating Parties (Sellers & Purchasers) -->
+      <div class="form-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 class="section-title" style="margin: 0; border: none;" id="secSellersTitle">विक्रेते (Sellers / लिहून देणार)</h2>
+          <button type="button" class="btn-pill" onclick="addSeller()">+ नवीन जोडा (Add)</button>
+        </div>
+        <div id="sellersContainer"></div>
+      </div>
+
+      <div class="form-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 class="section-title" style="margin: 0; border: none;" id="secPurchasersTitle">खरेदीदार (Purchasers / लिहून घेणार)</h2>
+          <button type="button" class="btn-pill" onclick="addPurchaser()">+ नवीन जोडा (Add)</button>
+        </div>
+        <div id="purchasersContainer"></div>
+      </div>
+
+      <!-- Sticky Submission Bar per DESIGN.md §4.1 -->
+      <div class="bottom-bar">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;" id="lblSelectedDoc">खरेदीखत (Sale Deed - Plot)</div>
+          <div style="font-size: 11px; opacity: 0.7;">Legal Paper • FSM Generation Pipeline</div>
+        </div>
+        <button type="submit" id="btnSubmit" class="btn-primary">
+          <span>दस्त तयार करा (Generate DOCX)</span>
+        </button>
+      </div>
+
+    </form>
+
+    <!-- Generation Status Notification -->
+    <div id="resultBox" class="notification-box">
+      <h3 style="margin-top: 0; color: var(--brand-600);" id="lblResultTitle">दस्त निर्मिती प्रगतीपथावर (Generating...)</h3>
+      <p id="resultMessage" style="font-size: 14px; color: var(--text-secondary);">पायपलाइन प्रक्रिया सुरू आहे...</p>
+      <div id="downloadContainer" style="margin-top: 12px; display: none;">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <a id="downloadLink" href="#" class="btn-primary" style="text-decoration: none; display: inline-flex;">
+            ⬇️ DOCX डाउनलोड करा (Download)
+          </a>
+          <button type="button" id="btnCopyPde" onclick="copyPdeSheet()" class="btn-pill" style="height: 40px; border-color: var(--brand-600); color: var(--brand-600);">
+            📋 पॉर्टल डेटा शीट कॉपी करा (Copy PDE Sheet)
+          </button>
+        </div>
+        <div id="pdeToast" style="display: none; color: #15803d; font-size: 13px; font-weight: 600; margin-top: 8px;">
+          ✓ Sub-Registrar / PDE डेटा क्लिपबोर्डवर यशस्वीरित्या कॉपी झाला!
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let currentLang = "mr";
+
+    const sellers = [
+      { name: "रमेश विठ्ठलराव पाटील", age: 48, occ: "शेती व व्यवसाय", addr: "प्लॉट क्र. २२, त्रिमूर्ती नगर, नागपूर", pan: "ABCDE1234F" }
+    ];
+
+    const purchasers = [
+      { name: "सुनीता गजानन जोशी", age: 42, occ: "घरकाम", addr: "फ्लॅट क्र. ४०२, गोकुळ हाइट्स, सोनेगाव, नागपूर", pan: "XYZPQ9876K" }
+    ];
+
+    function renderRepeaters() {
+      // Sellers
+      const sBox = document.getElementById("sellersContainer");
+      sBox.innerHTML = "";
+      sellers.forEach((s, idx) => {
+        sBox.innerHTML += `
+          <div class="repeater-card">
+            <div class="repeater-header">
+              <span>विक्रेता #${idx + 1}</span>
+              ${sellers.length > 1 ? `<button type="button" class="btn-remove" onclick="removeSeller(${idx})">काढून टाका (Remove)</button>` : ""}
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">पूर्ण नाव (Full Name)</label>
+                <input type="text" class="form-input" value="${s.name}" onchange="sellers[${idx}].name=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">पॅन (PAN)</label>
+                <input type="text" class="form-input" value="${s.pan}" onchange="sellers[${idx}].pan=this.value">
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label class="form-label">पत्ता (Address)</label>
+                <input type="text" class="form-input" value="${s.addr}" onchange="sellers[${idx}].addr=this.value">
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      // Purchasers
+      const pBox = document.getElementById("purchasersContainer");
+      pBox.innerHTML = "";
+      purchasers.forEach((p, idx) => {
+        pBox.innerHTML += `
+          <div class="repeater-card">
+            <div class="repeater-header">
+              <span>खरेदीदार #${idx + 1}</span>
+              ${purchasers.length > 1 ? `<button type="button" class="btn-remove" onclick="removePurchaser(${idx})">काढून टाका (Remove)</button>` : ""}
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">पूर्ण नाव (Full Name)</label>
+                <input type="text" class="form-input" value="${p.name}" onchange="purchasers[${idx}].name=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">पॅन (PAN)</label>
+                <input type="text" class="form-input" value="${p.pan}" onchange="purchasers[${idx}].pan=this.value">
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label class="form-label">पत्ता (Address)</label>
+                <input type="text" class="form-input" value="${p.addr}" onchange="purchasers[${idx}].addr=this.value">
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function addSeller() {
+      if (sellers.length < 4) {
+        sellers.push({ name: "", age: 30, occ: "व्यवसाय", addr: "नागपूर", pan: "" });
+        renderRepeaters();
+      }
+    }
+
+    function removeSeller(idx) {
+      if (sellers.length > 1) {
+        sellers.splice(idx, 1);
+        renderRepeaters();
+      }
+    }
+
+    function addPurchaser() {
+      if (purchasers.length < 4) {
+        purchasers.push({ name: "", age: 30, occ: "व्यवसाय", addr: "नागपूर", pan: "" });
+        renderRepeaters();
+      }
+    }
+
+    function removePurchaser(idx) {
+      if (purchasers.length > 1) {
+        purchasers.splice(idx, 1);
+        renderRepeaters();
+      }
+    }
+
+    // Number to words helper (Indian Numbering)
+    function toWords(num, lang) {
+      if (!num || num <= 0) return lang === "mr" ? "शून्य रुपये फक्त" : "Rupees Zero Only";
+      let n = Math.floor(num);
+      const cr = Math.floor(n / 10000000); n %= 10000000;
+      const lk = Math.floor(n / 100000); n %= 100000;
+      const th = Math.floor(n / 1000); n %= 1000;
+      const hd = Math.floor(n / 100); n %= 100;
+
+      if (lang === "mr") {
+        let res = [];
+        if (cr > 0) res.push(cr + " कोटी");
+        if (lk > 0) res.push(lk + " लाख");
+        if (th > 0) res.push(th + " हजार");
+        if (hd > 0) res.push(hd + "शे");
+        if (n > 0) res.push(n);
+        return res.join(" ") + " रुपये फक्त";
+      } else {
+        let res = [];
+        if (cr > 0) res.push(cr + " Crore");
+        if (lk > 0) res.push(lk + " Lakh");
+        if (th > 0) res.push(th + " Thousand");
+        if (hd > 0) res.push(hd + " Hundred");
+        if (n > 0) res.push(n);
+        return "Rupees " + res.join(" ") + " Only";
+      }
+    }
+
+    function updateCalculations() {
+      const areaSqm = parseFloat(document.getElementById("prop_area_sqm").value) || 0;
+      const areaSqft = (areaSqm * 10.7639104).toFixed(2);
+      document.getElementById("dispAreaSqft").textContent = areaSqft + (currentLang === "mr" ? " चौ. फूट (Sq. Ft.)" : " Sq. Ft.");
+
+      const total = parseFloat(document.getElementById("fin_total").value) || 0;
+      const advance = parseFloat(document.getElementById("fin_advance").value) || 0;
+      const balance = Math.max(0, total - advance);
+
+      document.getElementById("dispTotalWords").textContent = toWords(total, currentLang);
+      document.getElementById("dispAdvanceWords").textContent = toWords(advance, currentLang);
+      document.getElementById("dispBalance").textContent = "₹ " + balance.toLocaleString("en-IN") + "/-";
+      document.getElementById("dispBalanceWords").textContent = toWords(balance, currentLang);
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      document.getElementById("btnLangMr").className = "lang-btn" + (lang === "mr" ? " active" : "");
+      document.getElementById("btnLangEn").className = "lang-btn" + (lang === "en" ? " active" : "");
+      document.documentElement.lang = lang;
+
+      if (lang === "en") {
+        document.getElementById("lblTemplateSelect").textContent = "Select Deed Template:";
+        document.getElementById("lblDisclaimerTitle").textContent = "Official Notice:";
+        document.getElementById("lblDisclaimerText").textContent = "Generated draft deed. Must be reviewed and approved by a qualified legal professional before execution or registration.";
+        document.getElementById("secPropertyTitle").textContent = "Property Schedule";
+        document.getElementById("secFinancialTitle").textContent = "Financial Consideration & Terms";
+        document.getElementById("secSellersTitle").textContent = "Sellers";
+        document.getElementById("secPurchasersTitle").textContent = "Purchasers";
+        document.getElementById("btnSubmit").innerHTML = "<span>Generate Document (DOCX)</span>";
+      } else {
+        document.getElementById("lblTemplateSelect").textContent = "साचा निवडा (Select Deed Template):";
+        document.getElementById("lblDisclaimerTitle").textContent = "वैधानिक सूचना:";
+        document.getElementById("lblDisclaimerText").textContent = "हा संगणकीय मसुदा आहे. दस्त निष्पादन किंवा नोंदणी करण्यापूर्वी पात्र विधीज्ञांकडून (Advocate) कायदेशीर तपासणी करून घेणे आवश्यक आहे.";
+        document.getElementById("secPropertyTitle").textContent = "मिळकतीचे वर्णन (Property Schedule)";
+        document.getElementById("secFinancialTitle").textContent = "मोबदला व देय रक्कम (Financial Consideration)";
+        document.getElementById("secSellersTitle").textContent = "विक्रेते (Sellers)";
+        document.getElementById("secPurchasersTitle").textContent = "खरेदीदार (Purchasers)";
+        document.getElementById("btnSubmit").innerHTML = "<span>दस्त तयार करा (Generate DOCX)</span>";
+      }
+      updateCalculations();
+      renderRepeaters();
+    }
+
+    function switchTemplate() {
+      const val = document.getElementById("templateSelect").value;
+      if (val === "agreement_to_sell_plot_mr") {
+        document.getElementById("lblSelectedDoc").textContent = currentLang === "mr" ? "साठेखत / इसारपावती (Agreement to Sell)" : "Agreement to Sell (Plot)";
+      } else {
+        document.getElementById("lblSelectedDoc").textContent = currentLang === "mr" ? "खरेदीखत (Sale Deed - Plot)" : "Sale Deed (Plot in Layout)";
+      }
+    }
+
+    async function handleGenerate(e) {
+      e.preventDefault();
+      const btn = document.getElementById("btnSubmit");
+      const box = document.getElementById("resultBox");
+      const msg = document.getElementById("resultMessage");
+      const dlContainer = document.getElementById("downloadContainer");
+      const dlLink = document.getElementById("downloadLink");
+
+      btn.disabled = true;
+      box.style.display = "block";
+      msg.textContent = currentLang === "mr" ? "पायपलाइन सुरू होत आहे (FSM: REQUESTED -> VALIDATED)..." : "Pipeline started (FSM: REQUESTED -> VALIDATED)...";
+      dlContainer.style.display = "none";
+
+      const payload = {
+        execution_date: currentLang === "mr" ? "०९ नोव्हेंबर २०२६" : "09 November 2026",
+        sellers: sellers.map(s => ({
+          full_name: s.name,
+          gender: "male",
+          age: s.age || 40,
+          occupation: s.occ || "व्यवसाय",
+          address: s.addr,
+          pan: s.pan || "ABCDE1234F"
+        })),
+        purchasers: purchasers.map(p => ({
+          full_name: p.name,
+          gender: "female",
+          age: p.age || 38,
+          occupation: p.occ || "घरकाम",
+          address: p.addr,
+          pan: p.pan || "XYZPQ9876K"
+        })),
+        property_details: {
+          mouza: document.getElementById("prop_mouza").value,
+          khasra_no: document.getElementById("prop_khasra").value,
+          plot_no: document.getElementById("prop_plot").value,
+          layout_name: "शिवकृपा लेआउट",
+          sheet_no: "१४",
+          area_sqm: parseFloat(document.getElementById("prop_area_sqm").value)
+        },
+        boundaries: {
+          east: "रस्ता",
+          west: "प्लॉट क्र. १३",
+          north: "मोकळी जागा",
+          south: "प्लॉट क्र. ११"
+        },
+        financial: {
+          total_consideration: parseFloat(document.getElementById("fin_total").value),
+          earnest_advance: parseFloat(document.getElementById("fin_advance").value)
+        }
+      };
+
+      try {
+        const resp = await fetch("/api/v1/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) {
+          throw new Error("HTTP error " + resp.status);
+        }
+
+        const data = await resp.json();
+        window._lastDocId = data.id;
+        msg.textContent = (currentLang === "mr" ? "दस्त यशस्वीरित्या तयार झाला! ID: " : "Document generated successfully! ID: ") + data.id;
+        dlLink.href = data.download_url;
+        dlContainer.style.display = "block";
+      } catch (err) {
+        msg.textContent = (currentLang === "mr" ? "त्रुटी आली: " : "Error occurred: ") + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function copyPdeSheet() {
+      if (!window._lastDocId) return;
+      try {
+        const resp = await fetch("/api/v1/portal/sheet/" + window._lastDocId);
+        if (!resp.ok) throw new Error("Failed to fetch portal sheet");
+        const txt = await resp.text();
+        await navigator.clipboard.writeText(txt);
+        const toast = document.getElementById("pdeToast");
+        if (toast) {
+          toast.style.display = "block";
+          setTimeout(() => { toast.style.display = "none"; }, 4000);
+        }
+      } catch (e) {
+        alert("Copy error: " + e.message);
+      }
+    }
+
+    // Rapid keyboard navigation: Ctrl+Enter / Cmd+Enter submits
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const f = document.getElementById("draftingForm");
+        if (f) f.requestSubmit();
+      }
+    });
+
+    // Initial render
+    renderRepeaters();
+    updateCalculations();
+  </script>
+</body>
+</html>
+

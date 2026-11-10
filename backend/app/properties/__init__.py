@@ -1,0 +1,2 @@
+"""Properties domain module."""
+

@@ -1,0 +1,26 @@
+[importlinter]
+root_package = app
+
+[importlinter:contract:domain-isolation]
+name = Domain layer must not import FastAPI or SQLAlchemy
+type = forbidden
+source_modules =
+    app.lang_packs
+    app.units
+    app.templates
+forbidden_modules =
+    fastapi
+    starlette
+    sqlalchemy
+    app.adapters
+
+[importlinter:contract:layers]
+name = Architectural layer boundaries
+type = layers
+layers =
+    app.main
+    app.shared.middleware
+    app.adapters
+    app.shared.models
+    app.shared.ids
+

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>लेखन (Lekhan) - दस्तऐवज निर्मिती (Week 7 Milestone)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand-600: #006241;
+      --brand-500: #00754A;
+      --brand-900: #1E3932;
+      --brand-100: #D4E9E2;
+      --approved-500: #CBA258;
+      --surface-canvas: #F2F0EB;
+      --surface-card: #FFFFFF;
+      --text-primary: rgba(0,0,0,0.87);
+      --text-secondary: rgba(0,0,0,0.58);
+      --line-subtle: rgba(0,0,0,0.12);
+      --font-ui: "Inter", "Noto Sans Devanagari", sans-serif;
+    }
+    body {
+      margin: 0;
+      background-color: var(--surface-canvas);
+      font-family: var(--font-ui);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+    header {
+      background-color: var(--brand-900);
+      color: #FFFFFF;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      max-width: 860px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    .card {
+      background: var(--surface-card);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid var(--line-subtle);
+    }
+    h2 {
+      margin-top: 0;
+      color: var(--brand-600);
+      font-size: 1.25rem;
+      border-bottom: 1px solid var(--line-subtle);
+      padding-bottom: 0.5rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--line-subtle);
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 3px rgba(0,117,74,0.2);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .amount-words {
+      color: var(--brand-600);
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-top: 0.25rem;
+    }
+    button.btn-primary {
+      background-color: var(--brand-500);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 0.75rem 2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: transform 80ms ease;
+    }
+    button.btn-primary:active {
+      transform: scale(0.98);
+    }
+    .pipeline-status {
+      display: none;
+      background: var(--brand-100);
+      border: 1px solid var(--brand-500);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      text-align: center;
+      font-weight: 600;
+    }
+    .disclaimer {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>लेखन (Lekhan)</strong> | Nagpur Legal Documentation</div>
+    <div style="font-size:0.875rem;">Week 7 Milestone: Generation FSM &amp; Registry</div>
+  </header>
+
+  <div class="container">
+    <div class="card" style="border-left: 4px solid var(--approved-500);">
+      <strong>दस्त प्रकार:</strong> खरेदीखत (भूखंड - ना.सु.प्र./ना.म.पा. लेआउट) | 
+      <strong>पाईपलाईन FSM:</strong> REQUESTED &rarr; VALIDATED &rarr; RENDERED &rarr; VERIFIED &rarr; STORED &rarr; COMPLETED
+    </div>
+
+    <form id="spikeForm" onsubmit="generateDeed(event)">
+      <!-- Parties: Sellers -->
+      <div class="card">
+        <h2>१. विक्रेता पक्षकार (Sellers - 1 to 4)</h2>
+        <div id="sellersContainer">
+          <div class="seller-row" style="margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px dashed #eee;">
+            <div class="grid-2">
+              <div class="form-group">
+                <label>पूर्ण नाव (मराठीत):</label>
+                <input type="text" name="seller_name" value="श्री. रमेश विठ्ठलराव पाटील" required>
+              </div>
+              <div class="grid-2">
+                <div class="form-group">
+                  <label>वय:</label>
+                  <input type="number" name="seller_age" value="45" required>
+                </div>
+                <div class="form-group">
+                  <label>पॅन (Synthetic):</label>
+                  <input type="text" name="seller_pan" value="ABCDE1234F" required>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>पत्ता:</label>
+              <input type="text" name="seller_address" value="प्लॉट क्र. २२, त्रिमूर्ती नगर, नागपूर" required>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parties: Purchasers -->
+      <div class="card">
+        <h2>२. खरेदीदार पक्षकार (Purchasers - 1 to 4)</h2>
+        <div id="purchasersContainer">
+          <div class="purchaser-row">
+            <div class="grid-2">
+              <div class="form-group">
+                <label>पूर्ण नाव (मराठीत):</label>
+                <input type="text" name="purchaser_name" value="सौ. सुनीता गजानन जोशी" required>
+              </div>
+              <div class="grid-2">
+                <div class="form-group">
+                  <label>वय:</label>
+                  <input type="number" name="purchaser_age" value="42" required>
+                </div>
+                <div class="form-group">
+                  <label>पॅन (Synthetic):</label>
+                  <input type="text" name="purchaser_pan" value="XYZPQ9876K" required>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>पत्ता:</label>
+              <input type="text" name="purchaser_address" value="फ्लॅट क्र. ४०२, गोकुळ हाइट्स, सोनेगाव, नागपूर" required>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Property Details -->
+      <div class="card">
+        <h2>३. मिळकतीचा तपशील (Property Details)</h2>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>मौजे (गाव):</label>
+            <input type="text" id="mouza" value="सोनेगाव" required>
+          </div>
+          <div class="form-group">
+            <label>खसरा क्र.:</label>
+            <input type="text" id="khasra_no" value="४५/२" required>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>भूखंड क्र. (Plot No):</label>
+            <input type="text" id="plot_no" value="१२" required>
+          </div>
+          <div class="form-group">
+            <label>लेआउटचे नाव:</label>
+            <input type="text" id="layout_name" value="शिवकृपा लेआउट (ना.सु.प्र. मंजूर)" required>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>नगर भूमापन पत्रक (Sheet No):</label>
+            <input type="text" id="sheet_no" value="१४" required>
+          </div>
+          <div class="form-group">
+            <label>क्षेत्रफळ (चौ. मी.):</label>
+            <input type="number" step="0.01" id="area_sqm" value="150.00" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boundaries -->
+      <div class="card">
+        <h2>४. चतुःसीमा (Four Boundaries)</h2>
+        <div class="grid-4">
+          <div class="form-group">
+            <label>पूर्व:</label>
+            <input type="text" id="b_east" value="९.०० मी. रुंद रस्ता" required>
+          </div>
+          <div class="form-group">
+            <label>पश्चिम:</label>
+            <input type="text" id="b_west" value="भूखंड क्र. १३" required>
+          </div>
+          <div class="form-group">
+            <label>उत्तर:</label>
+            <input type="text" id="b_north" value="लेआउट खुली जागा" required>
+          </div>
+          <div class="form-group">
+            <label>दक्षिण:</label>
+            <input type="text" id="b_south" value="भूखंड क्र. ११" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- Consideration -->
+      <div class="card">
+        <h2>५. मोबदला (Financial Consideration)</h2>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>एकूण मोबदला रक्कम (रु.):</label>
+            <input type="number" id="total_amount" value="1550000" oninput="updateWords()" required>
+            <div id="words_display" class="amount-words">पंधरा लाख पन्नास हजार रुपये फक्त</div>
+          </div>
+          <div class="form-group">
+            <label>इसार रक्कम (रु.):</label>
+            <input type="number" id="earnest_amount" value="200000" required>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn-primary">खरेदीखत तयार करा (Generate via Pipeline FSM)</button>
+      
+      <div id="pipelineStatus" class="pipeline-status">
+        <div id="statusText">दस्तऐवज निर्मिती सुरु आहे...</div>
+        <div id="downloadArea" style="margin-top:0.5rem;"></div>
+      </div>
+
+      <div class="disclaimer">
+        टीप: सदर प्रणाली केवळ कायदेशीर मसुदा (Draft) तयार करते. नोंदणीपूर्वी विधीज्ञांची मान्यता आवश्यक आहे.
+      </div>
+    </form>
+  </div>
+
+  <script>
+    async function updateWords() {
+      const val = parseInt(document.getElementById('total_amount').value) || 0;
+      if (val > 0) {
+        try {
+          const res = await fetch(`/api/v1/helpers/amount-to-words?amount=${val}`);
+          const data = await res.json();
+          document.getElementById('words_display').innerText = data.words_mr;
+        } catch(e) {}
+      }
+    }
+
+    async function ensureLogin() {
+      // Automatic login for drafter if not already authenticated
+      try {
+        await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'drafter@lekhan.local', password: 'ValidPassword123!' })
+        });
+      } catch(e) {}
+    }
+
+    async function generateDeed(e) {
+      e.preventDefault();
+      await ensureLogin();
+
+      const btn = document.getElementById('submitBtn');
+      const statusBox = document.getElementById('pipelineStatus');
+      const statusText = document.getElementById('statusText');
+      const downloadArea = document.getElementById('downloadArea');
+
+      btn.disabled = true;
+      btn.innerText = 'प्रक्रिया सुरु आहे...';
+      statusBox.style.display = 'block';
+      statusText.innerText = 'State: VALIDATED -> RENDERED -> VERIFIED...';
+
+      const payload = {
+        execution_date: "०९ नोव्हेंबर २०२६",
+        sellers: [{
+          full_name: document.querySelector('[name="seller_name"]').value,
+          gender: "male",
+          age: parseInt(document.querySelector('[name="seller_age"]').value),
+          occupation: "नोकरी",
+          address: document.querySelector('[name="seller_address"]').value,
+          pan: document.querySelector('[name="seller_pan"]').value
+        }],
+        purchasers: [{
+          full_name: document.querySelector('[name="purchaser_name"]').value,
+          gender: "female",
+          age: parseInt(document.querySelector('[name="purchaser_age"]').value),
+          occupation: "घरकाम",
+          address: document.querySelector('[name="purchaser_address"]').value,
+          pan: document.querySelector('[name="purchaser_pan"]').value
+        }],
+        property_details: {
+          mouza: document.getElementById('mouza').value,
+          khasra_no: document.getElementById('khasra_no').value,
+          plot_no: document.getElementById('plot_no').value,
+          layout_name: document.getElementById('layout_name').value,
+          sheet_no: document.getElementById('sheet_no').value,
+          area_sqm: parseFloat(document.getElementById('area_sqm').value)
+        },
+        boundaries: {
+          east: document.getElementById('b_east').value,
+          west: document.getElementById('b_west').value,
+          north: document.getElementById('b_north').value,
+          south: document.getElementById('b_south').value
+        },
+        financial: {
+          total_consideration: parseFloat(document.getElementById('total_amount').value),
+          earnest_advance: parseFloat(document.getElementById('earnest_amount').value),
+          instalments: [{
+            amount: parseFloat(document.getElementById('total_amount').value) - parseFloat(document.getElementById('earnest_amount').value),
+            mode: "rtgs",
+            ref_no: "RTGS987654321",
+            bank_name: "स्टेट बँक ऑफ इंडिया",
+            date_str: "09/11/2026"
+          }]
+        },
+        witness_1: "१) श्री. विजय एकनाथ जोशी, रा. नागपूर",
+        witness_2: "२) श्री. सचिन मनोहर देशमुख, रा. नागपूर"
+      };
+
+      try {
+        const idempotencyKey = "IDEM-" + Date.now();
+        const res = await fetch('/api/v1/documents', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          statusText.innerText = `स्टेटस: ${data.state} (दस्तऐवज यशस्वीरित्या तयार झाला!)`;
+          downloadArea.innerHTML = `
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+              <a href="${data.download_url}" style="padding:8px 14px; background:var(--brand-600); color:#fff; border-radius:4px; text-decoration:none; font-weight:600; font-size:13px;">खरेदीखत DOCX डाउनलोड करा</a>
+              ${data.pdf_url ? `<a href="${data.pdf_url}" target="_blank" style="padding:8px 14px; background:#475569; color:#fff; border-radius:4px; text-decoration:none; font-weight:600; font-size:13px;">PDF प्रत (View PDF)</a>` : ''}
+              <button type="button" onclick="copyPortalSheet('${data.id}')" style="padding:8px 14px; background:#0284c7; color:#fff; border:none; border-radius:4px; font-weight:600; font-size:13px; cursor:pointer;">पॉर्टल डेटा शीट कॉपी करा (Copy PDE Sheet)</button>
+            </div>
+            <div id="copyToast" style="display:none; color:#15803d; font-size:12px; margin-top:6px; font-weight:600;">✓ Sub-Registrar / PDE डेटा यशस्वीरित्या क्लिपबोर्डवर कॉपी झाला!</div>
+          `;
+        } else {
+          const err = await res.json();
+          statusText.innerText = 'त्रुटी: ' + (err.detail || 'दस्त तयार करता आला नाही.');
+        }
+      } catch (err) {
+        statusText.innerText = 'सर्व्हर त्रुटी: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'खरेदीखत तयार करा (Generate via Pipeline FSM)';
+      }
+    }
+
+    async function copyPortalSheet(docId) {
+      try {
+        const res = await fetch(`/api/v1/portal/sheet/${docId}`);
+        if (!res.ok) throw new Error('Failed to fetch portal sheet');
+        const text = await res.text();
+        await navigator.clipboard.writeText(text);
+        const toast = document.getElementById('copyToast');
+        if (toast) {
+          toast.style.display = 'block';
+          setTimeout(() => { toast.style.display = 'none'; }, 4000);
+        }
+      } catch (e) {
+        alert('कॉपी करण्यात त्रुटी: ' + e.message);
+      }
+    }
+
+    // Usability improvement: Ctrl+Enter / Cmd+Enter rapid generation shortcut
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        const form = document.querySelector('form');
+        if (form) form.requestSubmit();
+      }
+    });
+  </script>
+</body>
+</html>
