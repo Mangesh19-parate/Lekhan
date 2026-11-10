@@ -3,7 +3,7 @@ import { TemplateManifest } from "./types";
 import { LiveAmountInWords } from "./LiveAmountInWords";
 import { RepeaterGroup } from "./RepeaterGroup";
 import { useI18n } from "../../shared/i18n";
-import { FileText, CheckCircle, AlertTriangle } from "lucide-react";
+import { FileText, CheckCircle } from "lucide-react";
 
 interface Props {
   manifest: TemplateManifest;

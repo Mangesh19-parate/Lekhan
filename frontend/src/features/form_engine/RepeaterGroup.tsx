@@ -14,7 +14,6 @@ interface Props {
 }
 
 export const RepeaterGroup: React.FC<Props> = ({
-  id,
   label,
   min,
   max,
