@@ -9,11 +9,13 @@ from typing import Any, Callable
 
 from app.lang_packs.base import LanguagePack
 from app.lang_packs.english import EnglishLanguagePack
+from app.lang_packs.hindi import HindiLanguagePack
 from app.lang_packs.marathi import MarathiLanguagePack
 
 _REGISTRY: dict[str, LanguagePack] = {
     "mr": MarathiLanguagePack(),
     "en": EnglishLanguagePack(),
+    "hi": HindiLanguagePack(),
 }
 
 
