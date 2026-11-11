@@ -83,6 +83,22 @@ def list_templates(actor: Actor = Depends(get_current_actor)) -> list[TemplateSu
     return results
 
 
+@router.get("/{template_id}/manifest", summary="Get parsed manifest for a template")
+def get_template_manifest(
+    template_id: str,
+    actor: Actor = Depends(get_current_actor),
+) -> dict[str, Any]:
+    """Retrieves full manifest JSON schema and validation rules for a template."""
+    tmpl_dir = TEMPLATES_DIR / template_id
+    manifest_file = tmpl_dir / "manifest.json"
+    if not manifest_file.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Manifest for template '{template_id}' not found.",
+        )
+    return json.loads(manifest_file.read_text(encoding="utf-8"))
+
+
 @router.post("/{template_id}/lint", summary="Run DocxLinter against a template")
 def lint_template(
     template_id: str,

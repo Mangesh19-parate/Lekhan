@@ -14,13 +14,15 @@ logger = get_logger(__name__)
 
 settings = get_settings()
 
-# Engine configuration (connection pooling with recycling)
+# Engine configuration (connection pooling with recycling and fast failover timeout)
+connect_args = {"connect_timeout": 2} if "psycopg" in settings.DATABASE_URL else {}
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
     pool_recycle=3600,
+    connect_args=connect_args,
 )
 
 SessionLocal = sessionmaker(
@@ -45,6 +47,8 @@ def get_db() -> Generator[Session, None, None]:
 
 def ping_db() -> bool:
     """Executes a lightweight query to verify PostgreSQL connectivity."""
+    if settings.is_test:
+        return False
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))

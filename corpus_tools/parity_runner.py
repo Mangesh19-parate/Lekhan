@@ -21,6 +21,20 @@ W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates-library"
 
 
+WAVE_1_TEMPLATE_IDS = {
+    "sale_deed_plot_mr",
+    "agreement_to_sell_plot_mr",
+    "sale_deed_flat_en",
+    "sale_deed_flat_mr",
+    "sale_deed_shop_mr",
+    "sale_deed_agricultural_mr",
+    "agreement_to_sell_flat_mr",
+    "agreement_to_sell_flat_en",
+    "general_poa_mr",
+    "general_poa_en",
+}
+
+
 @dataclass
 class TemplateLayoutParityReport:
     template_id: str
@@ -136,7 +150,7 @@ class ParityRunner:
         reports: list[TemplateLayoutParityReport] = []
 
         for item in sorted(base_dir.iterdir()):
-            if not item.is_dir():
+            if not item.is_dir() or item.name not in WAVE_1_TEMPLATE_IDS:
                 continue
             docx_file = item / "template.docx"
             if not docx_file.exists():

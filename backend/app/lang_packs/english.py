@@ -125,24 +125,34 @@ def words_to_number_en(text: str) -> Decimal:
 
     Handles Indian units (Crore, Lakh, Thousand, Hundred, Paise).
     """
-    clean = text.lower()
-    clean = re.sub(r"\b(rupees|rupee|only|and)\b", "", clean)
-    clean = clean.strip()
+    clean = text.lower().strip()
+    clean = re.sub(r"\b(rupees|rupee|only)\b", "", clean).strip()
 
     if not clean or clean == "zero":
         return Decimal("0.00")
 
     paise = 0
     if "paise" in clean:
-        main_part, paise_part = (
-            clean.split("paise", 1)[0].split("and", 1)
-            if "and" in clean
-            else (clean.replace("paise", ""), "0")
-        )
-        clean = main_part.strip()
-        # Parse paise
-        paise_words = [w for w in paise_part.replace("paise", "").strip().split() if w]
+        parts = clean.split("paise", 1)
+        before_paise = parts[0].strip()
+        and_matches = list(re.finditer(r"\band\b", before_paise))
+        if and_matches:
+            last_and = and_matches[-1]
+            main_part = before_paise[: last_and.start()].strip()
+            paise_part = before_paise[last_and.end() :].strip()
+        else:
+            major_units = {"crore", "crores", "lakh", "lacs", "thousand", "hundred"}
+            if any(w in major_units for w in before_paise.split()):
+                main_part = before_paise
+                paise_part = ""
+            else:
+                main_part = ""
+                paise_part = before_paise
+        clean = re.sub(r"\band\b", "", main_part).strip()
+        paise_words = [w for w in paise_part.split() if w]
         paise = _parse_simple_phrase_en(paise_words)
+    else:
+        clean = re.sub(r"\band\b", "", clean).strip()
 
     tokens = clean.split()
     total = 0

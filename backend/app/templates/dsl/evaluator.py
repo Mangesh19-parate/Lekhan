@@ -170,7 +170,12 @@ class ASTEvaluator:
     @staticmethod
     def _normalize_comparison(a: Any, b: Any) -> tuple[Any, Any]:
         """Normalizes numbers (e.g. Decimal and int) for exact equality and ordering."""
-        if isinstance(a, (int, float, Decimal)) and isinstance(b, (int, float, Decimal)):
+        if (
+            isinstance(a, (int, float, Decimal))
+            and not isinstance(a, bool)
+            and isinstance(b, (int, float, Decimal))
+            and not isinstance(b, bool)
+        ):
             return Decimal(str(a)), Decimal(str(b))
         return a, b
 

@@ -7,8 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from app.adapters.db import ping_db
+from app.api.admin import router as admin_router
 from app.api.advisory import router as advisory_router
 from app.api.auth import router as auth_router
+from app.api.dashboard import router as dashboard_router
 from app.api.documents import router as documents_router
 from app.api.parties import router as parties_router
 from app.api.pilot import router as pilot_router
@@ -62,6 +64,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(auth_router)
+app.include_router(dashboard_router)
 app.include_router(documents_router)
 app.include_router(parties_router)
 app.include_router(properties_router)
@@ -70,6 +73,7 @@ app.include_router(templates_admin_router)
 app.include_router(pilot_router)
 app.include_router(advisory_router)
 app.include_router(portal_router)
+app.include_router(admin_router)
 
 
 # --- Health Probes (docs/PLAN.md Week 4) ---

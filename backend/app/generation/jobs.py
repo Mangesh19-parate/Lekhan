@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any
 
@@ -15,17 +15,22 @@ from app.shared.ids import uuid7
 class JobRecord:
     id: uuid.UUID
     tenant_id: uuid.UUID
-    type: str
-    payload: dict[str, Any]
-    status: str  # queued, running, succeeded, failed, dead
-    state: str  # REQUESTED, VALIDATED, RENDERED, VERIFIED, STORED, COMPLETED
-    run_at: datetime.datetime
-    attempts: int
-    locked_at: datetime.datetime | None
-    idempotency_key: str | None
-    error: dict[str, Any] | None
-    created_at: datetime.datetime
+    type: str = "generate_docx"
+    payload: dict[str, Any] = field(default_factory=dict)
+    status: str = "queued"  # queued, running, succeeded, failed, dead
+    state: str = "REQUESTED"  # REQUESTED, VALIDATED, RENDERED, VERIFIED, STORED, COMPLETED
+    run_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    attempts: int = 0
+    locked_at: datetime.datetime | None = None
+    idempotency_key: str | None = None
+    error: dict[str, Any] | None = None
+    created_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
     result_ref: str | None = None
+    job_type: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.job_type:
+            self.type = self.job_type
 
 
 class JobQueue:

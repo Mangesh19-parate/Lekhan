@@ -15,6 +15,7 @@ interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateSection: (sectionId: string) => void;
+  onNavigateView?: (viewId: string) => void;
   onSaveDraft: () => void;
   onExportDocx: () => void;
   onLoadSample: () => void;
@@ -33,6 +34,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
   onNavigateSection,
+  onNavigateView,
   onSaveDraft,
   onExportDocx,
   onLoadSample,
@@ -60,6 +62,200 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   }, [isOpen]);
 
   const items: CommandItem[] = [
+    ...(onNavigateView
+      ? [
+          {
+            id: "nav-overview",
+            category: "Workspace",
+            label: lang === "mr" ? "कार्यक्षेत्र आढावा (Dashboard Overview)" : "Dashboard Overview",
+            icon: <Zap size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("overview");
+              onClose();
+            },
+          },
+          {
+            id: "nav-new-draft",
+            category: "Workspace",
+            label: lang === "mr" ? "नवीन दस्त मसुदा (New Draft Workspace)" : "New Draft Workspace",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("new_draft");
+              onClose();
+            },
+          },
+          {
+            id: "nav-my-docs",
+            category: "Workspace",
+            label: lang === "mr" ? "माझे दस्तऐवज (My Documents)" : "My Documents Registry",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("my_documents");
+              onClose();
+            },
+          },
+          {
+            id: "nav-drafts-pending",
+            category: "Workspace",
+            label: lang === "mr" ? "प्रलंबित मसुदे (Drafts & Pending)" : "Drafts & Pending Matters",
+            icon: <Zap size={16} color="var(--brand-500)" />,
+            perform: () => {
+              onNavigateView("drafts_pending");
+              onClose();
+            },
+          },
+          {
+            id: "nav-review-center",
+            category: "Workspace",
+            label: lang === "mr" ? "तपासणी केंद्र (Review Center)" : "Review & Approval Center",
+            icon: <Check size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("review_center");
+              onClose();
+            },
+          },
+          {
+            id: "nav-template-library",
+            category: "Document Operations",
+            label: lang === "mr" ? "साचा ग्रंथालय (Template Library)" : "Approved Template Library",
+            icon: <Layers size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("template_library");
+              onClose();
+            },
+          },
+          {
+            id: "nav-template-studio",
+            category: "Document Operations",
+            label: lang === "mr" ? "साचा स्टुडिओ (Template Studio)" : "Template Authoring Studio",
+            icon: <Layers size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("template_studio");
+              onClose();
+            },
+          },
+          {
+            id: "nav-party-dir",
+            category: "Document Operations",
+            label: lang === "mr" ? "पक्षकार सूची (Party Directory)" : "Party Directory & Search",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("party_directory");
+              onClose();
+            },
+          },
+          {
+            id: "nav-property-dir",
+            category: "Document Operations",
+            label: lang === "mr" ? "मिळकती सूची (Property Directory)" : "Property Parcel Directory",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("property_directory");
+              onClose();
+            },
+          },
+          {
+            id: "nav-doc-archive",
+            category: "Document Operations",
+            label: lang === "mr" ? "दस्त अभिलेखागार (Document Archive)" : "Immutable Document Archive",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("document_archive");
+              onClose();
+            },
+          },
+          {
+            id: "nav-doc-quality",
+            category: "Intelligence",
+            label: lang === "mr" ? "दस्त गुणवत्ता तपासणी (Document Quality)" : "Document Quality Inspection",
+            icon: <Check size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("document_quality");
+              onClose();
+            },
+          },
+          {
+            id: "nav-val-center",
+            category: "Intelligence",
+            label: lang === "mr" ? "नियम पडताळणी केंद्र (Validation Center)" : "Validation Rule Center",
+            icon: <Zap size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("validation_center");
+              onClose();
+            },
+          },
+          {
+            id: "nav-adv-center",
+            category: "Intelligence",
+            label: lang === "mr" ? "कायदेशीर सल्ला केंद्र (Advisory Center)" : "Statutory Compliance Advisory",
+            icon: <HelpCircle size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("advisory_center");
+              onClose();
+            },
+          },
+          {
+            id: "nav-reg-data",
+            category: "Intelligence",
+            label: lang === "mr" ? "नोंदणी पोर्टल डेटा (Registration PDE)" : "Registration Portal PDE Generator",
+            icon: <Globe size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("registration_data");
+              onClose();
+            },
+          },
+          {
+            id: "nav-user-mgmt",
+            category: "Administration",
+            label: lang === "mr" ? "वापरकर्ता व्यवस्थापन (User Management)" : "User & Drafter Management",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("user_management");
+              onClose();
+            },
+          },
+          {
+            id: "nav-roles-perm",
+            category: "Administration",
+            label: lang === "mr" ? "भूमिका व अधिकार (Roles & Permissions)" : "RBAC Matrix & Permissions",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("roles_permissions");
+              onClose();
+            },
+          },
+          {
+            id: "nav-audit-trail",
+            category: "Administration",
+            label: lang === "mr" ? "ऑडिट ट्रेल (Audit Trail)" : "Cryptographic Audit Trail",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("audit_trail");
+              onClose();
+            },
+          },
+          {
+            id: "nav-sys-settings",
+            category: "Administration",
+            label: lang === "mr" ? "प्रणाली संरचना (System Settings)" : "Statutory & Tenant Settings",
+            icon: <FileText size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("system_settings");
+              onClose();
+            },
+          },
+          {
+            id: "nav-sys-health",
+            category: "Administration",
+            label: lang === "mr" ? "प्रणाली आरोग्य (System Health)" : "Infrastructure Telemetry & Health",
+            icon: <Zap size={16} color="var(--brand-600)" />,
+            perform: () => {
+              onNavigateView("system_health");
+              onClose();
+            },
+          },
+        ]
+      : []),
     {
       id: "export-docx",
       category: "Draft Actions",

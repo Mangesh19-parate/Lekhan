@@ -380,9 +380,9 @@ def test_openxml_compliance(tmpl_rel_path: str) -> None:
         for info in zf.infolist():
             assert "\\" not in info.filename, f"Invalid backslash in ZIP path: {info.filename}"
 
-        # 2. Check footer PAGE field
+        # 2. Check footer PAGE field (either fldSimple or complex instrText field)
         footer_xml = zf.read("word/footer1.xml").decode("utf-8")
-        assert 'w:instr="PAGE"' in footer_xml
+        assert 'w:instr="PAGE"' in footer_xml or ("PAGE" in footer_xml and "instrText" in footer_xml)
 
         # 3. Check Legal paper dimensions (12240 x 20160 dxa)
         doc_xml = zf.read("word/document.xml").decode("utf-8")

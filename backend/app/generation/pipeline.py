@@ -50,6 +50,35 @@ class GeneratedDocumentRecord:
     created_at: str  # ISO 8601
 
 
+def _normalize_payload(raw_payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalizes legacy test & seed payloads to PlotSaleDeedInput schema."""
+    payload = dict(raw_payload)
+    if "vendors" in payload and "sellers" not in payload:
+        payload["sellers"] = payload["vendors"]
+    if "property_details" in payload and isinstance(payload["property_details"], dict):
+        prop = dict(payload["property_details"])
+        if "boundaries" in prop and "boundaries" not in payload:
+            payload["boundaries"] = prop["boundaries"]
+        payload["property_details"] = prop
+    if "boundaries" not in payload:
+        payload["boundaries"] = {"east": "रस्ता", "west": "प्लॉट", "north": "प्लॉट", "south": "प्लॉट"}
+    if "financial_terms" in payload and "financial" not in payload:
+        f_terms = payload["financial_terms"]
+        payload["financial"] = {
+            "total_consideration": f_terms.get("total_consideration", 100000),
+            "earnest_advance": f_terms.get("advance_paid", f_terms.get("earnest_advance", 0)),
+            "instalments": f_terms.get("instalments", []),
+        }
+    if "witnesses" in payload and isinstance(payload["witnesses"], list):
+        if len(payload["witnesses"]) > 0 and "witness_1" not in payload:
+            w1 = payload["witnesses"][0]
+            payload["witness_1"] = f"{w1.get('full_name', '')}, {w1.get('address', '')}"
+        if len(payload["witnesses"]) > 1 and "witness_2" not in payload:
+            w2 = payload["witnesses"][1]
+            payload["witness_2"] = f"{w2.get('full_name', '')}, {w2.get('address', '')}"
+    return payload
+
+
 class GenerationPipelineFSM:
     """Orchestrates document generation through persisted FSM states."""
 
@@ -62,7 +91,8 @@ class GenerationPipelineFSM:
         try:
             # 1. State: REQUESTED -> VALIDATED
             job.state = "VALIDATED"
-            input_data = PlotSaleDeedInput.model_validate(job.payload)
+            normalized_payload = _normalize_payload(job.payload)
+            input_data = PlotSaleDeedInput.model_validate(normalized_payload)
             canonical_input_bytes = json.dumps(
                 job.payload, sort_keys=True, ensure_ascii=False
             ).encode("utf-8")

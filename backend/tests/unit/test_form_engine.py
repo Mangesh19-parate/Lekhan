@@ -4,6 +4,8 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
+import uuid
+
 from app.api.documents import ValidationRequest, validate_draft_data
 from app.identity.policy import Actor
 
@@ -51,10 +53,9 @@ def test_i18n_catalog_consistency() -> None:
 def test_server_side_validation_endpoint_success() -> None:
     """Verifies POST /api/v1/documents/validate/{template_id} returns derived fields & valid: True."""
     actor = Actor(
-        id=None,
-        tenant_id=None,
-        email="advocate@example.com",
-        roles={"advocate"},
+        user_id=uuid.uuid4(),
+        tenant_id=uuid.uuid4(),
+        role="drafter",
     )
     request_data = {
         "property": {
@@ -82,10 +83,9 @@ def test_server_side_validation_endpoint_success() -> None:
 def test_server_side_validation_endpoint_violation() -> None:
     """Verifies that cross-field validation rules flag errors (e.g. earnest > total)."""
     actor = Actor(
-        id=None,
-        tenant_id=None,
-        email="advocate@example.com",
-        roles={"advocate"},
+        user_id=uuid.uuid4(),
+        tenant_id=uuid.uuid4(),
+        role="drafter",
     )
     # Invalid: advance exceeds total
     request_data = {

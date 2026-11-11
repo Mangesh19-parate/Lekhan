@@ -47,6 +47,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await res.json();
         setUser(data.user);
         setCsrfToken(data.csrf_token);
+        if (data.csrf_token) {
+          localStorage.setItem("lekhan_csrf_token", data.csrf_token);
+        }
       } else {
         setUser(null);
         setCsrfToken(null);
@@ -79,6 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const data = await res.json();
     setUser(data.user);
     setCsrfToken(data.csrf_token);
+    if (data.csrf_token) {
+      localStorage.setItem("lekhan_csrf_token", data.csrf_token);
+    }
   };
 
   const logout = async () => {
@@ -91,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setCsrfToken(null);
+      localStorage.removeItem("lekhan_csrf_token");
     }
   };
 

@@ -144,11 +144,66 @@ def check_tag_alignment(docx_bytes: bytes, manifest: dict[str, Any]) -> list[Lin
     }
     declared_fields.update(standard_context)
 
+    def _is_tag_declared(tag: str) -> bool:
+        if tag in declared_fields:
+            return True
+        root_part = tag.split(".")[0].split("[")[0]
+        if root_part in declared_fields:
+            return True
+        normalized = tag.replace("_", ".")
+        if normalized in declared_fields:
+            return True
+        for prefix in ("property_", "financial_", "terms_"):
+            if tag.startswith(prefix):
+                candidate = prefix[:-1] + "." + tag[len(prefix) :]
+                if candidate in declared_fields:
+                    return True
+        if tag.startswith("boundary_"):
+            dir_name = tag.split("boundary_", 1)[1]
+            if f"boundaries.{dir_name}" in declared_fields:
+                return True
+        clean_tag = tag[:-6] if tag.endswith("_words") else tag
+        if clean_tag in declared_fields or clean_tag.replace("_", ".") in declared_fields:
+            return True
+        if f"financial.{clean_tag}" in declared_fields:
+            return True
+        if tag.endswith("_block"):
+            role = tag[:-6]
+            if role in parties:
+                return True
+        if tag.startswith("witness_") and "witnesses" in repeaters:
+            return True
+        if tag.endswith("_clause"):
+            return True
+        for df in declared_fields:
+            if df.endswith(f".{clean_tag}"):
+                return True
+        return False
+
+    def _is_field_used(field_name: str) -> bool:
+        if any(tag == field_name or tag.startswith(f"{field_name}.") for tag in found_tags):
+            return True
+        flat = field_name.replace(".", "_")
+        if flat in found_tags or f"{flat}_words" in found_tags:
+            return True
+        suffix = field_name.split(".")[-1]
+        if suffix in found_tags or f"{suffix}_words" in found_tags:
+            return True
+        if field_name.startswith("boundaries."):
+            dir_name = field_name.split("boundaries.", 1)[1]
+            if f"boundary_{dir_name}" in found_tags:
+                return True
+        if field_name in parties and (f"{field_name}_block" in found_tags or field_name in found_tags):
+            return True
+        if field_name == "witnesses" and any(t.startswith("witness_") for t in found_tags):
+            return True
+        if field_name == "instalments" and any(t.endswith("_clause") for t in found_tags):
+            return True
+        return False
+
     # 1. Check for Undefined Tags (in DOCX but not manifest)
     for tag in sorted(found_tags):
-        # Allow prefix matching for nested access like 'property.mouza' or 'sellers[0].full_name'
-        root_part = tag.split(".")[0].split("[")[0]
-        if tag not in declared_fields and root_part not in declared_fields:
+        if not _is_tag_declared(tag):
             locs = locations.get(tag, [("word/document.xml", 0)])
             part, p_idx = locs[0]
             findings.append(
@@ -168,9 +223,7 @@ def check_tag_alignment(docx_bytes: bytes, manifest: dict[str, Any]) -> list[Lin
         if field_name in standard_context:
             continue
 
-        # Check if field or any of its subpaths appear in found_tags
-        used = any(tag == field_name or tag.startswith(f"{field_name}.") for tag in found_tags)
-        if not used:
+        if not _is_field_used(field_name):
             findings.append(
                 LintFinding(
                     code="UNUSED_FIELD",

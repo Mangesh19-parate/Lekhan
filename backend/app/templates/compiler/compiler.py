@@ -50,6 +50,18 @@ class CompiledManifest:
     compiled_at: str
     fingerprint: str
 
+    @property
+    def document_type(self) -> str:
+        return str(self.raw_manifest.get("document_type", ""))
+
+    @property
+    def language(self) -> str:
+        return str(self.raw_manifest.get("language", ""))
+
+    @property
+    def parties(self) -> dict[str, Any]:
+        return dict(self.raw_manifest.get("parties", {}))
+
     def to_dict(self) -> dict[str, Any]:
         """Serializes compiled manifest to dictionary."""
         return {

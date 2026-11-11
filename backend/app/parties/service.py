@@ -307,6 +307,11 @@ class PartyService:
             max_score = 0.0
             for cand in candidates:
                 score = trigram_similarity(query, cand)
+                # Word-level similarity for multi-word candidate strings (pg_trgm word_similarity)
+                for word in cand.split():
+                    w_score = trigram_similarity(query, word)
+                    if w_score > score:
+                        score = w_score
                 if score > max_score:
                     max_score = score
 

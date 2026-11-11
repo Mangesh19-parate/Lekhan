@@ -101,7 +101,7 @@
     },
     "property.area_sqm": {
       "name": "property.area_sqm",
-      "type": "number",
+      "type": "decimal",
       "label_en": "Total Area (sq.m.)",
       "label_mr": "एकूण क्षेत्रफळ (चौ.मी.)",
       "required": true
@@ -123,7 +123,7 @@
     },
     "financial.consideration_amount": {
       "name": "financial.consideration_amount",
-      "type": "number",
+      "type": "decimal",
       "label_en": "Consideration Amount (if any)",
       "label_mr": "मोबदला रक्कम (असल्यास)",
       "required": false,
