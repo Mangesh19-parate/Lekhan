@@ -14,7 +14,7 @@ import uuid
 import pytest
 
 from app.advisory.engine import AdvisoryRulesEngine
-from app.generation.jobs import JobRecord
+from app.generation.jobs import JobQueue, JobRecord
 from app.generation.pipeline import GenerationPipelineFSM
 from app.portal.generator import PortalSheetGenerator
 
@@ -98,19 +98,18 @@ def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGene
     pipeline = GenerationPipelineFSM()
     tenant_id = uuid.uuid4()
 
-    job = JobRecord(
-        id=uuid.uuid4(),
+    queue = JobQueue()
+    job = queue.enqueue(
         tenant_id=tenant_id,
         job_type="generate_docx",
         payload={
             "execution_date": "2026-11-09",
-            "vendors": [
+            "sellers": [
                 {
                     "full_name": "देवराव हरीभाऊ वानखेडे",
                     "age": 55,
                     "address": "धरमपेठ, नागपूर",
                     "pan": "ABCDE1234F",
-                    "aadhaar_last4": "1234",
                 }
             ],
             "purchasers": [
@@ -119,7 +118,6 @@ def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGene
                     "age": 42,
                     "address": "रामदaspeth, नागपूर",
                     "pan": "FGHIJ5678K",
-                    "aadhaar_last4": "5678",
                 }
             ],
             "property_details": {
@@ -127,25 +125,21 @@ def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGene
                 "layout_name": "Shivaji Layout",
                 "mouza": "Besa",
                 "khasra_no": "23/2",
-                "city_survey_no": "CTS-101",
-                "area_sqm": "150.00",
-                "boundaries": {
-                    "east": "Road",
-                    "west": "Plot 103",
-                    "north": "Plot 90",
-                    "south": "Plot 105",
-                },
+                "sheet_no": "CTS-101",
+                "area_sqm": 150.00,
             },
-            "financial_terms": {
-                "total_consideration": "2500000",
-                "advance_paid": "500000",
-                "balance_amount": "2000000",
-                "payment_mode": "RTGS",
+            "boundaries": {
+                "east": "Road",
+                "west": "Plot 103",
+                "north": "Plot 90",
+                "south": "Plot 105",
             },
-            "witnesses": [
-                {"full_name": "Witness 1", "address": "Nagpur"},
-                {"full_name": "Witness 2", "address": "Nagpur"},
-            ],
+            "financial": {
+                "total_consideration": 2500000,
+                "earnest_advance": 500000,
+            },
+            "witness_1": "Witness 1, Nagpur",
+            "witness_2": "Witness 2, Nagpur",
         },
     )
 
@@ -160,7 +154,7 @@ def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGene
     assert sheet.property.unit_or_plot_no == "104"
     assert sheet.financial.total_consideration == "2,500,000"
     assert "पंचवीस लाख" in sheet.financial.amount_in_words_mr
-    assert "Twenty-Five Lakh" in sheet.financial.amount_in_words_en
+    assert "Twenty Five Lakh" in sheet.financial.amount_in_words_en
 
     # 2. Copy-paste plain text content assertions
     text = sheet.copy_paste_text

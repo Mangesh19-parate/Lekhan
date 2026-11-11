@@ -41,6 +41,92 @@ class PropertyService:
     def __init__(self) -> None:
         self._properties: dict[uuid.UUID, PropertyRecord] = {}
         self._versions: list[PropertyVersionRecord] = []
+        self._seed_dev_properties()
+
+    def _seed_dev_properties(self) -> None:
+        """Seeds initial synthetic dev properties for instant trigram search and reuse testing."""
+        dev_tenants = [
+            uuid.UUID("0193132e-504f-7a1b-8000-000000000000"),
+            uuid.UUID("00000000-0000-4000-8000-000000000001"),
+        ]
+        synthetic_properties = [
+            {
+                "category": "plot",
+                "attrs": {
+                    "mouza": "सोनेगाव (Sonegaon)",
+                    "khasra_no": "45/2",
+                    "plot_no": "12",
+                    "layout_name": "शिवकृपा लेआउट (Shivkrupa Layout)",
+                    "sheet_no": "14",
+                },
+                "area_value": Decimal("150.00"),
+                "area_unit": "sqm",
+                "boundaries": {
+                    "east": "९.०० मी. रुंद अंतर्गत रस्ता",
+                    "west": "प्लॉट क्र. १३",
+                    "north": "प्लॉट क्र. ११",
+                    "south": "लेआउट सीमा",
+                },
+                "rr_division": "Nagpur Urban",
+                "rr_rate": Decimal("3500.00"),
+            },
+            {
+                "category": "plot",
+                "attrs": {
+                    "mouza": "बाबुलखेडा (Babulkheda)",
+                    "khasra_no": "23/1",
+                    "plot_no": "104",
+                    "layout_name": "ना.सु.प्र. मंजूर लेआउट (NIT Layout)",
+                    "sheet_no": "8",
+                },
+                "area_value": Decimal("175.00"),
+                "area_unit": "sqm",
+                "boundaries": {
+                    "east": "अंतर्गत रस्ता",
+                    "west": "प्लॉट क्र. १०३",
+                    "north": "प्लॉट क्र. ९२",
+                    "south": "प्लॉट क्र. १०५",
+                },
+                "rr_division": "Nagpur Urban",
+                "rr_rate": Decimal("4200.00"),
+            },
+            {
+                "category": "flat",
+                "attrs": {
+                    "building_name": "गोकुळ रेसिडेन्सी (Gokul Residency)",
+                    "flat_no": "302",
+                    "floor_no": "3",
+                    "mouza": "धरमपेठ (Dharampeth)",
+                    "cts_no": "CTS-1102",
+                },
+                "area_value": Decimal("95.50"),
+                "area_unit": "sqm",
+                "boundaries": {
+                    "east": "लिफ्ट व पॅसेज",
+                    "west": "ओपन टू स्काय",
+                    "north": "फ्लॅट ३०१",
+                    "south": "फ्लॅट ३०३",
+                },
+                "rr_division": "Nagpur Dharampeth",
+                "rr_rate": Decimal("7500.00"),
+            },
+        ]
+        for tid in dev_tenants:
+            for p in synthetic_properties:
+                pid = uuid.uuid4()
+                rec = PropertyRecord(
+                    id=pid,
+                    tenant_id=tid,
+                    category=p["category"],
+                    attrs=p["attrs"],
+                    area_value=p["area_value"],
+                    area_unit=p["area_unit"],
+                    boundaries=p["boundaries"],
+                    rr_division=p["rr_division"],
+                    rr_rate=p["rr_rate"],
+                    version=1,
+                )
+                self._properties[pid] = rec
 
     def create_property(
         self,

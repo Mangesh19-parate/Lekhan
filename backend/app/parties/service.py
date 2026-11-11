@@ -48,6 +48,72 @@ class PartyService:
     def __init__(self) -> None:
         self._parties: dict[uuid.UUID, PartyRecord] = {}
         self._versions: list[PartyVersionRecord] = []
+        self._seed_dev_parties()
+
+    def _seed_dev_parties(self) -> None:
+        """Seeds initial synthetic dev parties for instant trigram search and reuse testing."""
+        dev_tenants = [
+            uuid.UUID("0193132e-504f-7a1b-8000-000000000000"),
+            uuid.UUID("00000000-0000-4000-8000-000000000001"),
+        ]
+        synthetic_parties = [
+            {
+                "kind": "individual",
+                "gender": "male",
+                "marital_status": "married",
+                "age_or_dob": {"age": 52},
+                "names": {"mr": "आनंद बळवंत जोशी", "en": "Anand Balwant Joshi"},
+                "occupations": {"mr": "व्यापार", "en": "Business"},
+                "addresses": {
+                    "mr": "फ्लॅट क्र. २०१, समर्थ संकुल, धरमपेठ, नागपूर",
+                    "en": "Flat 201, Samarth Sankul, Dharampeth, Nagpur",
+                },
+                "pan_masked": "ABCDE1234F",
+            },
+            {
+                "kind": "individual",
+                "gender": "male",
+                "marital_status": "married",
+                "age_or_dob": {"age": 46},
+                "names": {"mr": "सुरेश रामराव पाटील", "en": "Suresh Ramrao Patil"},
+                "occupations": {"mr": "शेती व नोकरी", "en": "Agriculture & Service"},
+                "addresses": {
+                    "mr": "घर क्र. ४५, शिवाजी नगर, अमरावती रोड, नागपूर",
+                    "en": "House No. 45, Shivaji Nagar, Amravati Road, Nagpur",
+                },
+                "pan_masked": "FGHIJ5678K",
+            },
+            {
+                "kind": "individual",
+                "gender": "female",
+                "marital_status": "married",
+                "age_or_dob": {"age": 48},
+                "names": {"mr": "सुनीता विलास देशपांडे", "en": "Sunita Vilas Deshpande"},
+                "occupations": {"mr": "शिक्षिका", "en": "Teacher"},
+                "addresses": {
+                    "mr": "प्लॉट क्र. १२, रामदासपेठ, नागपूर",
+                    "en": "Plot No. 12, Ramdaspeth, Nagpur",
+                },
+                "pan_masked": "KLMNO9012P",
+            },
+        ]
+        for tid in dev_tenants:
+            for p in synthetic_parties:
+                pid = uuid.uuid4()
+                rec = PartyRecord(
+                    id=pid,
+                    tenant_id=tid,
+                    kind=p["kind"],
+                    gender=p["gender"],
+                    marital_status=p["marital_status"],
+                    age_or_dob=p["age_or_dob"],
+                    names=p["names"],
+                    occupations=p["occupations"],
+                    addresses=p["addresses"],
+                    pan_masked=p["pan_masked"],
+                    version=1,
+                )
+                self._parties[pid] = rec
 
     def create_party(
         self,
@@ -79,6 +145,30 @@ class PartyService:
         )
         self._parties[party_id] = party
 
+        # Persist to PostgreSQL if database connection is available
+        try:
+            from app.adapters.db import SessionLocal
+            from app.shared.models import Party as PartyModel
+
+            with SessionLocal() as db_session:
+                db_party = PartyModel(
+                    id=party_id,
+                    tenant_id=tenant_id,
+                    kind=kind,
+                    gender=gender,
+                    marital_status=marital_status,
+                    age_or_dob=age_or_dob,
+                    names=names,
+                    occupations=occupations or {},
+                    addresses=addresses or {},
+                    version=1,
+                    created_by=actor_id,
+                )
+                db_session.add(db_party)
+                db_session.commit()
+        except Exception:
+            pass
+
         # Audit event
         audit_service.log_event(
             tenant_id=tenant_id,
@@ -92,6 +182,40 @@ class PartyService:
 
     def get_party(self, party_id: uuid.UUID, tenant_id: uuid.UUID) -> PartyRecord | None:
         """Retrieves a party strictly scoped to the requesting tenant."""
+        # 1. Query PostgreSQL first if available
+        try:
+            from app.adapters.db import SessionLocal
+            from app.shared.models import Party as PartyModel
+
+            with SessionLocal() as db_session:
+                db_party = (
+                    db_session.query(PartyModel)
+                    .filter(
+                        PartyModel.id == party_id,
+                        PartyModel.tenant_id == tenant_id,
+                        PartyModel.deleted_at.is_(None),
+                    )
+                    .first()
+                )
+                if db_party:
+                    cached = self._parties.get(party_id)
+                    return PartyRecord(
+                        id=db_party.id,
+                        tenant_id=db_party.tenant_id,
+                        kind=db_party.kind,
+                        gender=db_party.gender,
+                        marital_status=db_party.marital_status,
+                        age_or_dob=db_party.age_or_dob,
+                        names=db_party.names,
+                        occupations=db_party.occupations,
+                        addresses=db_party.addresses,
+                        pan_masked=cached.pan_masked if cached else None,
+                        version=db_party.version,
+                    )
+        except Exception:
+            pass
+
+        # 2. Fallback to in-memory store
         party = self._parties.get(party_id)
         if not party or party.tenant_id != tenant_id or party.deleted:
             return None
@@ -250,6 +374,52 @@ class PartyService:
             )
 
         return party
+
+    def detect_duplicates(
+        self,
+        tenant_id: uuid.UUID,
+        name: str | None = None,
+        pan: str | None = None,
+        threshold: float = 0.85,
+    ) -> list[dict[str, Any]]:
+        """Detects potential duplicate parties based on exact PAN match or name trigram similarity (Feature F-065)."""
+        from app.shared.trigram import trigram_similarity
+
+        duplicates: list[dict[str, Any]] = []
+        for party in self._parties.values():
+            if party.tenant_id != tenant_id or party.deleted:
+                continue
+
+            # 1. Exact PAN match
+            if pan and party.pan_masked and pan.strip().upper() == party.pan_masked.strip().upper():
+                duplicates.append({
+                    "party_id": str(party.id),
+                    "names": party.names,
+                    "pan": party.pan_masked,
+                    "match_type": "exact_pan",
+                    "similarity": 1.0,
+                    "reason": "Exact PAN match",
+                })
+                continue
+
+            # 2. High name similarity
+            if name:
+                names_to_check = list(party.names.values()) if isinstance(party.names, dict) else []
+                for existing_name in names_to_check:
+                    score = trigram_similarity(name, str(existing_name))
+                    if score >= threshold:
+                        duplicates.append({
+                            "party_id": str(party.id),
+                            "names": party.names,
+                            "pan": party.pan_masked,
+                            "match_type": "high_name_similarity",
+                            "similarity": round(score, 4),
+                            "reason": f"Devanagari/English name similarity {round(score * 100)}%",
+                        })
+                        break
+
+        duplicates.sort(key=lambda x: x["similarity"], reverse=True)
+        return duplicates
 
     def clear(self) -> None:
         self._parties.clear()

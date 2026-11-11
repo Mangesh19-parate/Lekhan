@@ -55,6 +55,12 @@ def trigram_similarity(query: str, target: str) -> float:
     substring_boost = 0.0
     if q_norm in t_norm:
         substring_boost = 0.35 * (len(q_norm) / len(t_norm))
+    else:
+        # Token/word subset boost (e.g. "सुरेश पाटील" in "सुरेश रामराव पाटील")
+        q_words = [w for w in q_norm.split() if len(w) > 1]
+        t_words = set(t_norm.split())
+        if q_words and all(w in t_words for w in q_words):
+            substring_boost = 0.25 * (len(" ".join(q_words)) / len(t_norm))
 
     q_tri = generate_trigrams(q_norm)
     t_tri = generate_trigrams(t_norm)

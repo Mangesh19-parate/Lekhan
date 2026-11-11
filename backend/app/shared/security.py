@@ -52,8 +52,15 @@ def verify_password(hash_str: str, password: str) -> bool:
 
     if hash_str.startswith("pbkdf2:sha256:"):
         try:
-            _, _, iterations_str, salt_hex, hash_hex = hash_str.split("$")
-            iterations = int(iterations_str.split(":")[2])
+            parts = hash_str.split("$")
+            if len(parts) == 3:
+                prefix, salt_hex, hash_hex = parts
+                iterations = int(prefix.split(":")[2])
+            elif len(parts) == 5:
+                _, _, iterations_str, salt_hex, hash_hex = parts
+                iterations = int(iterations_str)
+            else:
+                return False
             salt = bytes.fromhex(salt_hex)
             expected = bytes.fromhex(hash_hex)
             computed = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)

@@ -122,11 +122,17 @@ def amount_to_words(amount: int) -> dict[str, str]:
 
 @app.post(
     "/api/v1/documents/generate-spike",
-    summary="Generate Marathi Plot Sale Deed Direct",
+    summary="Generate Marathi Plot Sale Deed Direct (Legacy Deprecated)",
     response_class=Response,
+    deprecated=True,
 )
 def generate_spike_document(payload: PlotSaleDeedInput) -> Response:
-    """Renders the approved Marathi Plot Sale Deed template directly into a DOCX file."""
+    """Renders the approved Marathi Plot Sale Deed template directly into a DOCX file.
+
+    DEPRECATED: Use authenticated endpoint POST /api/v1/documents for full persistence,
+    statutory audit logging, and document review FSM transitions.
+    """
+    logger.warning("Legacy unauthenticated endpoint /api/v1/documents/generate-spike invoked. Migrate to POST /api/v1/documents.")
     try:
         docx_bytes = generate_plot_sale_deed_docx(payload)
     except SpikeGenerationError as e:
@@ -150,6 +156,8 @@ def generate_spike_document(payload: PlotSaleDeedInput) -> Response:
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Deprecation": "@1735689600",
+            "X-Lekhan-Deprecated": "true; Migrate to authenticated POST /api/v1/documents",
         },
     )
 

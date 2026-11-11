@@ -12,11 +12,15 @@ import uuid
 from pathlib import Path
 
 import pytest
-from backend.scripts.backup import create_backup
-from backend.scripts.restore import restore_backup
+try:
+    from scripts.backup import create_backup
+    from scripts.restore import restore_backup
+except ImportError:
+    from backend.scripts.backup import create_backup
+    from backend.scripts.restore import restore_backup
 
-from app.generation.jobs import JobRecord
-from app.generation.pipeline import GenerationPipelineFSM
+from app.generation.jobs import JobQueue, JobRecord
+from app.generation.pipeline import GenerationPipelineFSM, generation_pipeline
 
 
 @pytest.fixture
@@ -37,21 +41,19 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
     restore_storage_dir = temp_backup_env["storage"]
 
     # 1. Populate test documents and counters
-    pipeline = GenerationPipelineFSM()
+    pipeline = generation_pipeline
     tenant_id = uuid.uuid4()
-    job = JobRecord(
-        id=uuid.uuid4(),
+    job = JobQueue().enqueue(
         tenant_id=tenant_id,
         job_type="generate_docx",
         payload={
             "execution_date": "2026-11-09",
-            "vendors": [
+            "sellers": [
                 {
                     "full_name": "Test Vendor",
                     "age": 45,
                     "address": "Nagpur",
                     "pan": "ABCDE1234F",
-                    "aadhaar_last4": "1234",
                 }
             ],
             "purchasers": [
@@ -60,7 +62,6 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
                     "age": 40,
                     "address": "Nagpur",
                     "pan": "FGHIJ5678K",
-                    "aadhaar_last4": "5678",
                 }
             ],
             "property_details": {
@@ -68,17 +69,16 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
                 "layout_name": "Shree Park",
                 "mouza": "Besa",
                 "khasra_no": "10/1",
-                "city_survey_no": "CTS-99",
-                "area_sqm": "150.00",
-                "boundaries": {"east": "Road", "west": "Plot", "north": "Plot", "south": "Plot"},
+                "sheet_no": "CTS-99",
+                "area_sqm": 150.00,
             },
-            "financial_terms": {
-                "total_consideration": "2000000",
-                "advance_paid": "400000",
-                "balance_amount": "1600000",
-                "payment_mode": "RTGS",
+            "boundaries": {"east": "Road", "west": "Plot", "north": "Plot", "south": "Plot"},
+            "financial": {
+                "total_consideration": 2000000,
+                "earnest_advance": 400000,
             },
-            "witnesses": [{"full_name": "W1", "address": "N"}, {"full_name": "W2", "address": "N"}],
+            "witness_1": "W1, N",
+            "witness_2": "W2, N",
         },
     )
     doc_record = pipeline.process_job(job)
@@ -111,9 +111,10 @@ def test_restore_tampered_archive_fails(temp_backup_env) -> None:
     backups_dir = temp_backup_env["backups"]
     archive_file = create_backup(destination_dir=backups_dir)
 
-    # Corrupt archive file
-    with open(archive_file, "ab") as f:
-        f.write(b"CORRUPTED_BYTES_APPENDED")
+    # Corrupt archive file bytes
+    with open(archive_file, "r+b") as f:
+        f.seek(50)
+        f.write(b"CORRUPTED_BYTES")
 
     with pytest.raises(Exception):
         restore_backup(archive_path=archive_file)

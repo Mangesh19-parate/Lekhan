@@ -14,7 +14,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.identity.mfa import (
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 class LoginPayload(BaseModel):
-    email: EmailStr
+    email: str = Field(..., min_length=3, max_length=255)
     password: str = Field(..., min_length=1)
 
 

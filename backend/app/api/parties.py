@@ -64,6 +64,8 @@ def search_parties(
                 "kind": p.kind,
                 "names": p.names,
                 "gender": p.gender,
+                "age_or_dob": p.age_or_dob,
+                "occupations": p.occupations,
                 "addresses": p.addresses,
                 "pan_masked": p.pan_masked,
                 "version": p.version,
@@ -128,3 +130,23 @@ def reuse_party(
         return party
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Party not found.")
+
+
+class DuplicateCheckPayload(BaseModel):
+    name: str | None = None
+    pan: str | None = None
+    threshold: float = Field(0.85, ge=0.0, le=1.0)
+
+
+@router.post("/detect-duplicates", summary="Detect duplicate parties by PAN or name (Feature F-065)")
+def detect_duplicate_parties(
+    payload: DuplicateCheckPayload,
+    actor: Actor = Depends(get_current_actor),
+) -> list[dict[str, Any]]:
+    """Detects potential duplicate parties within tenant scope (Feature F-065)."""
+    return party_service.detect_duplicates(
+        tenant_id=actor.tenant_id,
+        name=payload.name,
+        pan=payload.pan,
+        threshold=payload.threshold,
+    )

@@ -122,6 +122,31 @@ class GenerationPipelineFSM:
             )
             self._documents[doc_id] = doc_record
 
+            # Persist to PostgreSQL if database connection is available
+            try:
+                from app.adapters.db import SessionLocal
+                from app.shared.models import Document as DocumentModel
+
+                with SessionLocal() as db_session:
+                    db_doc = DocumentModel(
+                        id=doc_id,
+                        tenant_id=job.tenant_id,
+                        template_version_id=doc_record.template_version_id,
+                        doc_no=doc_no,
+                        language=doc_record.language,
+                        engine_version=doc_record.engine_version,
+                        data_snapshot=data_snapshot,
+                        input_hash=input_hash,
+                        output_hash=output_hash,
+                        file_ref=storage_key,
+                        pdf_ref=None,
+                        status="draft",
+                    )
+                    db_session.add(db_doc)
+                    db_session.commit()
+            except Exception as db_err:
+                logger.debug("Database persistence bypassed (dev/mock mode): %s", db_err)
+
             # Audit event
             audit_service.log_event(
                 tenant_id=job.tenant_id,
@@ -147,6 +172,37 @@ class GenerationPipelineFSM:
         self, doc_id: uuid.UUID, tenant_id: uuid.UUID
     ) -> GeneratedDocumentRecord | None:
         """Retrieves document enforcing strict tenant scoping (cross-tenant returns None)."""
+        # 1. Check PostgreSQL first if available
+        try:
+            from app.adapters.db import SessionLocal
+            from app.shared.models import Document as DocumentModel
+
+            with SessionLocal() as db_session:
+                db_doc = (
+                    db_session.query(DocumentModel)
+                    .filter(DocumentModel.id == doc_id, DocumentModel.tenant_id == tenant_id)
+                    .first()
+                )
+                if db_doc:
+                    return GeneratedDocumentRecord(
+                        id=db_doc.id,
+                        tenant_id=db_doc.tenant_id,
+                        template_version_id=db_doc.template_version_id,
+                        doc_no=db_doc.doc_no,
+                        engine_version=db_doc.engine_version,
+                        language=db_doc.language,
+                        data_snapshot=db_doc.data_snapshot,
+                        input_hash=db_doc.input_hash,
+                        output_hash=db_doc.output_hash,
+                        file_ref=db_doc.file_ref,
+                        pdf_ref=db_doc.pdf_ref,
+                        status=db_doc.status,
+                        created_at=db_doc.created_at.isoformat() if db_doc.created_at else "",
+                    )
+        except Exception:
+            pass
+
+        # 2. Fallback to in-memory store
         doc = self._documents.get(doc_id)
         if not doc or doc.tenant_id != tenant_id:
             return None
@@ -161,7 +217,44 @@ class GenerationPipelineFSM:
         offset: int = 0,
     ) -> tuple[list[GeneratedDocumentRecord], int]:
         """Lists tenant documents with filtering, search, and pagination."""
-        # 1. Filter by tenant
+        # 1. Query PostgreSQL first if available
+        try:
+            from app.adapters.db import SessionLocal
+            from app.shared.models import Document as DocumentModel
+
+            with SessionLocal() as db_session:
+                query = db_session.query(DocumentModel).filter(DocumentModel.tenant_id == tenant_id)
+                if status:
+                    query = query.filter(DocumentModel.status == status)
+                if search:
+                    q = f"%{search.strip()}%"
+                    query = query.filter(DocumentModel.doc_no.ilike(q))
+                total = query.count()
+                db_docs = query.order_by(DocumentModel.created_at.desc()).offset(offset).limit(limit).all()
+                if db_docs or total > 0:
+                    records = [
+                        GeneratedDocumentRecord(
+                            id=d.id,
+                            tenant_id=d.tenant_id,
+                            template_version_id=d.template_version_id,
+                            doc_no=d.doc_no,
+                            engine_version=d.engine_version,
+                            language=d.language,
+                            data_snapshot=d.data_snapshot,
+                            input_hash=d.input_hash,
+                            output_hash=d.output_hash,
+                            file_ref=d.file_ref,
+                            pdf_ref=d.pdf_ref,
+                            status=d.status,
+                            created_at=d.created_at.isoformat() if d.created_at else "",
+                        )
+                        for d in db_docs
+                    ]
+                    return records, total
+        except Exception:
+            pass
+
+        # 2. Fallback to in-memory store
         tenant_docs = [doc for doc in self._documents.values() if doc.tenant_id == tenant_id]
 
         # 2. Filter by status
