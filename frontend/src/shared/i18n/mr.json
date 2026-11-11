@@ -1,14 +1,19 @@
 {
   "app": {
     "name": "लेखन",
-    "subtitle": "द्विभाषिक मिळकत दस्तऐवज प्रणाली"
+    "subtitle": "द्विभाषिक मिळकत दस्तऐवज प्रणाली",
+    "badge": "विधी कार्यक्षेत्र"
   },
   "nav": {
     "wizard": "नवीन दस्त तयार करा",
     "matters": "प्रकरणे",
     "parties": "पक्षकार",
     "templates": "साचे (Templates)",
-    "audit": "ऑडिट नोंदवही"
+    "audit": "ऑडिट नोंदवही",
+    "recent_drafts": "अलिकडील मसुदे",
+    "shortcuts": "कीबोर्ड शॉर्टकट्स",
+    "collapse_sidebar": "नेव्हिगेशन बंद करा",
+    "expand_sidebar": "नेव्हिगेशन उघडा"
   },
   "actions": {
     "save_draft": "मसुदा जतन करा",
@@ -18,9 +23,18 @@
     "cancel": "रद्द करा",
     "add_item": "नवीन नोंद जोडा",
     "remove": "काढून टाका",
+    "move_up": "वर घ्या",
+    "move_down": "खाली घ्या",
     "suggest_transliteration": "लिप्यंतरण सुचवा",
     "download_docx": "दस्त डाउनलोड करा",
-    "calculating": "गणना सुरू आहे..."
+    "calculating": "गणना सुरू आहे...",
+    "load_sample": "नागपूर भूखंड नमुना भरा",
+    "clear_form": "फॉर्म रिकामा करा",
+    "search": "शोध व कृती (Ctrl+K)...",
+    "restore": "मसुदा पूर्ववत करा",
+    "close": "बंद करा",
+    "undo": "पूर्ववत करा (Undo)",
+    "redo": "पुन्हा करा (Redo)"
   },
   "status": {
     "draft": "मसुदा (Draft)",
@@ -30,7 +44,10 @@
     "queued": "प्रतीक्षेत",
     "running": "तयार होत आहे...",
     "completed": "डाउनलोडसाठी उपलब्ध",
-    "failed": "त्रुटी आली"
+    "failed": "त्रुटी आली",
+    "saved": "सर्व बदल जतन झाले",
+    "saving": "जतन होत आहे...",
+    "unsaved": "अजतन बदल"
   },
   "wizard": {
     "step_1": "१. साचा निवडा",
@@ -46,8 +63,35 @@
     "parties_section": "पक्षकारांचा तपशील",
     "property_section": "मिळकतीचे वर्णन",
     "financial_section": "मोबदला व देय रक्कम",
-    "witnesses_section": "साक्षीदार"
+    "witnesses_section": "साक्षीदार",
+    "fill_progress": "फॉर्म भरण्याची स्थिती"
+  },
+  "inspector": {
+    "title": "दस्त तपासणी दर्शक",
+    "subtitle": "थेट गणना व पडताळणी",
+    "financial_summary": "आर्थिक तपशील सारांश",
+    "total_consideration": "एकूण मोबदला",
+    "advance_paid": "बयाणा रक्कम",
+    "balance_payable": "शिल्लक देय रक्कम",
+    "property_summary": "मिळकतीची मोजमापे",
+    "equivalent_area": "समकक्ष चौ. फूट",
+    "parties_count": "नोंदवलेले पक्षकार",
+    "sellers": "विक्रेते",
+    "purchasers": "खरेदीदार",
+    "witnesses": "साक्षीदार",
+    "readiness": "दस्त सज्जता",
+    "ready_to_export": "निर्मितीसाठी सज्ज",
+    "pending_fields": "आवश्यक नोंदी भरणे बाकी"
+  },
+  "shortcuts": {
+    "title": "कीबोर्ड शॉर्टकट्स",
+    "subtitle": "जलद दस्तलेखनासाठी शॉर्टकट्स",
+    "command_palette": "कमांड पॅलेट उघडा",
+    "save_draft": "मसुदा जतन करा",
+    "add_party": "पुढील पक्षकार नोंद जोडा",
+    "toggle_theme": "डार्क / लाईट थीम बदला",
+    "toggle_lang": "मराठी / इंग्रजी भाषा बदला",
+    "close_dialog": "खिडकी बंद करा"
   },
   "disclaimer": "हा संगणकीय मसुदा आहे. दस्त निष्पादन किंवा नोंदणी करण्यापूर्वी पात्र विधिज्ञांकडून (Lawyer) कायदेशीर तपासणी करून घेणे आवश्यक आहे."
 }
-

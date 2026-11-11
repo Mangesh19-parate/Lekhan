@@ -1,14 +1,19 @@
 {
   "app": {
     "name": "Lekhan",
-    "subtitle": "Bilingual Property Legal Drafting"
+    "subtitle": "Bilingual Property Legal Drafting",
+    "badge": "Judicial Workspace"
   },
   "nav": {
     "wizard": "Draft Document",
     "matters": "Matters",
     "parties": "Parties",
     "templates": "Template Registry",
-    "audit": "Audit Log"
+    "audit": "Audit Log",
+    "recent_drafts": "Recent Drafts",
+    "shortcuts": "Keyboard Shortcuts",
+    "collapse_sidebar": "Collapse navigation",
+    "expand_sidebar": "Expand navigation"
   },
   "actions": {
     "save_draft": "Save Draft",
@@ -18,9 +23,18 @@
     "cancel": "Cancel",
     "add_item": "Add Entry",
     "remove": "Remove",
+    "move_up": "Move Up",
+    "move_down": "Move Down",
     "suggest_transliteration": "Suggest transliteration",
     "download_docx": "Download DOCX",
-    "calculating": "Calculating..."
+    "calculating": "Calculating...",
+    "load_sample": "Load Nagpur Plot Sample",
+    "clear_form": "Clear Form",
+    "search": "Search actions, sections (Ctrl+K)...",
+    "restore": "Restore Draft",
+    "close": "Close",
+    "undo": "Undo",
+    "redo": "Redo"
   },
   "status": {
     "draft": "Draft",
@@ -30,7 +44,10 @@
     "queued": "Queued",
     "running": "Generating...",
     "completed": "Ready for Download",
-    "failed": "Generation Failed"
+    "failed": "Generation Failed",
+    "saved": "All changes saved",
+    "saving": "Saving draft...",
+    "unsaved": "Unsaved changes"
   },
   "wizard": {
     "step_1": "1. Template Selection",
@@ -46,8 +63,35 @@
     "parties_section": "Parties Details",
     "property_section": "Property Schedule",
     "financial_section": "Consideration & Payment Terms",
-    "witnesses_section": "Attesting Witnesses"
+    "witnesses_section": "Attesting Witnesses",
+    "fill_progress": "Completion Progress"
+  },
+  "inspector": {
+    "title": "Live Deed Inspector",
+    "subtitle": "Real-time calculation & verification",
+    "financial_summary": "Financial Breakdown",
+    "total_consideration": "Total Value",
+    "advance_paid": "Earnest Advance",
+    "balance_payable": "Balance Due",
+    "property_summary": "Property Metrics",
+    "equivalent_area": "Computed Sq. Ft.",
+    "parties_count": "Parties Listed",
+    "sellers": "Sellers",
+    "purchasers": "Purchasers",
+    "witnesses": "Witnesses",
+    "readiness": "Draft Readiness",
+    "ready_to_export": "Ready to export",
+    "pending_fields": "mandatory fields pending"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "subtitle": "High-velocity drafting accelerators",
+    "command_palette": "Open Command Palette",
+    "save_draft": "Save Draft to Browser Storage",
+    "add_party": "Add Next Party / Repeater Row",
+    "toggle_theme": "Toggle Dark / Light Mode",
+    "toggle_lang": "Toggle Marathi / English",
+    "close_dialog": "Close Modal or Palette"
   },
   "disclaimer": "Generated draft deed. Must be verified and approved by a qualified legal professional before execution or registration."
 }
-
