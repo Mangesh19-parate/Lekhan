@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { IndianRupee } from "lucide-react";
 
 interface Props {
   amount: number | string | undefined;
@@ -95,10 +96,28 @@ export const LiveAmountInWords: React.FC<Props> = ({ amount, language = "mr" }) 
   if (!words) return null;
 
   return (
-    <div className="mt-1 text-xs text-[var(--brand-600)] font-medium flex items-center gap-1.5 bg-[var(--brand-100)]/40 px-2.5 py-1.5 rounded-[var(--radius-input)] border border-[var(--brand-500)]/20">
-      <span className="opacity-70">{language === "mr" ? "अक्षरी:" : "In words:"}</span>
-      <span className="font-semibold">{words}</span>
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        marginTop: "6px",
+        fontSize: "0.8125rem",
+        backgroundColor: "var(--brand-50)",
+        color: "var(--brand-700)",
+        border: "1px solid var(--brand-100)",
+        borderRadius: "var(--radius-input)",
+        padding: "6px 10px",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        lineHeight: 1.4,
+      }}
+    >
+      <IndianRupee size={14} className="shrink-0 text-[var(--brand-500)]" />
+      <span style={{ fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+        {language === "mr" ? "अक्षरी:" : "In words:"}
+      </span>
+      <span style={{ fontWeight: 600, color: "var(--brand-600)" }}>{words}</span>
     </div>
   );
 };
-

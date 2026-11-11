@@ -3,41 +3,84 @@ import { TemplateManifest } from "./types";
 import { LiveAmountInWords } from "./LiveAmountInWords";
 import { RepeaterGroup } from "./RepeaterGroup";
 import { useI18n } from "../../shared/i18n";
-import { FileText, CheckCircle } from "lucide-react";
+import { Card, Input, Button, Badge } from "../../shared/components";
+import { FileText, CheckCircle2, ChevronRight, Layers, Landmark, MapPin, IndianRupee, Users, Search } from "lucide-react";
 
 interface Props {
   manifest: TemplateManifest;
   onSubmit: (data: any) => Promise<void>;
   isSubmitting?: boolean;
+  formData?: Record<string, any>;
+  repeatersData?: Record<string, any[]>;
+  onFieldChange?: (key: string, value: any) => void;
+  onRepeatersChange?: (repKey: string, items: any[]) => void;
+  activeSectionId?: string;
+  onSelectSection?: (sectionId: string) => void;
+  onOpenPropertySearch?: () => void;
+  onOpenPartySearch?: (targetRole: string, index?: number) => void;
+  advisoryElement?: React.ReactNode;
 }
 
-export const DynamicForm: React.FC<Props> = ({ manifest, onSubmit, isSubmitting = false }) => {
+export const DynamicForm: React.FC<Props> = ({
+  manifest,
+  onSubmit,
+  isSubmitting = false,
+  formData: externalFormData,
+  repeatersData: externalRepeatersData,
+  onFieldChange: externalOnFieldChange,
+  onRepeatersChange: externalOnRepeatersChange,
+  activeSectionId,
+  onSelectSection,
+  onOpenPropertySearch,
+  onOpenPartySearch,
+  advisoryElement,
+}) => {
   const { lang, t } = useI18n();
-  const [formData, setFormData] = useState<Record<string, any>>({});
-  const [repeatersData, setRepeatersData] = useState<Record<string, any[]>>({});
 
-  // Initialize defaults
+  // Internal state if parent does not provide controlled state
+  const [internalFormData, setInternalFormData] = useState<Record<string, any>>({});
+  const [internalRepeatersData, setInternalRepeatersData] = useState<Record<string, any[]>>({});
+
+  const formData = externalFormData || internalFormData;
+  const repeatersData = externalRepeatersData || internalRepeatersData;
+
+  // Initialize defaults if uncontrolled
   useEffect(() => {
-    const initial: Record<string, any> = {};
-    Object.entries(manifest.fields).forEach(([key, field]) => {
-      initial[key] = field.default ?? "";
-    });
-    setFormData(initial);
+    if (!externalFormData) {
+      const initial: Record<string, any> = {};
+      Object.entries(manifest.fields).forEach(([key, field]) => {
+        initial[key] = field.default ?? "";
+      });
+      setInternalFormData(initial);
+    }
 
-    const initRepeaters: Record<string, any[]> = {};
-    Object.entries(manifest.repeaters).forEach(([key, rep]) => {
-      const initialCount = Math.max(1, rep.min);
-      initRepeaters[key] = Array.from({ length: initialCount }, () => ({}));
-    });
-    setRepeatersData(initRepeaters);
-  }, [manifest]);
+    if (!externalRepeatersData) {
+      const initRepeaters: Record<string, any[]> = {};
+      Object.entries(manifest.repeaters).forEach(([key, rep]) => {
+        const initialCount = Math.max(1, rep.min);
+        initRepeaters[key] = Array.from({ length: initialCount }, () => ({}));
+      });
+      setInternalRepeatersData(initRepeaters);
+    }
+  }, [manifest, externalFormData, externalRepeatersData]);
 
-  // Handle single field change
   const handleFieldChange = (key: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (externalOnFieldChange) {
+      externalOnFieldChange(key, value);
+    } else {
+      setInternalFormData((prev) => ({ ...prev, [key]: value }));
+    }
   };
 
-  // Compute derived fields live
+  const handleRepeatersChange = (key: string, items: any[]) => {
+    if (externalOnRepeatersChange) {
+      externalOnRepeatersChange(key, items);
+    } else {
+      setInternalRepeatersData((prev) => ({ ...prev, [key]: items }));
+    }
+  };
+
+  // Derived calculations live
   const derivedValues = useMemo(() => {
     const total = parseFloat(formData["financial.total_consideration"] || 0);
     const advance = parseFloat(formData["financial.earnest_advance"] || 0);
@@ -62,97 +105,247 @@ export const DynamicForm: React.FC<Props> = ({ manifest, onSubmit, isSubmitting 
     onSubmit(payload);
   };
 
+  const getSectionIcon = (id: string) => {
+    switch (id) {
+      case "property_details":
+        return <Landmark size={18} color="var(--brand-600)" />;
+      case "boundaries":
+        return <MapPin size={18} color="var(--brand-600)" />;
+      case "financial_details":
+        return <IndianRupee size={18} color="var(--brand-600)" />;
+      default:
+        return <Layers size={18} color="var(--brand-600)" />;
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="max-w-[760px] mx-auto space-y-8">
-      {/* Disclaimer Banner per DESIGN.md §4.5 */}
-      <div className="bg-[var(--surface-sunken)] p-3.5 rounded-[var(--radius-card)] border-l-4 border-[var(--brand-500)] text-xs text-[var(--text-secondary)] flex items-start gap-2.5">
-        <FileText className="w-4 h-4 text-[var(--brand-600)] shrink-0 mt-0.5" />
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Official Guidelines Callout */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "12px",
+          padding: "14px 16px",
+          backgroundColor: "var(--surface-sunken)",
+          borderLeft: "4px solid var(--brand-500)",
+          borderRadius: "var(--radius-card)",
+          fontSize: "0.8125rem",
+          color: "var(--text-secondary)",
+          lineHeight: 1.5,
+        }}
+      >
+        <FileText size={18} color="var(--brand-600)" className="shrink-0 mt-0.5" />
         <div>
-          <span className="font-semibold text-[var(--text-primary)]">
-            {lang === "mr" ? "अधिकृत मसुदा मार्गदर्शक:" : "Official Draft Guidelines:"}
+          <span style={{ fontWeight: 700, color: "var(--brand-900)" }}>
+            {lang === "mr" ? "अधिकृत मसुदा मार्गदर्शक:" : "Official Legal Drafting Guidelines:"}
           </span>{" "}
           {t("disclaimer")}
         </div>
       </div>
 
-      {/* Sections and Fields */}
-      {manifest.sections.map((section) => (
-        <div
-          key={section.id}
-          className="bg-[var(--surface-card)] rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-card)] border border-[var(--line-subtle)] space-y-4"
-        >
-          <div className="border-b border-[var(--line-subtle)] pb-2.5">
-            <h2 className="text-lg font-bold text-[var(--brand-600)]">
-              {lang === "mr" ? section.title_mr : section.title_en}
-            </h2>
-          </div>
+      {/* Advisory Banner (PRD FR-15) */}
+      {advisoryElement}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {section.field_names.map((fKey) => {
-              const fDef = manifest.fields[fKey];
-              if (!fDef) return null;
+      {/* Manifest Sections */}
+      {manifest.sections.map((section) => {
+        const isFocused = activeSectionId === section.id;
+        const requiredCount = section.field_names.filter((f) => manifest.fields[f]?.required).length;
+        const filledCount = section.field_names.filter(
+          (f) => manifest.fields[f]?.required && !!formData[f]
+        ).length;
+        const isSectionComplete = requiredCount > 0 && filledCount >= requiredCount;
 
-              const isTotalAmount = fKey === "financial.total_consideration";
-              const isAdvanceAmount = fKey === "financial.earnest_advance";
-
-              return (
-                <div key={fKey} className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-[var(--text-primary)]">
-                    {lang === "mr" ? fDef.label_mr || fKey : fDef.label_en || fKey}
-                    {fDef.required && (
-                      <span className="text-xs text-[var(--danger-600)] ml-1">
-                        ({t("form.required")})
-                      </span>
-                    )}
-                  </label>
-
-                  <input
-                    type={fDef.type === "decimal" || fDef.type === "integer" ? "number" : "text"}
-                    value={formData[fKey] ?? ""}
-                    onChange={(e) => handleFieldChange(fKey, e.target.value)}
-                    required={fDef.required}
-                    className="w-full h-10 px-3 text-sm rounded-[var(--radius-input)] border border-[var(--line-subtle)] bg-[var(--surface-card)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)] transition-all"
-                  />
-
-                  {/* Live Amount in words for financial inputs */}
-                  {(isTotalAmount || isAdvanceAmount) && (
-                    <LiveAmountInWords amount={formData[fKey]} language={lang} />
-                  )}
+        return (
+          <Card
+            key={section.id}
+            id={`section-${section.id}`}
+            padding="lg"
+            variant={isFocused ? "highlight" : "default"}
+            style={{
+              scrollMarginTop: "80px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "18px",
+            }}
+            onClick={() => onSelectSection && onSelectSection(section.id)}
+          >
+            {/* Section Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingBottom: "12px",
+                borderBottom: "1px solid var(--line-subtle)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "var(--radius-pill)",
+                    backgroundColor: "var(--brand-50)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {getSectionIcon(section.id)}
                 </div>
-              );
-            })}
-          </div>
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "1.125rem",
+                      fontWeight: 700,
+                      color: "var(--brand-600)",
+                      fontFamily: "var(--font-ui)",
+                    }}
+                  >
+                    {lang === "mr" ? section.title_mr : section.title_en}
+                  </h2>
+                </div>
+              </div>
 
-          {/* Special Section Derived Indicators */}
-          {section.id === "financial_details" && (
-            <div className="pt-3 border-t border-[var(--line-subtle)] flex items-center justify-between text-sm">
-              <span className="font-medium text-[var(--text-secondary)]">
-                {t("form.balance_due")}:
-              </span>
-              <span className="font-bold text-[var(--brand-600)] text-base">
-                ₹ {derivedValues["financial.balance_amount"].toLocaleString("en-IN")}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {section.id === "property_details" && onOpenPropertySearch && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    pill
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenPropertySearch();
+                    }}
+                    leftIcon={<Search size={14} />}
+                  >
+                    {lang === "mr" ? "जतन केलेली मिळकत" : "Reuse Property"}
+                  </Button>
+                )}
+                {requiredCount > 0 && (
+                  <Badge
+                    variant={isSectionComplete ? "active" : "neutral"}
+                    size="sm"
+                    label={
+                      isSectionComplete
+                        ? lang === "mr" ? "पूर्ण" : "Complete"
+                        : `${filledCount}/${requiredCount} ${t("form.required")}`
+                    }
+                    icon={isSectionComplete ? <CheckCircle2 size={12} /> : undefined}
+                  />
+                )}
+              </div>
             </div>
-          )}
 
-          {section.id === "property_details" && (
-            <div className="pt-3 border-t border-[var(--line-subtle)] flex items-center justify-between text-sm">
-              <span className="font-medium text-[var(--text-secondary)]">
-                {t("form.area_sqft")}:
-              </span>
-              <span className="font-bold text-[var(--brand-600)] text-base">
-                {derivedValues["property.area_sqft"]} sq. ft.
-              </span>
+            {/* Field Grid */}
+            <div
+              className="lekhan-field-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: "16px",
+              }}
+            >
+              {section.field_names.map((fKey) => {
+                const fDef = manifest.fields[fKey];
+                if (!fDef) return null;
+
+                const isTotalAmount = fKey === "financial.total_consideration";
+                const isAdvanceAmount = fKey === "financial.earnest_advance";
+
+                return (
+                  <div key={fKey} style={{ display: "flex", flexDirection: "column" }}>
+                    <Input
+                      id={fKey}
+                      label={lang === "mr" ? fDef.label_mr || fKey : fDef.label_en || fKey}
+                      type={fDef.type === "decimal" || fDef.type === "integer" ? "number" : "text"}
+                      value={formData[fKey] ?? ""}
+                      onChange={(e) => handleFieldChange(fKey, e.target.value)}
+                      required={fDef.required}
+                      requiredMarker={t("form.required")}
+                      helperText={lang === "mr" ? fDef.help_text_mr : fDef.help_text_en}
+                      placeholder={fDef.type === "decimal" ? "0.00" : undefined}
+                    />
+
+                    {/* Live Amount in words for financial inputs */}
+                    {(isTotalAmount || isAdvanceAmount) && (
+                      <LiveAmountInWords amount={formData[fKey]} language={lang} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </div>
-      ))}
 
-      {/* Repeaters */}
+            {/* Section Summary Row */}
+            {section.id === "financial_details" && (
+              <div
+                style={{
+                  marginTop: "6px",
+                  padding: "12px 16px",
+                  borderRadius: "var(--radius-input)",
+                  backgroundColor: "var(--surface-sunken)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                  {t("form.balance_due")}:
+                </span>
+                <span
+                  style={{
+                    fontSize: "1.0625rem",
+                    fontWeight: 700,
+                    color: "var(--brand-600)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  ₹ {derivedValues["financial.balance_amount"].toLocaleString("en-IN")}
+                </span>
+              </div>
+            )}
+
+            {section.id === "property_details" && (
+              <div
+                style={{
+                  marginTop: "6px",
+                  padding: "12px 16px",
+                  borderRadius: "var(--radius-input)",
+                  backgroundColor: "var(--surface-sunken)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                  {t("form.area_sqft")}:
+                </span>
+                <span
+                  style={{
+                    fontSize: "1.0625rem",
+                    fontWeight: 700,
+                    color: "var(--brand-600)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {derivedValues["property.area_sqft"]} sq. ft.
+                </span>
+              </div>
+            )}
+          </Card>
+        );
+      })}
+
+      {/* Repeaters (Instalments, Witnesses, etc.) */}
       {Object.entries(manifest.repeaters).map(([repKey, repDef]) => (
-        <div
+        <Card
           key={repKey}
-          className="bg-[var(--surface-card)] rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-card)] border border-[var(--line-subtle)]"
+          id={`section-${repKey}`}
+          padding="lg"
+          style={{ scrollMarginTop: "80px" }}
         >
           <RepeaterGroup
             id={repKey}
@@ -161,33 +354,54 @@ export const DynamicForm: React.FC<Props> = ({ manifest, onSubmit, isSubmitting 
             max={repDef.max}
             fields={repDef.fields}
             items={repeatersData[repKey] || []}
-            onChange={(items) => setRepeatersData((prev) => ({ ...prev, [repKey]: items }))}
+            onChange={(items) => handleRepeatersChange(repKey, items)}
+            onOpenPartySearch={onOpenPartySearch}
           />
-        </div>
+        </Card>
       ))}
 
-      {/* Form Submission Bar */}
-      <div className="sticky bottom-4 bg-[var(--brand-900)] text-[var(--text-on-dark)] p-4 rounded-[var(--radius-card)] shadow-[var(--shadow-dialog)] flex items-center justify-between">
-        <div className="text-xs opacity-80">
-          {manifest.name_mr} ({manifest.document_type})
+      {/* Sticky Bottom Actions Bar (Mobile & Quick Export) */}
+      <div
+        className="lekhan-bottom-bar"
+        style={{
+          position: "sticky",
+          bottom: "16px",
+          zIndex: 50,
+          backgroundColor: "var(--brand-900)",
+          color: "var(--text-on-dark)",
+          padding: "14px 20px",
+          borderRadius: "var(--radius-card)",
+          boxShadow: "var(--shadow-dialog)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ fontSize: "0.8125rem", opacity: 0.85, fontWeight: 500 }}>
+            {lang === "mr" ? manifest.name_mr : manifest.name_en}
+          </div>
+          <Badge
+            variant="approved"
+            size="sm"
+            label="Legal Std"
+          />
         </div>
 
-        <button
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="h-10 px-6 rounded-[var(--radius-pill)] bg-[var(--brand-500)] text-[var(--text-on-dark)] font-semibold text-sm hover:bg-[#008f5a] disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
+          variant="primary"
+          pill
+          size="md"
+          isLoading={isSubmitting}
+          leftIcon={<CheckCircle2 size={16} />}
+          style={{ minWidth: "160px" }}
         >
-          {isSubmitting ? (
-            <span>{t("actions.calculating")}</span>
-          ) : (
-            <>
-              <CheckCircle className="w-4 h-4" />
-              <span>{t("actions.generate")}</span>
-            </>
-          )}
-        </button>
+          {isSubmitting ? t("actions.calculating") : t("actions.generate")}
+        </Button>
       </div>
     </form>
   );
 };
-
