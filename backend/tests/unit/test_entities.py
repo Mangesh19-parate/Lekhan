@@ -7,7 +7,9 @@ import pytest
 
 from app.audit.service import audit_service
 from app.matters.service import matter_service
+from app.parties.repository import InMemoryPartyRepository
 from app.parties.service import party_service
+from app.properties.repository import InMemoryPropertyRepository
 from app.properties.service import property_service
 from app.shared.concurrency import OptimisticLockError
 
@@ -17,8 +19,8 @@ ACTOR_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000010")
 
 @pytest.fixture(autouse=True)
 def clean_services() -> None:
-    party_service.clear()
-    property_service.clear()
+    party_service.repository = InMemoryPartyRepository()
+    property_service.repository = InMemoryPropertyRepository()
     matter_service.clear()
     audit_service.clear()
 

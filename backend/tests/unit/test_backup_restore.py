@@ -21,6 +21,7 @@ except ImportError:
 
 from app.generation.jobs import JobQueue, JobRecord
 from app.generation.pipeline import GenerationPipelineFSM, generation_pipeline
+from app.generation.repository import InMemoryDocumentRepository
 
 
 @pytest.fixture
@@ -42,6 +43,7 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
 
     # 1. Populate test documents and counters
     pipeline = generation_pipeline
+    pipeline.repository = InMemoryDocumentRepository()
     tenant_id = uuid.uuid4()
     job = JobQueue().enqueue(
         tenant_id=tenant_id,

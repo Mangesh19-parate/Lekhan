@@ -6,10 +6,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters.storage import default_storage
+from app.api.auth import get_session_repo, get_user_repo
+from app.api.documents import get_document_repo, get_job_repo
 from app.generation.jobs import job_queue
 from app.generation.pipeline import generation_pipeline
+from app.generation.repository import InMemoryDocumentRepository
+from app.identity.repository import create_dev_user_repository
+from app.identity.session_repository import InMemorySessionRepository
 from app.main import app
 
+test_session_repo = InMemorySessionRepository()
+test_doc_repo = InMemoryDocumentRepository()
+app.dependency_overrides[get_user_repo] = create_dev_user_repository
+app.dependency_overrides[get_session_repo] = lambda: test_session_repo
+app.dependency_overrides[get_document_repo] = lambda: test_doc_repo
+app.dependency_overrides[get_job_repo] = lambda: job_queue
 client = TestClient(app)
 
 TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000000")
@@ -18,6 +29,8 @@ TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000000")
 @pytest.fixture(autouse=True)
 def clean_state():
     job_queue.clear()
+    test_doc_repo.clear()
+    generation_pipeline.repository = test_doc_repo
     generation_pipeline.clear()
 
 
