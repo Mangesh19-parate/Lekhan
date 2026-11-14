@@ -18,7 +18,6 @@ import json
 import re
 import uuid
 import zipfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +38,6 @@ from app.generation.spike_engine import (
     generate_plot_sale_deed_docx,
 )
 from app.numbering.service import document_numbering_service
-from app.shared.ids import uuid7
 from app.shared.logging import get_correlation_id, get_logger
 
 logger = get_logger(__name__)
@@ -280,6 +278,12 @@ class GenerationPipelineFSM:
     def clear(self) -> None:
         if hasattr(self.repository, "clear"):
             self.repository.clear()
+
+    @property
+    def _documents(self) -> dict[uuid.UUID, GeneratedDocumentRecord]:
+        if isinstance(self.repository, InMemoryDocumentRepository):
+            return self.repository._documents
+        return {}
 
 
 generation_pipeline = GenerationPipelineFSM()

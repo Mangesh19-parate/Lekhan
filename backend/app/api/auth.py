@@ -97,6 +97,49 @@ def get_session_repo(db: Session = Depends(get_db)) -> SessionRepository:
     return PostgresSessionRepository(db)
 
 
+SYNTHETIC_USERS: dict[str, dict[str, Any]] = {
+    "admin@lekhan.local": {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000001"),
+        "role": "admin",
+    },
+    "drafter@lekhan.local": {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000002"),
+        "role": "drafter",
+    },
+    "reviewer@lekhan.local": {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000003"),
+        "role": "reviewer",
+    },
+    "template_admin@lekhan.local": {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000004"),
+        "role": "template_admin",
+    },
+}
+
+
+def _find_user_by_email(email: str) -> UserRecord | None:
+    """Legacy helper for testing synthetic dev accounts in non-prod environments."""
+    if settings.ENV == "prod":
+        return None
+    from app.identity.repository import create_dev_user_repository
+
+    dev_repo = create_dev_user_repository()
+    return dev_repo.find_by_email(tenant_id=None, email=email)
+
+
+def _find_user_by_id(user_id: uuid.UUID) -> UserRecord | None:
+    """Legacy helper for testing synthetic dev accounts in non-prod environments."""
+    if settings.ENV == "prod":
+        return None
+    from app.identity.repository import create_dev_user_repository
+
+    dev_repo = create_dev_user_repository()
+    for user in dev_repo._users.values():
+        if user.id == user_id:
+            return user
+    return None
+
+
 # --- Dependencies ---
 
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime
 import uuid
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
 @dataclass
@@ -29,6 +29,7 @@ class SessionData:
     ip: str | None = None
 
 
+@runtime_checkable
 class SessionRepository(Protocol):
     """Explicit repository interface for tenant session persistence."""
 
@@ -99,7 +100,8 @@ class InMemorySessionRepository:
 
     def delete_all_for_user(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         to_del = [
-            h for h, s in self._sessions.items()
+            h
+            for h, s in self._sessions.items()
             if s.tenant_id == tenant_id and s.user_id == user_id
         ]
         for h in to_del:
@@ -107,8 +109,7 @@ class InMemorySessionRepository:
 
     def delete_expired(self, tenant_id: uuid.UUID, now: datetime.datetime) -> int:
         to_del = [
-            h for h, s in self._sessions.items()
-            if s.tenant_id == tenant_id and s.expires_at <= now
+            h for h, s in self._sessions.items() if s.tenant_id == tenant_id and s.expires_at <= now
         ]
         for h in to_del:
             self._sessions.pop(h, None)
@@ -117,4 +118,3 @@ class InMemorySessionRepository:
     def clear(self) -> None:
         """Clears all sessions (test cleanup helper)."""
         self._sessions.clear()
-

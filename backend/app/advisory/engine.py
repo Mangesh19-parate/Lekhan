@@ -16,7 +16,9 @@ from typing import Any
 
 from app.advisory.models import AdvisoryAlert
 from app.audit.service import audit_service
+from app.shared.logging import get_logger
 
+logger = get_logger(__name__)
 
 _ADVISORY_CATALOG: tuple[AdvisoryAlert, ...] = (
     AdvisoryAlert(

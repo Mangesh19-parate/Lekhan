@@ -25,4 +25,3 @@ class UserRecord:
     created_at: datetime.datetime = field(
         default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
-

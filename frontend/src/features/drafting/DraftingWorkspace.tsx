@@ -69,7 +69,9 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch {
+        /* ignore parse error */
+      }
     }
     const initial: Record<string, any> = {};
     Object.entries(defaultManifest.fields).forEach(([key, field]) => {
@@ -84,7 +86,9 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch {
+        /* ignore parse error */
+      }
     }
     const initRepeaters: Record<string, any[]> = {};
     Object.entries(defaultManifest.repeaters).forEach(([key, rep]) => {

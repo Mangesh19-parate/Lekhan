@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import difflib
 import unicodedata
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Literal
 
 
@@ -79,7 +79,7 @@ def diff_legal_texts(
 
         hunks.append(
             DiffHunk(
-                tag=tag,  # type: ignore[arg-type]
+                tag=tag,
                 a_text=sub_a,
                 b_text=sub_b,
                 a_start=alo,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
 from fastapi import Request, Response
 from sqlalchemy.exc import SQLAlchemyError

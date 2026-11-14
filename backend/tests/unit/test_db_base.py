@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import configure_mappers
 
-from app.shared.models import Tenant, User, Document, Base
+from app.shared.models import Document, Tenant
 
 
 def test_configure_mappers_relationships() -> None:
@@ -39,5 +39,3 @@ def test_document_file_ref_compatibility() -> None:
     doc.file_ref = "documents/updated.docx"
     assert doc.file_ref == "documents/updated.docx"
     assert doc.docx_ref == "documents/updated.docx"
-
-

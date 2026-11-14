@@ -139,7 +139,7 @@ class Settings(BaseSettings):
             return [item.strip() for item in s.split(",") if item.strip()]
         if isinstance(v, (list, tuple, set)):
             return [str(item).strip() for item in v if str(item).strip()]
-        return v
+        return []
 
     @property
     def is_dev(self) -> bool:

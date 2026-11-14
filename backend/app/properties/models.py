@@ -14,12 +14,12 @@ class PropertyRecord:
     tenant_id: uuid.UUID
     category: str
     attrs: dict[str, Any]
-    area_value: Decimal | None
-    area_unit: str | None
-    boundaries: dict[str, Any] | None
-    rr_division: str | None
-    rr_rate: Decimal | None
-    version: int
+    area_value: Decimal | None = None
+    area_unit: str | None = None
+    boundaries: dict[str, Any] | None = None
+    rr_division: str | None = None
+    rr_rate: Decimal | None = None
+    version: int = 1
     deleted: bool = False
 
 
@@ -28,5 +28,4 @@ class PropertyVersionRecord:
     property_id: uuid.UUID
     version: int
     data: dict[str, Any]
-    changed_by: uuid.UUID | None
-
+    changed_by: uuid.UUID | None = None

@@ -9,6 +9,7 @@ Verifies:
 from __future__ import annotations
 
 import pytest
+
 from app.main import app
 
 
@@ -46,4 +47,3 @@ def test_schemathesis_schema_loader() -> None:
         assert len(list(schema.get_all_operations())) > 0
     except ImportError:
         pytest.skip("schemathesis is not installed in the current test runner.")
-

@@ -1,6 +1,7 @@
 """Unit tests for Document Diff Engine and Duplicate Party Detection (Features F-030, F-065, F-066)."""
 
 import uuid
+
 from app.parties.service import PartyService
 from app.shared.diff import diff_legal_texts
 

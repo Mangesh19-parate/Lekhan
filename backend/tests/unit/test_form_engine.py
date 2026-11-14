@@ -1,10 +1,9 @@
 """Unit tests for Week 12 Form Engine, i18n tokens, and server-side validation endpoint."""
 
 import json
+import uuid
 from decimal import Decimal
 from pathlib import Path
-
-import uuid
 
 from app.api.documents import ValidationRequest, validate_draft_data
 from app.identity.policy import Actor

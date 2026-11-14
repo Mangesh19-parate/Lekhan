@@ -150,4 +150,3 @@ def seed_dev_data() -> dict[str, int]:
 if __name__ == "__main__":
     results = seed_dev_data()
     print(f"Seed dev data completed: {results}")
-

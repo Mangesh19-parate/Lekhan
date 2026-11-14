@@ -193,7 +193,9 @@ def check_tag_alignment(docx_bytes: bytes, manifest: dict[str, Any]) -> list[Lin
             dir_name = field_name.split("boundaries.", 1)[1]
             if f"boundary_{dir_name}" in found_tags:
                 return True
-        if field_name in parties and (f"{field_name}_block" in found_tags or field_name in found_tags):
+        if field_name in parties and (
+            f"{field_name}_block" in found_tags or field_name in found_tags
+        ):
             return True
         if field_name == "witnesses" and any(t.startswith("witness_") for t in found_tags):
             return True

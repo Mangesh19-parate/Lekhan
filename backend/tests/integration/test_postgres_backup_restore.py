@@ -16,12 +16,13 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.shared.models import Base, Counter as CounterModel, Document as DocumentModel, Tenant
+from app.shared.models import Base, Tenant
+from app.shared.models import Counter as CounterModel
 from scripts.backup import create_backup
 from scripts.restore import restore_backup
 
@@ -83,7 +84,9 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
     try:
         with Session(engine) as session:
             # Create tenant
-            tenant = Tenant(id=tenant_id, name="Drill Law Chambers", slug=f"drill-{uuid.uuid4().hex[:6]}")
+            tenant = Tenant(
+                id=tenant_id, name="Drill Law Chambers", slug=f"drill-{uuid.uuid4().hex[:6]}"
+            )
             session.add(tenant)
 
             # Create sequence counter
@@ -100,7 +103,9 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
         with Session(engine) as session:
             session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).delete()
             session.commit()
-            remaining = session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).first()
+            remaining = (
+                session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).first()
+            )
             assert remaining is None, "Row must be deleted for drill verification"
 
         # 3. Run restore drill
@@ -112,4 +117,3 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
         assert report["verified_files"] > 0
     finally:
         shutil.rmtree(stage_dir, ignore_errors=True)
-

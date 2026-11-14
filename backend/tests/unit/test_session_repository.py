@@ -160,4 +160,3 @@ def test_delete_expired_tenant_scoped() -> None:
     deleted = repo.delete_expired(TENANT_1, now)
     assert deleted == 1
     assert repo.get(TENANT_1, h1) is None
-

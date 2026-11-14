@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from app.generation.pipeline import GeneratedDocumentRecord
+from app.generation.models import GeneratedDocumentRecord
 from app.lang_packs.english import number_to_words_en
 from app.lang_packs.marathi import number_to_words_mr
 from app.portal.models import (
@@ -17,6 +17,9 @@ from app.portal.models import (
     PortalParty,
     PortalProperty,
 )
+from app.shared.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class PortalSheetGenerator:

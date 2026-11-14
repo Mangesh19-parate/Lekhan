@@ -129,6 +129,7 @@ class MetricsCollector:
         with self._lock:
             return {
                 "http_requests_total": sum(self._http_requests.values()),
+                "requests": sum(self._http_requests.values()),
                 "document_generations_total": sum(self._doc_generations.values()),
                 "pdf_conversions_total": sum(self._pdf_conversions.values()),
                 "template_lint_runs_total": sum(self._lint_runs.values()),

@@ -12,7 +12,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from app.shared.logging import get_logger
@@ -169,4 +169,3 @@ class InMemoryAuditRepository:
         else:
             self._logs.clear()
             self._next_id = 1
-

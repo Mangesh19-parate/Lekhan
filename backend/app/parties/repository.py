@@ -10,12 +10,13 @@ Enforces:
 from __future__ import annotations
 
 import uuid
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from app.parties.models import PartyRecord, PartyVersionRecord
 from app.shared.trigram import trigram_similarity
 
 
+@runtime_checkable
 class PartyRepository(Protocol):
     """Explicit repository interface for party persistence."""
 

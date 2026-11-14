@@ -50,10 +50,15 @@ class PostgresJobRepository:
     def enqueue(
         self,
         tenant_id: uuid.UUID,
-        type: str,
-        payload: dict[str, Any],
+        type: str = "generate_docx",
+        payload: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
+        job_type: str | None = None,
     ) -> JobRecord:
+        if job_type is not None:
+            type = job_type
+        if payload is None:
+            payload = {}
         session = self._get_session()
         should_close = self._session is None
         try:
@@ -243,14 +248,8 @@ class PostgresJobRepository:
             if status:
                 query = query.filter(JobModel.status == status)
 
-            db_jobs = (
-                query.order_by(JobModel.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-                .all()
-            )
+            db_jobs = query.order_by(JobModel.created_at.desc()).offset(offset).limit(limit).all()
             return [_to_record(j) for j in db_jobs]
         finally:
             if should_close:
                 session.close()
-

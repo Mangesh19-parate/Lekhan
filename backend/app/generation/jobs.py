@@ -8,11 +8,12 @@ Enforces:
 
 from __future__ import annotations
 
+import builtins
 import datetime
 import uuid
 from dataclasses import dataclass, field
-from threading import Lock
-from typing import Any, Protocol
+from threading import RLock
+from typing import Any, Protocol, runtime_checkable
 
 from app.shared.ids import uuid7
 
@@ -45,15 +46,17 @@ class JobRecord:
             self.type = self.job_type
 
 
+@runtime_checkable
 class JobRepository(Protocol):
     """Explicit repository interface for background job queue persistence."""
 
     def enqueue(
         self,
         tenant_id: uuid.UUID,
-        type: str,
-        payload: dict[str, Any],
+        type: str = "generate_docx",
+        payload: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
+        job_type: str | None = None,
     ) -> JobRecord:
         """Enqueues a job with idempotency deduplication within tenant_id."""
         ...
@@ -107,16 +110,21 @@ class InMemoryJobRepository:
     """Thread-safe in-memory job repository for unit testing and local mocks."""
 
     def __init__(self) -> None:
-        self._lock = Lock()
+        self._lock = RLock()
         self._jobs: dict[uuid.UUID, JobRecord] = {}
 
     def enqueue(
         self,
         tenant_id: uuid.UUID,
-        type: str,
-        payload: dict[str, Any],
+        type: str = "generate_docx",
+        payload: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
+        job_type: str | None = None,
     ) -> JobRecord:
+        if job_type is not None:
+            type = job_type
+        if payload is None:
+            payload = {}
         with self._lock:
             if idempotency_key:
                 for existing in self._jobs.values():
@@ -237,9 +245,9 @@ class InMemoryJobRepository:
             self._jobs.clear()
 
     @property
-    def _queue(self) -> list[JobRecord]:
+    def _queue(self) -> builtins.list[JobRecord]:
         with self._lock:
-            return list(self._jobs.values())
+            return builtins.list(self._jobs.values())
 
     # Legacy compatibility methods for job_queue callers
     def claim_next_job(self) -> JobRecord | None:

@@ -162,7 +162,9 @@ class DuplicateCheckPayload(BaseModel):
     threshold: float = Field(0.85, ge=0.0, le=1.0)
 
 
-@router.post("/detect-duplicates", summary="Detect duplicate parties by PAN or name (Feature F-065)")
+@router.post(
+    "/detect-duplicates", summary="Detect duplicate parties by PAN or name (Feature F-065)"
+)
 def detect_duplicate_parties(
     payload: DuplicateCheckPayload,
     actor: Actor = Depends(get_current_actor),

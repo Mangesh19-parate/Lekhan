@@ -1,6 +1,7 @@
 """FastAPI main entrypoint for Lekhan (Backend Core with Auth, Tenancy, and Jobs)."""
 
 import hmac
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -45,7 +46,7 @@ init_sentry(environment=settings.ENV)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager handling startup warmup and graceful shutdown."""
     logger.info("Lekhan API started successfully [env=%s]", settings.ENV)
     yield
@@ -110,14 +111,21 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         status_code=exc.status_code,
         code=code,
         detail=detail_str,
+        headers=exc.headers,
     )
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Translates Pydantic request validation errors into RFC 9457 problem+json."""
     clean_errors = [
-        {"loc": [str(loc_item) for loc_item in err.get("loc", [])], "msg": str(err.get("msg", "")), "type": str(err.get("type", ""))}
+        {
+            "loc": [str(loc_item) for loc_item in err.get("loc", [])],
+            "msg": str(err.get("msg", "")),
+            "type": str(err.get("type", "")),
+        }
         for err in exc.errors()
     ]
     return problem_json_response(
@@ -195,9 +203,8 @@ def verify_metrics_access(
     x_metrics_token: str | None = Header(None, alias="X-Metrics-Token"),
 ) -> None:
     """Protects /metrics endpoints via network IP allowlist or secret token."""
-    client_ip = (
-        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        or (request.client.host if request.client else "127.0.0.1")
+    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (
+        request.client.host if request.client else "127.0.0.1"
     )
 
     token_valid = False

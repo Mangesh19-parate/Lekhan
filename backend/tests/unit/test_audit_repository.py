@@ -252,15 +252,20 @@ def test_postgres_audit_repository_tamper_detection() -> None:
         prev_hash=b"\x00" * 32,  # Corrupted previous hash link!
         hash=hash2,
     )
-    mock_session.execute.return_value.scalars.return_value.all.return_value = [row1, tampered_link_row2]
+    mock_session.execute.return_value.scalars.return_value.all.return_value = [
+        row1,
+        tampered_link_row2,
+    ]
     assert repo.verify_audit_chain(tenant_id) is False
 
 
 def test_audit_log_model_prevents_updates_and_deletes() -> None:
     """Verifies SQLAlchemy model listeners block UPDATE and DELETE on AuditLog."""
-    from sqlalchemy.orm import Session
     from sqlalchemy import create_engine
-    from app.shared.models import AuditLog as AuditLogModel, Base
+    from sqlalchemy.orm import Session
+
+    from app.shared.models import AuditLog as AuditLogModel
+    from app.shared.models import Base
 
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -299,18 +304,17 @@ def test_audit_log_model_prevents_updates_and_deletes() -> None:
 def test_admin_api_verify_audit_chain_endpoint() -> None:
     """Verifies that /api/v1/admin/audit/verify returns verification status."""
     from fastapi.testclient import TestClient
-    from app.main import app
-    from app.api.auth import get_current_actor
+
     from app.api.admin import get_audit_repo
+    from app.api.auth import get_current_actor
     from app.identity.policy import Actor
+    from app.main import app
 
     client = TestClient(app)
     mock_actor = Actor(
         user_id=uuid.uuid4(),
         tenant_id=uuid.uuid4(),
-        email="admin@example.com",
         role="admin",
-        ui_language="mr",
     )
     mock_repo = MagicMock()
     mock_repo.verify_audit_chain.return_value = True
@@ -334,4 +338,3 @@ def test_admin_api_verify_audit_chain_endpoint() -> None:
     finally:
         app.dependency_overrides.pop(get_current_actor, None)
         app.dependency_overrides.pop(get_audit_repo, None)
-

@@ -9,7 +9,7 @@ Run with:
     locust -f backend/tests/load/locustfile.py --headless -u 20 -r 2 -t 3m --host http://localhost:8000
 """
 
-from locust import HttpUser, task, between
+from locust import HttpUser, between, task
 
 
 class LekhanApiUser(HttpUser):
@@ -37,4 +37,3 @@ class LekhanApiUser(HttpUser):
             headers={"Authorization": "Bearer test-internal-token"},
             name="/metrics",
         )
-

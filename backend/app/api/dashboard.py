@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import datetime
 from typing import Any
-import uuid
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.api.admin import get_audit_repo
 from app.api.auth import get_current_actor, get_user_repo
+from app.api.templates_admin import list_templates
 from app.audit.repository import AuditRepository
 from app.generation.pipeline import generation_pipeline
 from app.identity.policy import Actor
 from app.identity.repository import UserRepository
-from app.api.templates_admin import list_templates
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -61,7 +60,7 @@ def get_dashboard_stats(
     for d in docs:
         if d.created_at and d.created_at.startswith(today_str):
             docs_today += 1
-        
+
         st = (d.status or "draft").lower()
         if st == "draft":
             drafts += 1
@@ -97,43 +96,51 @@ def get_dashboard_stats(
     recent_activity: list[dict[str, Any]] = []
 
     for rec in reversed(audit_chain):
-        recent_activity.append({
-            "id": rec.id,
-            "action": rec.action,
-            "entity": rec.entity,
-            "entity_id": rec.entity_id,
-            "timestamp": rec.at.isoformat(),
-            "meta": rec.meta,
-        })
+        recent_activity.append(
+            {
+                "id": rec.id,
+                "action": rec.action,
+                "entity": rec.entity,
+                "entity_id": rec.entity_id,
+                "timestamp": rec.at.isoformat(),
+                "meta": rec.meta,
+            }
+        )
 
     # Operational alerts
     alerts: list[dict[str, Any]] = []
     if pending_review > 0:
-        alerts.append({
-            "id": "ALERT-REVIEW-QUEUE",
-            "severity": "warning",
-            "title_en": f"{pending_review} document(s) awaiting lawyer review",
-            "title_mr": f"{pending_review} दस्त कायदेशीर तपासणीसाठी प्रलंबित आहेत",
-            "action_url": "review_center",
-        })
-    
+        alerts.append(
+            {
+                "id": "ALERT-REVIEW-QUEUE",
+                "severity": "warning",
+                "title_en": f"{pending_review} document(s) awaiting lawyer review",
+                "title_mr": f"{pending_review} दस्त कायदेशीर तपासणीसाठी प्रलंबित आहेत",
+                "action_url": "review_center",
+            }
+        )
+
     under_review_tmpls = [t for t in all_tmpls if t.status == "under_review"]
     if under_review_tmpls:
-        alerts.append({
-            "id": "ALERT-TEMPLATE-REVIEW",
-            "severity": "info",
-            "title_en": f"{len(under_review_tmpls)} template version(s) pending approval",
-            "title_mr": f"{len(under_review_tmpls)} साचे मान्यतेसाठी प्रलंबित आहेत",
-            "action_url": "template_studio",
-        })
+        alerts.append(
+            {
+                "id": "ALERT-TEMPLATE-REVIEW",
+                "severity": "info",
+                "title_en": f"{len(under_review_tmpls)} template version(s) pending approval",
+                "title_mr": f"{len(under_review_tmpls)} साचे मान्यतेसाठी प्रलंबित आहेत",
+                "action_url": "template_studio",
+            }
+        )
 
-    alerts.append({
-        "id": "ALERT-SYS-BACKUP",
-        "severity": "success",
-        "title_en": "Storage & SHA-256 tamper-evident audit chain verified intact",
-        "title_mr": "डॉक्युमेंट स्टोअर व ऑडिट ट्रेल पूर्णपणे सुरक्षित आहेत",
-        "action_url": "audit_trail",
-    })
+    alerts.append(
+        {
+            "id": "ALERT-SYS-BACKUP",
+            "severity": "success",
+            "title_en": "Storage & SHA-256 tamper-evident audit chain verified intact",
+            "title_mr": "डॉक्युमेंट स्टोअर व ऑडिट ट्रेल पूर्णपणे सुरक्षित आहेत",
+            "action_url": "audit_trail",
+        }
+    )
 
     return OperationalStats(
         total_documents=total,

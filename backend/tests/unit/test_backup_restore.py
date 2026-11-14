@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+
 try:
     from scripts.backup import create_backup
     from scripts.restore import restore_backup
@@ -19,8 +20,8 @@ except ImportError:
     from backend.scripts.backup import create_backup
     from backend.scripts.restore import restore_backup
 
-from app.generation.jobs import JobQueue, JobRecord
-from app.generation.pipeline import GenerationPipelineFSM, generation_pipeline
+from app.generation.jobs import JobQueue
+from app.generation.pipeline import generation_pipeline
 from app.generation.repository import InMemoryDocumentRepository
 
 

@@ -15,17 +15,14 @@ import threading
 import uuid
 from unittest.mock import MagicMock
 
-import pytest
-
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.repositories.sessions import PostgresSessionRepository
 from app.generation.jobs import InMemoryJobRepository, JobRecord
 from app.generation.pipeline import GenerationPipelineFSM
 from app.generation.repository import InMemoryDocumentRepository
-from app.identity.session_repository import InMemorySessionRepository, SessionData
+from app.identity.session_repository import SessionData
 from app.shared.models import Session as SessionModel
 from app.shared.security import hash_token
-from app.worker import run_worker_once
 
 TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
 
@@ -157,7 +154,9 @@ def test_attempts_backoff_and_dead_letter_state() -> None:
     assert rec1.locked_at is None
     assert rec1.error is not None
     assert rec1.error["retry_in_seconds"] == 2
-    assert rec1.run_at > datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
+    assert rec1.run_at > datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        seconds=1
+    )
 
     # Fast forward run_at for Attempt 2
     rec1.run_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
@@ -220,8 +219,38 @@ def test_handler_idempotency_and_atomic_file_write() -> None:
         type="generate_docx",
         payload={
             "document_id": str(job_id),
-            "template_id": "test_template",
-            "parties": [],
+            "template_id": "sale_deed_plot_mr",
+            "execution_date": "०९ नोव्हेंबर २०२६",
+            "sellers": [
+                {
+                    "full_name": "रमेश पाटील",
+                    "gender": "male",
+                    "age": 45,
+                    "occupation": "नोकरी",
+                    "address": "नागपूर",
+                    "pan": "ABCDE1234F",
+                }
+            ],
+            "purchasers": [
+                {
+                    "full_name": "सुनीता जोशी",
+                    "gender": "female",
+                    "age": 42,
+                    "occupation": "घरकाम",
+                    "address": "नागपूर",
+                    "pan": "XYZPQ9876K",
+                }
+            ],
+            "property_details": {
+                "mouza": "सोनेगाव",
+                "plot_no": "12",
+                "layout_name": "आनंद नगर",
+                "area_sqm": 150.0,
+            },
+            "financial": {
+                "total_consideration": 2500000,
+                "earnest_advance": 500000,
+            },
         },
     )
 
@@ -242,6 +271,7 @@ def test_handler_idempotency_and_atomic_file_write() -> None:
 def test_database_session_hashed_token_idle_and_absolute_expiry() -> None:
     """Verifies database-backed session repository enforces token hashing, idle and absolute timeout."""
     mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.first.return_value = None
     repo = PostgresSessionRepository(session=mock_db, idle_timeout_minutes=30)
 
     user_id = uuid.uuid4()

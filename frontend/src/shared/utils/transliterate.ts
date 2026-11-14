@@ -45,7 +45,7 @@ export function suggestLatin(input: string): string {
   const words = input.trim().split(/\s+/);
   return words
     .map((word) => {
-      const clean = word.replace(/[,\.]/g, "");
+      const clean = word.replace(/[,.]/g, "");
       if (DEV_TO_LATIN_MAP[clean]) return DEV_TO_LATIN_MAP[clean];
       return word;
     })

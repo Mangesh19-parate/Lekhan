@@ -14,7 +14,7 @@ from app.adapters.repositories.documents import PostgresDocumentRepository
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.storage import default_storage
 from app.api.auth import get_current_actor
-from app.generation.jobs import JobRecord, JobRepository, job_queue
+from app.generation.jobs import JobRepository
 from app.generation.pipeline import GenerationPipelineFSM
 from app.generation.repository import DocumentRepository
 from app.identity.policy import Actor, Resource, authorize

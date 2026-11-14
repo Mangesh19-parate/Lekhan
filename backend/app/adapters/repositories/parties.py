@@ -7,13 +7,13 @@ Enforces strict tenant scoping on every method.
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.adapters.db import SessionLocal
 from app.parties.models import PartyRecord, PartyVersionRecord
-from app.shared.models import Party as PartyModel, PartyVersion as PartyVersionModel
+from app.shared.models import Party as PartyModel
+from app.shared.models import PartyVersion as PartyVersionModel
 from app.shared.trigram import trigram_similarity
 
 
@@ -50,7 +50,9 @@ class PostgresPartyRepository:
         actor_id: uuid.UUID | None = None,
     ) -> PartyRecord:
         if party.tenant_id != tenant_id:
-            raise ValueError(f"Party tenant_id {party.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Party tenant_id {party.tenant_id} does not match parameter {tenant_id}"
+            )
 
         session = self._get_session()
         should_close = self._session is None
@@ -100,7 +102,9 @@ class PostgresPartyRepository:
         actor_id: uuid.UUID | None = None,
     ) -> PartyRecord:
         if party.tenant_id != tenant_id:
-            raise ValueError(f"Party tenant_id {party.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Party tenant_id {party.tenant_id} does not match parameter {tenant_id}"
+            )
 
         session = self._get_session()
         should_close = self._session is None

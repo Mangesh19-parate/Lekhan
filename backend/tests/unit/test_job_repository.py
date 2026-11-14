@@ -94,4 +94,3 @@ def test_list_tenant_scoped() -> None:
 
     assert len(repo.list(TENANT_1)) == 2
     assert len(repo.list(TENANT_2)) == 1
-

@@ -8,12 +8,11 @@ Enforces:
 
 from __future__ import annotations
 
-import datetime
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal
 from threading import Lock
-from typing import Protocol
+from typing import Callable, Protocol
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -33,17 +32,13 @@ LOCKOUT_SECONDS = 15 * 60  # 15 minutes
 class Throttler(Protocol):
     """Protocol for login throttling and rate limiting."""
 
-    def is_locked(self, key: str) -> tuple[bool, int]:
-        ...
+    def is_locked(self, key: str) -> tuple[bool, int]: ...
 
-    def record_failure(self, key: str) -> tuple[bool, int]:
-        ...
+    def record_failure(self, key: str) -> tuple[bool, int]: ...
 
-    def record_success(self, key: str) -> None:
-        ...
+    def record_success(self, key: str) -> None: ...
 
-    def reset(self) -> None:
-        ...
+    def reset(self) -> None: ...
 
 
 @dataclass
@@ -111,7 +106,7 @@ class InMemoryThrottler:
 class DatabaseThrottler:
     """PostgreSQL-backed distributed throttler using `rate_limits` table."""
 
-    def __init__(self, session_factory: type[Session] = SessionLocal) -> None:
+    def __init__(self, session_factory: Callable[[], Session] = SessionLocal) -> None:
         self._session_factory = session_factory
         self._fallback = InMemoryThrottler()
 
@@ -171,7 +166,7 @@ class DatabaseThrottler:
                 is_locked = False
                 lock_duration = 0
                 if entry.consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                    entry.locked_until = Decimal(str(round(now + LOCKOUT_SECONDS, 4)))
+                    entry.locked_until = round(now + LOCKOUT_SECONDS, 4)
                     is_locked = True
                     lock_duration = LOCKOUT_SECONDS
 
@@ -188,7 +183,7 @@ class DatabaseThrottler:
                 if entry:
                     entry.consecutive_failures = 0
                     entry.timestamps = []
-                    entry.locked_until = Decimal("0.0")
+                    entry.locked_until = 0.0
                     session.commit()
         except SQLAlchemyError as exc:
             logger.debug("Database throttler reset failure fallback: %s", exc)

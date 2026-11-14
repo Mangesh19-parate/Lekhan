@@ -39,7 +39,9 @@ class PostgresSessionRepository:
 
     def save(self, tenant_id: uuid.UUID, session: SessionData) -> SessionData:
         if session.tenant_id != tenant_id:
-            raise ValueError(f"Session tenant_id {session.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Session tenant_id {session.tenant_id} does not match parameter {tenant_id}"
+            )
 
         db_session = (
             self._session.query(SessionModel)
@@ -157,4 +159,3 @@ class PostgresSessionRepository:
         )
         self._session.commit()
         return int(deleted)
-

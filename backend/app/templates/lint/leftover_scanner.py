@@ -151,10 +151,12 @@ def scan_docx_for_leftover_data(docx_bytes: bytes) -> list[LeftoverFinding]:
 
     except (zipfile.BadZipFile, OSError, KeyError):
         findings.append(
-            LintFinding(
-                code="MALFORMED_DOCX",
-                severity=LintSeverity.ERROR,
-                message="Template DOCX archive could not be read for sensitive leftover scanning.",
+            LeftoverFinding(
+                category="CORRUPT_ARCHIVE",
+                count=1,
+                part="archive",
+                paragraph_idx=0,
+                masked_sample="[MALFORMED_DOCX]",
             )
         )
 

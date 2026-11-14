@@ -18,8 +18,8 @@ class PartyRecord:
     names: dict[str, Any]
     occupations: dict[str, Any]
     addresses: dict[str, Any]
-    pan_masked: str | None
-    version: int
+    pan_masked: str | None = None
+    version: int = 1
     deleted: bool = False
 
 
@@ -28,5 +28,4 @@ class PartyVersionRecord:
     party_id: uuid.UUID
     version: int
     data: dict[str, Any]
-    changed_by: uuid.UUID | None
-
+    changed_by: uuid.UUID | None = None

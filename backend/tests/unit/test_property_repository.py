@@ -5,8 +5,8 @@ Fulfills AGENTS.md Hard Rule 6 (every query tenant-scoped) and verifies:
 2. Tenant isolation on save, get, update, save_version, get_versions, list_all, search.
 """
 
-from decimal import Decimal
 import uuid
+from decimal import Decimal
 
 import pytest
 
@@ -142,4 +142,3 @@ def test_search_and_list_all_tenant_scoped() -> None:
     matches1 = repo.search(TENANT_1, "Dharampeth")
     assert len(matches1) == 1
     assert matches1[0][0].id == p1.id
-

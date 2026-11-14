@@ -131,7 +131,9 @@ class PartyService:
         )
         return updated
 
-    def get_versions(self, party_id: uuid.UUID, tenant_id: uuid.UUID) -> list[PartyVersionRecord]:
+    def get_versions(
+        self, party_id: uuid.UUID, tenant_id: uuid.UUID | None = None
+    ) -> list[PartyVersionRecord]:
         """Returns historical revisions for a party strictly within tenant_id."""
         return self.repository.get_versions(tenant_id, party_id)
 
@@ -216,31 +218,33 @@ class PartyService:
 
         for party in parties:
             if pan and party.pan_masked and pan.strip().upper() == party.pan_masked.strip().upper():
-                duplicates.append({
-                    "party_id": str(party.id),
-                    "names": party.names,
-                    "pan": party.pan_masked,
-                    "match_type": "exact_pan",
-                    "similarity": 1.0,
-                    "reason": "Exact PAN match",
-                })
+                duplicates.append(
+                    {
+                        "party_id": str(party.id),
+                        "names": party.names,
+                        "pan": party.pan_masked,
+                        "match_type": "exact_pan",
+                        "similarity": 1.0,
+                        "reason": "Exact PAN match",
+                    }
+                )
                 continue
 
             if name:
-                names_to_check = (
-                    list(party.names.values()) if isinstance(party.names, dict) else []
-                )
+                names_to_check = list(party.names.values()) if isinstance(party.names, dict) else []
                 for existing_name in names_to_check:
                     score = trigram_similarity(name, str(existing_name))
                     if score >= threshold:
-                        duplicates.append({
-                            "party_id": str(party.id),
-                            "names": party.names,
-                            "pan": party.pan_masked,
-                            "match_type": "high_name_similarity",
-                            "similarity": round(score, 4),
-                            "reason": f"Devanagari/English name similarity {round(score * 100)}%",
-                        })
+                        duplicates.append(
+                            {
+                                "party_id": str(party.id),
+                                "names": party.names,
+                                "pan": party.pan_masked,
+                                "match_type": "high_name_similarity",
+                                "similarity": round(score, 4),
+                                "reason": f"Devanagari/English name similarity {round(score * 100)}%",
+                            }
+                        )
                         break
 
         duplicates.sort(key=lambda x: x["similarity"], reverse=True)

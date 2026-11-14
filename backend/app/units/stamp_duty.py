@@ -22,7 +22,9 @@ REGISTRATION_FEE_PERCENT = Decimal("0.01")  # 1%
 class StampDutyBreakdown(BaseModel):
     """Itemized breakdown of statutory duties and fees."""
 
-    chargeable_value: Decimal = Field(..., description="Higher of consideration or ready reckoner value")
+    chargeable_value: Decimal = Field(
+        ..., description="Higher of consideration or ready reckoner value"
+    )
     base_duty_percent: Decimal
     base_duty_amount: Decimal
     metro_cess_amount: Decimal
@@ -40,7 +42,9 @@ class StampDutyBreakdown(BaseModel):
 def calculate_maharashtra_stamp_duty(
     consideration: Decimal,
     ready_reckoner_value: Decimal = Decimal("0.00"),
-    area_type: Literal["municipal_corporation", "municipal_council", "gram_panchayat"] = "municipal_corporation",
+    area_type: Literal[
+        "municipal_corporation", "municipal_council", "gram_panchayat"
+    ] = "municipal_corporation",
     sole_female_purchaser: bool = False,
 ) -> StampDutyBreakdown:
     """Calculates statutory stamp duty and registration fee under Maharashtra Stamp Act.
@@ -54,7 +58,9 @@ def calculate_maharashtra_stamp_duty(
     Returns:
         StampDutyBreakdown containing itemized duties, cess, registration fee, and total.
     """
-    chargeable = max(consideration, ready_reckoner_value).quantize(Decimal("1.00"), rounding=ROUND_HALF_UP)
+    chargeable = max(consideration, ready_reckoner_value).quantize(
+        Decimal("1.00"), rounding=ROUND_HALF_UP
+    )
 
     # Base stamp duty percent by jurisdiction
     if area_type == "municipal_corporation":
@@ -72,18 +78,24 @@ def calculate_maharashtra_stamp_duty(
 
     base_amount = (chargeable * base_rate).quantize(Decimal("1.00"), rounding=ROUND_HALF_UP)
     metro_amount = (chargeable * metro_rate).quantize(Decimal("1.00"), rounding=ROUND_HALF_UP)
-    local_body_amount = (chargeable * local_body_rate).quantize(Decimal("1.00"), rounding=ROUND_HALF_UP)
+    local_body_amount = (chargeable * local_body_rate).quantize(
+        Decimal("1.00"), rounding=ROUND_HALF_UP
+    )
 
     # 1% rebate for sole female purchaser (applied against base duty)
     if sole_female_purchaser and base_amount > 0:
-        female_rebate = (chargeable * Decimal("0.01")).quantize(Decimal("1.00"), rounding=ROUND_HALF_UP)
+        female_rebate = (chargeable * Decimal("0.01")).quantize(
+            Decimal("1.00"), rounding=ROUND_HALF_UP
+        )
     else:
         female_rebate = Decimal("0.00")
 
     total_stamp_duty = base_amount + metro_amount + local_body_amount - female_rebate
 
     # Registration fee: 1% of chargeable value, capped at ₹30,000 for conveyance
-    raw_reg_fee = (chargeable * REGISTRATION_FEE_PERCENT).quantize(Decimal("1.00"), rounding=ROUND_HALF_UP)
+    raw_reg_fee = (chargeable * REGISTRATION_FEE_PERCENT).quantize(
+        Decimal("1.00"), rounding=ROUND_HALF_UP
+    )
     reg_fee = min(raw_reg_fee, MAX_REGISTRATION_FEE_CONVEYANCE)
 
     total_charges = total_stamp_duty + reg_fee

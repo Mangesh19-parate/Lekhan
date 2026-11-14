@@ -17,8 +17,8 @@ from fastapi.testclient import TestClient
 from app.api.auth import get_session_repo, get_user_repo
 from app.identity.policy import Actor, Resource, authorize
 from app.identity.repository import create_dev_user_repository
-from app.identity.session_repository import InMemorySessionRepository
 from app.identity.service import session_store
+from app.identity.session_repository import InMemorySessionRepository
 from app.identity.throttling import login_throttler
 from app.main import app
 from app.shared.security import hash_password, verify_password
@@ -178,7 +178,7 @@ def test_login_success_sets_http_only_cookie() -> None:
     # Inspect cookie header attributes
     set_cookie = res.headers.get("set-cookie", "")
     assert "HttpOnly" in set_cookie
-    assert "SameSite=lax" in set_cookie.lower()
+    assert "samesite=lax" in set_cookie.lower()
 
 
 def test_login_brute_force_throttling_and_lockout() -> None:

@@ -73,7 +73,9 @@ class PostgresUserRepository:
 
     def create(self, tenant_id: uuid.UUID, user: UserRecord) -> UserRecord:
         if user.tenant_id != tenant_id:
-            raise ValueError(f"User tenant_id {user.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"User tenant_id {user.tenant_id} does not match parameter {tenant_id}"
+            )
         db_user = UserModel(
             id=user.id,
             tenant_id=user.tenant_id,
@@ -154,9 +156,5 @@ class PostgresUserRepository:
             self._session.commit()
 
     def list_all(self, tenant_id: uuid.UUID) -> list[UserRecord]:
-        models = (
-            self._session.query(UserModel)
-            .filter(UserModel.tenant_id == tenant_id)
-            .all()
-        )
+        models = self._session.query(UserModel).filter(UserModel.tenant_id == tenant_id).all()
         return [_to_record(m) for m in models]

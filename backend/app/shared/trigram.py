@@ -78,7 +78,7 @@ def trigram_similarity(query: str, target: str) -> float:
 
     # Common prefix bonus for transliteration variants (e.g. Wankhede vs Wankhade)
     prefix_len = 0
-    for c1, c2 in zip(q_norm, t_norm):
+    for c1, c2 in zip(q_norm, t_norm, strict=False):
         if c1 == c2:
             prefix_len += 1
         else:

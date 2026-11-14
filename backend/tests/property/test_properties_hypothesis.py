@@ -13,7 +13,6 @@ import re
 import uuid
 from decimal import Decimal
 
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -27,7 +26,6 @@ from app.units.area import (
     sqft_to_sqm,
     sqm_to_sqft,
 )
-
 
 # --- 1. Property: Document Numbering Gap-Free Concurrency ---
 
@@ -75,9 +73,9 @@ def test_numbering_gap_free_under_concurrency(
     # 2. Sorted sequences must form a gap-free contiguous progression from 1 to total_calls
     sorted_seqs = sorted(seq_numbers)
     expected_contiguous = list(range(1, total_calls + 1))
-    assert sorted_seqs == expected_contiguous, (
-        f"Gaps detected in document numbering sequence! Got {sorted_seqs[:10]}... expected {expected_contiguous[:10]}"
-    )
+    assert (
+        sorted_seqs == expected_contiguous
+    ), f"Gaps detected in document numbering sequence! Got {sorted_seqs[:10]}... expected {expected_contiguous[:10]}"
 
 
 # --- 2. Property: Amount in Words Invariants ---
@@ -131,7 +129,9 @@ def test_decimal_area_sqm_sqft_roundtrip(sqm: Decimal) -> None:
 
     # Due to 2 decimal places rounding on both legs, round-trip error cannot exceed 0.05 sqm
     error = abs(sqm - recomputed_sqm)
-    assert error <= Decimal("0.05"), f"Round-trip area conversion error {error} exceeds tolerance for {sqm}"
+    assert error <= Decimal(
+        "0.05"
+    ), f"Round-trip area conversion error {error} exceeds tolerance for {sqm}"
 
 
 @settings(max_examples=50, deadline=None)
@@ -175,4 +175,3 @@ def test_hectare_r_to_sqm_invariants(hectare: Decimal, r: Decimal) -> None:
     assert sqm >= Decimal("0.00")
     expected = (hectare * HECTARE_TO_SQM_FACTOR) + (r * Decimal("100.00"))
     assert sqm == expected
-

@@ -14,16 +14,17 @@ from sqlalchemy.orm import Session
 from app.adapters.db import get_db, ping_db
 from app.adapters.repositories.audit import PostgresAuditRepository
 from app.adapters.repositories.jobs import PostgresJobRepository
-from app.adapters.storage import default_storage
 from app.api.auth import get_current_actor, get_user_repo
+from app.api.templates_admin import list_templates
 from app.audit.repository import AuditRepository
-from app.audit.service import AuditService, audit_service
+from app.audit.service import AuditService
 from app.config import get_settings
 from app.generation.jobs import JobRepository
-from app.generation.pipeline import generation_pipeline
 from app.identity.policy import ROLE_PERMISSIONS, Actor, authorize
 from app.identity.repository import UserRepository
-from app.api.templates_admin import list_templates
+from app.shared.logging import get_correlation_id, get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 settings = get_settings()
@@ -115,12 +116,15 @@ def toggle_user_status(
         meta={"new_role": target_user.role, "active": target_user.active},
     )
 
-    return {"status": "ok", "user": {
-        "id": str(target_user.id),
-        "email": target_user.email,
-        "role": target_user.role,
-        "active": target_user.active,
-    }}
+    return {
+        "status": "ok",
+        "user": {
+            "id": str(target_user.id),
+            "email": target_user.email,
+            "role": target_user.role,
+            "active": target_user.active,
+        },
+    }
 
 
 @router.get("/roles", summary="Get authoritative RBAC permission matrix")
@@ -168,17 +172,19 @@ def get_audit_trail(
 
     formatted_records = []
     for r in reversed(records):
-        formatted_records.append({
-            "id": r.id,
-            "action": r.action,
-            "entity": r.entity,
-            "entity_id": r.entity_id,
-            "timestamp": r.at.isoformat(),
-            "actor_id": str(r.actor_id) if r.actor_id else None,
-            "hash": r.hash.hex(),
-            "prev_hash": r.prev_hash.hex() if r.prev_hash else "00" * 32,
-            "meta": r.meta,
-        })
+        formatted_records.append(
+            {
+                "id": r.id,
+                "action": r.action,
+                "entity": r.entity,
+                "entity_id": r.entity_id,
+                "timestamp": r.at.isoformat(),
+                "actor_id": str(r.actor_id) if r.actor_id else None,
+                "hash": r.hash.hex(),
+                "prev_hash": r.prev_hash.hex() if r.prev_hash else "00" * 32,
+                "meta": r.meta,
+            }
+        )
 
     return {
         "chain_valid": chain_valid,
@@ -214,11 +220,11 @@ def get_system_health(
     db_ok = ping_db()
     storage_dir = settings.STORAGE_PATH
     storage_ok = storage_dir.exists() and os.access(storage_dir, os.W_OK)
-    
+
     disk_free_gb = 0.0
     try:
         total, used, free = shutil.disk_usage(storage_dir if storage_dir.exists() else ".")
-        disk_free_gb = round(free / (1024 ** 3), 2)
+        disk_free_gb = round(free / (1024**3), 2)
     except OSError as err:
         logger.warning(
             "Could not inspect disk usage [cid=%s]: %s",

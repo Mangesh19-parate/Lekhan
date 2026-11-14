@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from app.identity.models import UserRecord
 
 
+@runtime_checkable
 class UserRepository(Protocol):
     """Explicit repository interface for tenant user accounts."""
 
@@ -177,4 +178,3 @@ def create_dev_user_repository() -> InMemoryUserRepository:
         ),
     ]
     return InMemoryUserRepository(synthetic)
-

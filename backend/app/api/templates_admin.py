@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
@@ -20,9 +20,12 @@ from pydantic import BaseModel
 from app.api.auth import get_current_actor
 from app.audit.service import audit_service
 from app.identity.policy import Actor, authorize
+from app.shared.logging import get_correlation_id, get_logger
 from app.templates.lint import DocxLinter
 from app.templates.lint.models import LintSeverity
 from app.templates.lint.structural import MAX_COMPRESSED_SIZE_BYTES, check_structural_safety
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/templates", tags=["templates_admin"])
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-library"
@@ -104,7 +107,7 @@ def get_template_manifest(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Manifest for template '{template_id}' not found.",
         )
-    return json.loads(manifest_file.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(manifest_file.read_text(encoding="utf-8")))
 
 
 @router.post("/{template_id}/lint", summary="Run DocxLinter against a template")

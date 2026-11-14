@@ -119,6 +119,12 @@ class Tenant(Base, UUIDv7PKMixin):
         default=dict,
         server_default="{}",
     )
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("settings", {})
+        kwargs.setdefault("feature_flags", {})
+        super().__init__(**kwargs)
+
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -362,7 +368,11 @@ class AuditLog(Base):
 
     __tablename__ = "audit_log"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     action: Mapped[str] = mapped_column(String(64), nullable=False)

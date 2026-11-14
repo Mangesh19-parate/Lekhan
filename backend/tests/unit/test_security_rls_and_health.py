@@ -11,7 +11,6 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters.db import set_tenant_context
@@ -31,6 +30,7 @@ def test_rls_query_without_tenant_context_returns_zero_rows() -> None:
     The RLS policy is:
       USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
     """
+
     # Simulate RLS evaluation logic
     def evaluate_rls(row_tenant: uuid.UUID, app_tenant_setting: str | None) -> bool:
         if not app_tenant_setting:

@@ -3,34 +3,29 @@
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from app.adapters.repositories.audit import PostgresAuditRepository
 from app.adapters.repositories.documents import PostgresDocumentRepository
 from app.adapters.repositories.parties import PostgresPartyRepository
-from app.adapters.repositories.properties import PostgresPropertyRepository
 from app.audit.repository import InMemoryAuditRepository
 from app.audit.service import AuditService
 from app.generation.models import GeneratedDocumentRecord
 from app.generation.pipeline import GenerationPipelineFSM
 from app.generation.repository import (
-    DocumentRepository,
     InMemoryDocumentRepository,
 )
+from app.main import app
 from app.parties.models import PartyRecord
 from app.parties.repository import (
     InMemoryPartyRepository,
-    PartyRepository,
 )
 from app.parties.service import PartyService
-from app.properties.models import PropertyRecord
 from app.properties.repository import (
     InMemoryPropertyRepository,
-    PropertyRepository,
 )
 from app.properties.service import PropertyService
 
@@ -88,7 +83,10 @@ def test_postgres_party_repository_raises_on_db_failure() -> None:
         version=1,
     )
 
-    with patch("app.adapters.repositories.parties.SessionLocal", side_effect=OperationalError("fail", {}, Exception("down"))):
+    with patch(
+        "app.adapters.repositories.parties.SessionLocal",
+        side_effect=OperationalError("fail", {}, Exception("down")),
+    ):
         with pytest.raises(SQLAlchemyError):
             repo.save(TENANT_ID, party)
 
@@ -112,7 +110,10 @@ def test_postgres_document_repository_raises_on_db_failure() -> None:
         created_at="2026-11-13T00:00:00Z",
     )
 
-    with patch("app.adapters.repositories.documents.SessionLocal", side_effect=OperationalError("fail", {}, Exception("down"))):
+    with patch(
+        "app.adapters.repositories.documents.SessionLocal",
+        side_effect=OperationalError("fail", {}, Exception("down")),
+    ):
         with pytest.raises(SQLAlchemyError):
             repo.save(TENANT_ID, doc)
 
@@ -162,4 +163,3 @@ def test_in_memory_repository_injection_for_tests() -> None:
     audit_svc.log_event(tenant_id=TENANT_ID, action="test_action", entity="test")
     assert len(audit_repo.get_chain(TENANT_ID)) == 1
     assert audit_repo.verify_chain(TENANT_ID) is True
-

@@ -13,15 +13,15 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
 from alembic import command
+from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from alembic.autogenerate import compare_metadata
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 
-from app.shared.models import Base
 from app.config import get_settings
+from app.shared.models import Base
 
 ALEMBIC_INI_PATH = Path(__file__).parent.parent.parent / "alembic.ini"
 
@@ -123,4 +123,3 @@ def test_migrations_compare_metadata_zero_diff(
 
     # 3. Assert zero schema drift
     assert diff == [], f"Alembic migration drift detected between models and DB:\n{diff}"
-
