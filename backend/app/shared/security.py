@@ -14,8 +14,8 @@ import hmac
 import secrets
 
 try:
-    from argon2 import PasswordHasher  # type: ignore[import-not-found]
-    from argon2.exceptions import VerifyMismatchError  # type: ignore[import-not-found]
+    from argon2 import PasswordHasher
+    from argon2.exceptions import VerifyMismatchError
 
     _hasher: PasswordHasher | None = PasswordHasher(
         time_cost=2,

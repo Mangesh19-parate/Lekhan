@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from fastapi.responses import JSONResponse
@@ -32,7 +33,7 @@ def problem_json_response(
     detail: str,
     title: str | None = None,
     errors: list[dict[str, Any]] | None = None,
-    headers: dict[str, str] | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:
     """Builds an RFC 9457 compliant application/problem+json response."""
     cid = get_correlation_id()

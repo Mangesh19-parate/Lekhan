@@ -111,7 +111,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         status_code=exc.status_code,
         code=code,
         detail=detail_str,
-        headers=exc.headers,
+        headers=dict(exc.headers) if exc.headers is not None else None,
     )
 
 
