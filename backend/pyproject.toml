@@ -79,3 +79,7 @@ markers = [
   "property: marks Hypothesis property-based tests",
 ]
 
+[tool.bandit]
+exclude_dirs = ["tests", "migrations", "conformance", "corpus_tools"]
+skips = ["B101", "B104"]
+

@@ -7,12 +7,32 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.adapters.db import get_db
+from app.adapters.repositories.parties import PostgresPartyRepository
 from app.api.auth import get_current_actor
 from app.identity.policy import Actor, authorize
-from app.parties.service import party_service
+from app.parties.repository import PartyRepository
+from app.parties.service import PartyService
 
 router = APIRouter(prefix="/api/v1/parties", tags=["parties"])
+
+
+# --- Dependencies ---
+
+
+def get_party_repo(db: Session = Depends(get_db)) -> PartyRepository:
+    """Provides the PartyRepository scoped to the current database session."""
+    return PostgresPartyRepository(db)
+
+
+def get_party_service(repo: PartyRepository = Depends(get_party_repo)) -> PartyService:
+    """Provides PartyService wired with the scoped PartyRepository."""
+    return PartyService(repository=repo)
+
+
+# --- Schemas ---
 
 
 class PartyCreatePayload(BaseModel):
@@ -49,9 +69,10 @@ def search_parties(
     threshold: float = Query(0.25, ge=0.0, le=1.0),
     limit: int = Query(20, ge=1, le=50),
     actor: Actor = Depends(get_current_actor),
+    service: PartyService = Depends(get_party_service),
 ) -> Any:
     """Executes Devanagari and English trigram search across tenant parties (PRD FR-14, F-061)."""
-    matches = party_service.search_parties(
+    matches = service.search_parties(
         tenant_id=actor.tenant_id,
         query=q,
         threshold=threshold,
@@ -80,13 +101,14 @@ def search_parties(
 def create_party(
     payload: PartyCreatePayload,
     actor: Actor = Depends(get_current_actor),
+    service: PartyService = Depends(get_party_service),
 ) -> Any:
     """Creates a new party under tenant."""
     decision = authorize(actor, "edit_document")
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    party = party_service.create_party(
+    party = service.create_party(
         tenant_id=actor.tenant_id,
         kind=payload.kind,
         names=payload.names,
@@ -105,9 +127,10 @@ def create_party(
 def get_party(
     party_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
+    service: PartyService = Depends(get_party_service),
 ) -> Any:
     """Retrieves party record ensuring tenant isolation."""
-    party = party_service.get_party(party_id, actor.tenant_id)
+    party = service.get_party(party_id, actor.tenant_id)
     if not party:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Party not found.")
     return party
@@ -118,10 +141,11 @@ def reuse_party(
     party_id: uuid.UUID,
     payload: PartyReusePayload,
     actor: Actor = Depends(get_current_actor),
+    service: PartyService = Depends(get_party_service),
 ) -> Any:
     """Reuses party entity, creating a new version if overrides are supplied (FR-14, F-060)."""
     try:
-        party = party_service.reuse_party(
+        party = service.reuse_party(
             party_id=party_id,
             tenant_id=actor.tenant_id,
             overrides=payload.overrides,
@@ -142,9 +166,10 @@ class DuplicateCheckPayload(BaseModel):
 def detect_duplicate_parties(
     payload: DuplicateCheckPayload,
     actor: Actor = Depends(get_current_actor),
+    service: PartyService = Depends(get_party_service),
 ) -> list[dict[str, Any]]:
     """Detects potential duplicate parties within tenant scope (Feature F-065)."""
-    return party_service.detect_duplicates(
+    return service.detect_duplicates(
         tenant_id=actor.tenant_id,
         name=payload.name,
         pan=payload.pan,

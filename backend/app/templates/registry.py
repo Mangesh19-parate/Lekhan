@@ -19,6 +19,9 @@ from app.adapters.storage import ObjectStore, default_storage
 from app.audit.service import audit_service
 from app.shared.errors import AppError
 from app.shared.ids import uuid7
+from app.shared.logging import get_correlation_id, get_logger
+
+logger = get_logger(__name__)
 
 
 class TemplateImmutabilityError(AppError):
@@ -127,8 +130,14 @@ class TemplateRegistry:
                 repaired_bytes, report = default_linter.lint_and_repair(docx_bytes, manifest)
                 docx_bytes = repaired_bytes
                 lint_report = report.to_dict()
-            except Exception:
-                pass
+            except Exception as lint_err:
+                cid = get_correlation_id()
+                logger.warning(
+                    "Linter could not complete automated repair on template %s [cid=%s]: %s",
+                    template_id,
+                    cid,
+                    lint_err,
+                )
 
         file_sha256 = hashlib.sha256(docx_bytes).digest()
         file_key = f"templates/{template_id}/v{next_version}.docx"

@@ -9,19 +9,41 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from app.adapters.db import ping_db
+from app.adapters.db import get_db, ping_db
+from app.adapters.repositories.audit import PostgresAuditRepository
+from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.storage import default_storage
-from app.api.auth import SYNTHETIC_USERS, get_current_actor
-from app.audit.service import audit_service
+from app.api.auth import get_current_actor, get_user_repo
+from app.audit.repository import AuditRepository
+from app.audit.service import AuditService, audit_service
 from app.config import get_settings
-from app.generation.jobs import job_queue
+from app.generation.jobs import JobRepository
 from app.generation.pipeline import generation_pipeline
 from app.identity.policy import ROLE_PERMISSIONS, Actor, authorize
+from app.identity.repository import UserRepository
 from app.api.templates_admin import list_templates
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 settings = get_settings()
+
+
+def get_audit_repo(db: Session = Depends(get_db)) -> AuditRepository:
+    """FastAPI dependency yielding tenant-scoped AuditRepository."""
+    return PostgresAuditRepository(session=db)
+
+
+def get_audit_service(
+    repo: AuditRepository = Depends(get_audit_repo),
+) -> AuditService:
+    """FastAPI dependency yielding AuditService backed by database repository."""
+    return AuditService(repository=repo)
+
+
+def get_job_repo(db: Session = Depends(get_db)) -> JobRepository:
+    """FastAPI dependency yielding tenant-scoped JobRepository."""
+    return PostgresJobRepository(session=db)
 
 
 class UserUpdatePayload(BaseModel):
@@ -30,62 +52,74 @@ class UserUpdatePayload(BaseModel):
 
 
 @router.get("/users", summary="List tenant users")
-def get_users(actor: Actor = Depends(get_current_actor)) -> list[dict[str, Any]]:
+def get_users(
+    actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> list[dict[str, Any]]:
     """Returns users registered under current tenant."""
     decision = authorize(actor, "manage_users")
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    results = []
-    for u in SYNTHETIC_USERS.values():
-        results.append({
-            "id": str(u["id"]),
-            "email": u["email"],
-            "display_name": u["display_name"],
-            "role": u["role"],
-            "ui_language": u.get("ui_language", "mr"),
-            "active": u.get("active", True),
-            "mfa_enabled": u.get("mfa_enabled", False),
-        })
-    return results
+    users = user_repo.list_all(tenant_id=actor.tenant_id)
+    return [
+        {
+            "id": str(u.id),
+            "email": u.email,
+            "display_name": u.display_name,
+            "role": u.role,
+            "ui_language": u.ui_language,
+            "active": u.active,
+            "mfa_enabled": bool(u.mfa_secret_enc),
+        }
+        for u in users
+    ]
 
 
 @router.post("/users/{user_id}/status", summary="Toggle user active status")
-def toggle_user_status(user_id: str, payload: UserUpdatePayload, actor: Actor = Depends(get_current_actor)) -> dict[str, Any]:
+def toggle_user_status(
+    user_id: str,
+    payload: UserUpdatePayload,
+    actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
+    audit_svc: AuditService = Depends(get_audit_service),
+) -> dict[str, Any]:
     """Activates or deactivates a user account."""
     decision = authorize(actor, "manage_users")
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    target_user = None
-    for u in SYNTHETIC_USERS.values():
-        if str(u["id"]) == user_id:
-            target_user = u
-            break
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID")
 
+    target_user = user_repo.get_by_id(tenant_id=actor.tenant_id, user_id=uid)
     if not target_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     if payload.active is not None:
-        target_user["active"] = payload.active
+        target_user.active = payload.active
 
     if payload.role is not None:
-        target_user["role"] = payload.role
+        target_user.role = payload.role
 
-    audit_service.log_event(
+    user_repo.update(tenant_id=actor.tenant_id, user=target_user)
+
+    audit_svc.log_event(
         tenant_id=actor.tenant_id,
         action="user_updated",
         entity="user",
         entity_id=user_id,
         actor_id=actor.user_id,
-        meta={"new_role": target_user.get("role"), "active": target_user.get("active")},
+        meta={"new_role": target_user.role, "active": target_user.active},
     )
 
     return {"status": "ok", "user": {
-        "id": str(target_user["id"]),
-        "email": target_user["email"],
-        "role": target_user["role"],
-        "active": target_user["active"],
+        "id": str(target_user.id),
+        "email": target_user.email,
+        "role": target_user.role,
+        "active": target_user.active,
     }}
 
 
@@ -120,14 +154,17 @@ def get_roles_permissions(actor: Actor = Depends(get_current_actor)) -> dict[str
 
 
 @router.get("/audit", summary="Get cryptographically chained audit log")
-def get_audit_trail(actor: Actor = Depends(get_current_actor)) -> dict[str, Any]:
+def get_audit_trail(
+    actor: Actor = Depends(get_current_actor),
+    audit_repo: AuditRepository = Depends(get_audit_repo),
+) -> dict[str, Any]:
     """Returns append-only SHA-256 chained audit events with chain validity verification."""
     decision = authorize(actor, "view_document")
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    records = audit_service._logs.get(actor.tenant_id, [])
-    chain_valid = audit_service.verify_chain(actor.tenant_id)
+    records = audit_repo.get_chain(actor.tenant_id)
+    chain_valid = audit_repo.verify_audit_chain(actor.tenant_id)
 
     formatted_records = []
     for r in reversed(records):
@@ -150,8 +187,29 @@ def get_audit_trail(actor: Actor = Depends(get_current_actor)) -> dict[str, Any]
     }
 
 
+@router.get("/audit/verify", summary="Verify cryptographic audit chain integrity")
+def verify_audit_trail(
+    actor: Actor = Depends(get_current_actor),
+    audit_repo: AuditRepository = Depends(get_audit_repo),
+) -> dict[str, Any]:
+    """Exposes verify_audit_chain via admin API, checking SHA-256 chain continuity and tampering."""
+    decision = authorize(actor, "view_document")
+    if not decision.allowed:
+        raise HTTPException(status_code=decision.status_code, detail=decision.reason)
+
+    chain_valid = audit_repo.verify_audit_chain(actor.tenant_id)
+    return {
+        "tenant_id": str(actor.tenant_id),
+        "chain_valid": chain_valid,
+        "tamper_detected": not chain_valid,
+    }
+
+
 @router.get("/system-health", summary="Detailed system health report")
-def get_system_health(actor: Actor = Depends(get_current_actor)) -> dict[str, Any]:
+def get_system_health(
+    actor: Actor = Depends(get_current_actor),
+    job_repo: JobRepository = Depends(get_job_repo),
+) -> dict[str, Any]:
     """Returns infrastructure and service health metrics."""
     db_ok = ping_db()
     storage_dir = settings.STORAGE_PATH
@@ -161,11 +219,16 @@ def get_system_health(actor: Actor = Depends(get_current_actor)) -> dict[str, An
     try:
         total, used, free = shutil.disk_usage(storage_dir if storage_dir.exists() else ".")
         disk_free_gb = round(free / (1024 ** 3), 2)
-    except Exception:
-        disk_free_gb = 10.0
+    except OSError as err:
+        logger.warning(
+            "Could not inspect disk usage [cid=%s]: %s",
+            get_correlation_id(),
+            err,
+        )
 
     templates = list_templates(actor)
     approved_tmpls = len([t for t in templates if t.status == "approved"])
+    queued_jobs = len(job_repo.list(tenant_id=actor.tenant_id, status="queued", limit=100))
 
     return {
         "status": "healthy" if (storage_ok and approved_tmpls > 0) else "degraded",
@@ -194,7 +257,7 @@ def get_system_health(actor: Actor = Depends(get_current_actor)) -> dict[str, An
         },
         "worker_queue": {
             "status": "active",
-            "queued_jobs": len(job_queue._queue),
-            "engine": "Idempotent FIFO Async Pipeline",
+            "queued_jobs": queued_jobs,
+            "engine": "Idempotent FIFO Async Pipeline (FOR UPDATE SKIP LOCKED)",
         },
     }

@@ -9,10 +9,12 @@ import uuid
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.api.auth import get_current_actor, SYNTHETIC_USERS
-from app.audit.service import audit_service
+from app.api.admin import get_audit_repo
+from app.api.auth import get_current_actor, get_user_repo
+from app.audit.repository import AuditRepository
 from app.generation.pipeline import generation_pipeline
 from app.identity.policy import Actor
+from app.identity.repository import UserRepository
 from app.api.templates_admin import list_templates
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -34,7 +36,11 @@ class OperationalStats(BaseModel):
 
 
 @router.get("/stats", response_model=OperationalStats, summary="Operational dashboard statistics")
-def get_dashboard_stats(actor: Actor = Depends(get_current_actor)) -> OperationalStats:
+def get_dashboard_stats(
+    actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
+    audit_repo: AuditRepository = Depends(get_audit_repo),
+) -> OperationalStats:
     """Computes real-time drafting operational statistics for the active tenant."""
     docs, total = generation_pipeline.list_documents(
         tenant_id=actor.tenant_id,
@@ -83,17 +89,14 @@ def get_dashboard_stats(actor: Actor = Depends(get_current_actor)) -> Operationa
     approved_tmpls = len([t for t in all_tmpls if t.status == "approved"])
 
     # Active users in tenant
-    tenant_users = [
-        u for u in SYNTHETIC_USERS.values()
-        if u.get("tenant_id") == actor.tenant_id and u.get("active", True)
-    ]
-    active_users_count = len(tenant_users) or len(SYNTHETIC_USERS)
+    tenant_users = [u for u in user_repo.list_all(tenant_id=actor.tenant_id) if u.active]
+    active_users_count = len(tenant_users)
 
     # Recent activity from audit chain
-    audit_chain = audit_service._logs.get(actor.tenant_id, [])
+    audit_chain = audit_repo.get_chain(actor.tenant_id, limit=15)
     recent_activity: list[dict[str, Any]] = []
 
-    for rec in reversed(audit_chain[-15:]):
+    for rec in reversed(audit_chain):
         recent_activity.append({
             "id": rec.id,
             "action": rec.action,

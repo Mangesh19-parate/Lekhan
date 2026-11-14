@@ -6,16 +6,22 @@ Implements:
 - CSRF token validation
 - Login throttling & account lockout (429 / 423)
 - Session rotation on login and password changes
+- Database-backed user repository & session repository (strictly tenant scoped)
 """
 
 from __future__ import annotations
 
+import datetime
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.adapters.db import get_db, set_tenant_context
+from app.adapters.repositories.sessions import PostgresSessionRepository
+from app.adapters.repositories.users import PostgresUserRepository
 from app.config import get_settings
 from app.identity.mfa import (
     build_otpauth_uri,
@@ -24,11 +30,24 @@ from app.identity.mfa import (
     verify_and_consume_recovery_code,
     verify_totp_code,
 )
+from app.identity.models import UserRecord
 from app.identity.policy import Actor
-from app.identity.service import COOKIE_NAME, session_store
+from app.identity.repository import UserRepository
+from app.identity.service import (
+    ABSOLUTE_TIMEOUT_HOURS,
+    COOKIE_NAME,
+    IDLE_TIMEOUT_MINUTES,
+)
+from app.identity.session_repository import SessionData, SessionRepository
 from app.identity.throttling import login_throttler
 from app.shared.logging import get_logger
-from app.shared.security import hash_password, verify_password
+from app.shared.security import (
+    generate_opaque_token,
+    hash_password,
+    hash_token,
+    verify_csrf_token,
+    verify_password,
+)
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -65,61 +84,17 @@ class AuthResponse(BaseModel):
     csrf_token: str
 
 
-# --- In-Memory Synthetic Accounts for Dev/Testing ---
+# --- Repository Dependencies ---
 
-SYNTHETIC_USERS: dict[str, dict[str, Any]] = {
-    "admin@lekhan.local": {
-        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000001"),
-        "tenant_id": uuid.UUID("0193132e-504f-7a1b-8000-000000000000"),
-        "email": "admin@lekhan.local",
-        "display_name": "Senior Partner (Admin)",
-        "password_hash": hash_password("ValidPassword123!"),
-        "role": "admin",
-        "ui_language": "mr",
-        "active": True,
-    },
-    "drafter@lekhan.local": {
-        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000002"),
-        "tenant_id": uuid.UUID("0193132e-504f-7a1b-8000-000000000000"),
-        "email": "drafter@lekhan.local",
-        "display_name": "Advocate Drafter (Nagpur)",
-        "password_hash": hash_password("ValidPassword123!"),
-        "role": "drafter",
-        "ui_language": "mr",
-        "active": True,
-    },
-    "reviewer@lekhan.local": {
-        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000003"),
-        "tenant_id": uuid.UUID("0193132e-504f-7a1b-8000-000000000000"),
-        "email": "reviewer@lekhan.local",
-        "display_name": "Reviewer Advocate",
-        "password_hash": hash_password("ValidPassword123!"),
-        "role": "reviewer",
-        "ui_language": "mr",
-        "active": True,
-    },
-    "template_admin@lekhan.local": {
-        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000004"),
-        "tenant_id": uuid.UUID("0193132e-504f-7a1b-8000-000000000000"),
-        "email": "template_admin@lekhan.local",
-        "display_name": "Template Administrator",
-        "password_hash": hash_password("ValidPassword123!"),
-        "role": "template_admin",
-        "ui_language": "en",
-        "active": True,
-    },
-    # Secondary tenant user to test cross-tenant 404 isolation
-    "other_tenant@lekhan.local": {
-        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000099"),
-        "tenant_id": uuid.UUID("0193132e-504f-7a1b-8000-000000000099"),
-        "email": "other_tenant@lekhan.local",
-        "display_name": "External Tenant User",
-        "password_hash": hash_password("ValidPassword123!"),
-        "role": "drafter",
-        "ui_language": "en",
-        "active": True,
-    },
-}
+
+def get_user_repo(db: Session = Depends(get_db)) -> UserRepository:
+    """Provides the UserRepository scoped to the current database session."""
+    return PostgresUserRepository(db)
+
+
+def get_session_repo(db: Session = Depends(get_db)) -> SessionRepository:
+    """Provides the SessionRepository scoped to the current database session."""
+    return PostgresSessionRepository(db)
 
 
 # --- Dependencies ---
@@ -127,6 +102,9 @@ SYNTHETIC_USERS: dict[str, dict[str, Any]] = {
 
 def get_current_actor(
     lekhan_session: str | None = Cookie(None, alias=COOKIE_NAME),
+    session_repo: SessionRepository = Depends(get_session_repo),
+    user_repo: UserRepository = Depends(get_user_repo),
+    db: Session = Depends(get_db),
 ) -> Actor:
     """Extracts and verifies the authenticated user from the session cookie."""
     if not lekhan_session:
@@ -135,26 +113,52 @@ def get_current_actor(
             detail="Authentication required. Missing session cookie.",
         )
 
-    session_data = session_store.get_session(lekhan_session)
+    id_hash = hash_token(lekhan_session)
+    session_data = session_repo.find_by_hash(None, id_hash)
     if not session_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session expired or invalid.",
         )
 
-    # Locate user in identity store
-    user = next((u for u in SYNTHETIC_USERS.values() if u["id"] == session_data.user_id), None)
-    if not user or not user["active"]:
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    # Check absolute timeout
+    if now > session_data.expires_at:
+        session_repo.delete(session_data.tenant_id, id_hash)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired.",
+        )
+
+    # Check sliding idle timeout (30 minutes)
+    idle_limit = session_data.last_seen_at + datetime.timedelta(minutes=IDLE_TIMEOUT_MINUTES)
+    if now > idle_limit:
+        session_repo.delete(session_data.tenant_id, id_hash)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session idle timeout expired.",
+        )
+
+    # Refresh sliding window
+    session_repo.touch(session_data.tenant_id, id_hash, now)
+
+    # Locate user in identity store (strictly scoped to session tenant_id)
+    user = user_repo.get_by_id(tenant_id=session_data.tenant_id, user_id=session_data.user_id)
+    if not user or not user.active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account inactive or not found.",
         )
 
+    # Enforce Postgres row-level security context for downstream queries
+    set_tenant_context(db, user.tenant_id)
+
     return Actor(
-        user_id=user["id"],
-        tenant_id=user["tenant_id"],
-        role=user["role"],
-        active=user["active"],
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        role=user.role,
+        active=user.active,
     )
 
 
@@ -162,6 +166,7 @@ def require_csrf(
     request: Request,
     lekhan_session: str | None = Cookie(None, alias=COOKIE_NAME),
     x_csrf_token: str | None = Header(None, alias="X-CSRF-Token"),
+    session_repo: SessionRepository = Depends(get_session_repo),
 ) -> None:
     """Enforces constant-time CSRF token validation on state-changing operations."""
     if not lekhan_session or not x_csrf_token:
@@ -170,7 +175,9 @@ def require_csrf(
             detail="CSRF token missing or invalid.",
         )
 
-    if not session_store.validate_csrf(lekhan_session, x_csrf_token):
+    id_hash = hash_token(lekhan_session)
+    session_data = session_repo.find_by_hash(None, id_hash)
+    if not session_data or not verify_csrf_token(session_data.csrf_token_hash, x_csrf_token):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="CSRF token verification failed.",
@@ -185,6 +192,8 @@ def login(
     payload: LoginPayload,
     request: Request,
     response: Response,
+    user_repo: UserRepository = Depends(get_user_repo),
+    session_repo: SessionRepository = Depends(get_session_repo),
 ) -> Any:
     """Authenticates credentials, enforces throttling, and rotates session cookie."""
     client_ip = request.client.host if request.client else "127.0.0.1"
@@ -203,26 +212,50 @@ def login(
         )
 
     # 2. Lookup user and verify password
-    user = SYNTHETIC_USERS.get(payload.email.lower().strip())
-    if not user or not verify_password(user["password_hash"], payload.password):
+    user = user_repo.find_by_email(tenant_id=None, email=payload.email)
+    if not user or not verify_password(user.password_hash, payload.password):
         locked_now, _ = login_throttler.record_failure(throttle_key)
         logger.info("Failed login attempt for %s", payload.email)
+        if user:
+            user_repo.record_failed_login(tenant_id=user.tenant_id, user_id=user.id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
         )
 
+    if not user.active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account inactive.",
+        )
+
     # 3. Successful authentication: reset throttler
     login_throttler.record_success(throttle_key)
+    user_repo.reset_failed_logins(tenant_id=user.tenant_id, user_id=user.id)
 
     # 4. Create fresh session (Session Rotation)
     user_agent = request.headers.get("User-Agent")
-    session_token, csrf_token = session_store.create_session(
-        user_id=user["id"],
-        tenant_id=user["tenant_id"],
+    session_token = generate_opaque_token(32)
+    csrf_token = generate_opaque_token(32)
+
+    id_hash = hash_token(session_token)
+    csrf_hash = hash_token(csrf_token)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    expires_at = now + datetime.timedelta(hours=ABSOLUTE_TIMEOUT_HOURS)
+
+    session_data = SessionData(
+        id_hash=id_hash,
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        csrf_token_hash=csrf_hash,
+        created_at=now,
+        last_seen_at=now,
+        expires_at=expires_at,
         user_agent=user_agent,
         ip=client_ip,
     )
+    session_repo.save(tenant_id=user.tenant_id, session=session_data)
 
     # 5. Set HttpOnly, SameSite=Lax cookie
     response.set_cookie(
@@ -235,12 +268,12 @@ def login(
     )
 
     profile = UserProfile(
-        id=user["id"],
-        tenant_id=user["tenant_id"],
-        email=user["email"],
-        display_name=user["display_name"],
-        role=user["role"],
-        ui_language=user["ui_language"],
+        id=user.id,
+        tenant_id=user.tenant_id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        ui_language=user.ui_language,
     )
     return AuthResponse(user=profile, csrf_token=csrf_token)
 
@@ -250,10 +283,12 @@ def logout(
     response: Response,
     lekhan_session: str | None = Cookie(None, alias=COOKIE_NAME),
     actor: Actor = Depends(get_current_actor),
+    session_repo: SessionRepository = Depends(get_session_repo),
 ) -> dict[str, str]:
     """Destroys server session and clears cookie."""
     if lekhan_session:
-        session_store.delete_session(lekhan_session)
+        id_hash = hash_token(lekhan_session)
+        session_repo.delete(tenant_id=actor.tenant_id, id_hash=id_hash)
 
     response.delete_cookie(key=COOKIE_NAME, path="/")
     return {"status": "ok"}
@@ -263,19 +298,24 @@ def logout(
 def get_me(
     lekhan_session: str = Cookie(..., alias=COOKIE_NAME),
     actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
+    session_repo: SessionRepository = Depends(get_session_repo),
 ) -> AuthResponse:
     """Returns profile and active CSRF token for the current session."""
-    user = next(u for u in SYNTHETIC_USERS.values() if u["id"] == actor.user_id)
-    session_data = session_store.get_session(lekhan_session)
-    # Generate fresh CSRF token if needed
+    user = user_repo.get_by_id(tenant_id=actor.tenant_id, user_id=actor.user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    id_hash = hash_token(lekhan_session)
+    session_data = session_repo.find_by_hash(tenant_id=actor.tenant_id, id_hash=id_hash)
     csrf_token = getattr(session_data, "raw_csrf_token", "active-csrf-token")
     profile = UserProfile(
-        id=user["id"],
-        tenant_id=user["tenant_id"],
-        email=user["email"],
-        display_name=user["display_name"],
-        role=user["role"],
-        ui_language=user["ui_language"],
+        id=user.id,
+        tenant_id=user.tenant_id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        ui_language=user.ui_language,
     )
     return AuthResponse(user=profile, csrf_token=csrf_token)
 
@@ -288,28 +328,48 @@ def change_password(
     lekhan_session: str = Cookie(..., alias=COOKIE_NAME),
     actor: Actor = Depends(get_current_actor),
     _csrf: None = Depends(require_csrf),
+    user_repo: UserRepository = Depends(get_user_repo),
+    session_repo: SessionRepository = Depends(get_session_repo),
 ) -> dict[str, str]:
     """Updates password, invalidates all existing sessions, and rotates to a new session."""
-    user = next(u for u in SYNTHETIC_USERS.values() if u["id"] == actor.user_id)
-    if not verify_password(user["password_hash"], payload.current_password):
+    user = user_repo.get_by_id(tenant_id=actor.tenant_id, user_id=actor.user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    if not verify_password(user.password_hash, payload.current_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password verification failed.",
         )
 
     # 1. Update password hash
-    user["password_hash"] = hash_password(payload.new_password)
+    user.password_hash = hash_password(payload.new_password)
+    user_repo.update(tenant_id=actor.tenant_id, user=user)
 
     # 2. Revoke all prior sessions (docs/AUTH.md Section 2)
-    session_store.delete_all_for_user(actor.user_id)
+    session_repo.delete_all_for_user(tenant_id=actor.tenant_id, user_id=actor.user_id)
 
     # 3. Rotate session
-    new_session_token, _ = session_store.create_session(
+    new_session_token = generate_opaque_token(32)
+    new_csrf_token = generate_opaque_token(32)
+    new_id_hash = hash_token(new_session_token)
+    new_csrf_hash = hash_token(new_csrf_token)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    new_expires_at = now + datetime.timedelta(hours=ABSOLUTE_TIMEOUT_HOURS)
+
+    new_session_data = SessionData(
+        id_hash=new_id_hash,
         user_id=actor.user_id,
         tenant_id=actor.tenant_id,
+        csrf_token_hash=new_csrf_hash,
+        created_at=now,
+        last_seen_at=now,
+        expires_at=new_expires_at,
         user_agent=request.headers.get("User-Agent"),
         ip=request.client.host if request.client else "127.0.0.1",
     )
+    session_repo.save(tenant_id=actor.tenant_id, session=new_session_data)
 
     response.set_cookie(
         key=COOKIE_NAME,
@@ -348,13 +408,14 @@ _PENDING_MFA_ENROLLMENTS: dict[uuid.UUID, dict[str, Any]] = {}
 @router.post("/mfa/setup", response_model=MfaSetupResponse, summary="Initiate TOTP MFA setup")
 def setup_mfa(
     actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
 ) -> Any:
     """Generates new TOTP base32 secret, otpauth:// URI, and 8 single-use recovery codes."""
     secret = generate_totp_secret()
     plain_recovery, hashed_recovery = generate_recovery_codes(count=8)
 
-    user = next((u for u in SYNTHETIC_USERS.values() if u["id"] == actor.user_id), None)
-    username = user["email"] if user else str(actor.user_id)
+    user = user_repo.get_by_id(tenant_id=actor.tenant_id, user_id=actor.user_id)
+    username = user.email if user else str(actor.user_id)
     otpauth_uri = build_otpauth_uri(secret=secret, username=username, issuer="Lekhan")
 
     _PENDING_MFA_ENROLLMENTS[actor.user_id] = {
@@ -373,6 +434,7 @@ def setup_mfa(
 def enable_mfa(
     payload: MfaEnablePayload,
     actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
 ) -> dict[str, Any]:
     """Verifies 6-digit TOTP code against pending secret and activates MFA."""
     pending = _PENDING_MFA_ENROLLMENTS.get(actor.user_id)
@@ -388,11 +450,10 @@ def enable_mfa(
             detail="Invalid 6-digit verification code. Please check your authenticator clock.",
         )
 
-    user = next((u for u in SYNTHETIC_USERS.values() if u["id"] == actor.user_id), None)
+    user = user_repo.get_by_id(tenant_id=actor.tenant_id, user_id=actor.user_id)
     if user:
-        user["mfa_enabled"] = True
-        user["mfa_secret"] = pending["secret"]
-        user["mfa_recovery_codes"] = pending["hashed_recovery_codes"]
+        user.mfa_secret_enc = pending["secret"].encode("utf-8")
+        user_repo.update(tenant_id=actor.tenant_id, user=user)
 
     _PENDING_MFA_ENROLLMENTS.pop(actor.user_id, None)
 
@@ -403,20 +464,23 @@ def enable_mfa(
 def verify_mfa_login(
     payload: MfaVerifyPayload,
     actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
 ) -> dict[str, Any]:
     """Verifies a 6-digit TOTP code or consumes a one-time recovery code."""
-    user = next((u for u in SYNTHETIC_USERS.values() if u["id"] == actor.user_id), None)
-    if not user or not user.get("mfa_enabled"):
+    user = user_repo.get_by_id(tenant_id=actor.tenant_id, user_id=actor.user_id)
+    if not user or not user.mfa_secret_enc:
         return {"status": "ok", "verified": True, "message": "MFA is not enabled for this user"}
+
+    secret = user.mfa_secret_enc.decode("utf-8") if user.mfa_secret_enc else ""
 
     # 1. Try TOTP code
     if payload.code:
-        if verify_totp_code(user.get("mfa_secret", ""), payload.code):
+        if verify_totp_code(secret, payload.code):
             return {"status": "ok", "verified": True}
 
     # 2. Try recovery code
     if payload.recovery_code:
-        stored_hashes = user.get("mfa_recovery_codes", [])
+        stored_hashes = getattr(user, "mfa_recovery_codes", [])
         if verify_and_consume_recovery_code(payload.recovery_code, stored_hashes):
             return {
                 "status": "ok",
@@ -434,11 +498,11 @@ def verify_mfa_login(
 @router.post("/mfa/disable", summary="Disable MFA")
 def disable_mfa(
     actor: Actor = Depends(get_current_actor),
+    user_repo: UserRepository = Depends(get_user_repo),
 ) -> dict[str, Any]:
     """Disables MFA for the user."""
-    user = next((u for u in SYNTHETIC_USERS.values() if u["id"] == actor.user_id), None)
+    user = user_repo.get_by_id(tenant_id=actor.tenant_id, user_id=actor.user_id)
     if user:
-        user["mfa_enabled"] = False
-        user["mfa_secret"] = None
-        user["mfa_recovery_codes"] = []
+        user.mfa_secret_enc = None
+        user_repo.update(tenant_id=actor.tenant_id, user=user)
     return {"status": "ok", "message": "MFA disabled"}

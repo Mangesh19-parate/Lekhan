@@ -7,18 +7,45 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from app.adapters.db import get_db
+from app.adapters.repositories.documents import PostgresDocumentRepository
+from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.storage import default_storage
 from app.api.auth import get_current_actor
-from app.generation.jobs import job_queue
-from app.generation.pipeline import generation_pipeline
-from app.generation.spike_engine import PlotSaleDeedInput
+from app.generation.jobs import JobRecord, JobRepository, job_queue
+from app.generation.pipeline import GenerationPipelineFSM
+from app.generation.repository import DocumentRepository
 from app.identity.policy import Actor, Resource, authorize
-from app.shared.logging import get_logger
+from app.shared.logging import get_correlation_id, get_logger
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
+
+
+# --- Dependencies ---
+
+
+def get_document_repo(db: Session = Depends(get_db)) -> DocumentRepository:
+    """Provides the DocumentRepository scoped to the current database session."""
+    return PostgresDocumentRepository(db)
+
+
+def get_job_repo(db: Session = Depends(get_db)) -> JobRepository:
+    """Provides the JobRepository scoped to the current database session."""
+    return PostgresJobRepository(db)
+
+
+def get_pipeline(
+    repo: DocumentRepository = Depends(get_document_repo),
+) -> GenerationPipelineFSM:
+    """Provides GenerationPipelineFSM wired with the scoped DocumentRepository."""
+    return GenerationPipelineFSM(repository=repo)
+
+
+# --- Schemas ---
 
 
 class JobEnqueueResponse(BaseModel):
@@ -64,9 +91,11 @@ class DocumentDetailResponse(BaseModel):
 
 @router.post("", response_model=JobEnqueueResponse, summary="Enqueue document generation job")
 def create_document_generation_job(
-    payload: PlotSaleDeedInput,
+    payload: dict[str, Any],
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
+    job_repo: JobRepository = Depends(get_job_repo),
 ) -> Any:
     """Enqueues document generation job with idempotency deduplication."""
     # 1. Authorize action
@@ -75,16 +104,33 @@ def create_document_generation_job(
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
     # 2. Enqueue in job queue
-    raw_payload = payload.model_dump(mode="json")
-    job = job_queue.enqueue(
+    job = job_repo.enqueue(
         tenant_id=actor.tenant_id,
-        job_type="generate_docx",
-        payload=raw_payload,
+        type="generate_docx",
+        payload=payload,
         idempotency_key=idempotency_key,
     )
 
     # 3. Synchronous execution for dev/immediate responses
-    doc = generation_pipeline.process_job(job)
+    try:
+        doc = pipeline.process_job(job)
+        job_repo.update_state(
+            tenant_id=actor.tenant_id,
+            job_id=job.id,
+            status=job.status,
+            state=job.state,
+        )
+    except ValueError as exc:
+        job_repo.update_state(
+            tenant_id=actor.tenant_id,
+            job_id=job.id,
+            status="failed",
+            error={"error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
 
     return JobEnqueueResponse(
         job_id=job.id,
@@ -110,13 +156,14 @@ def list_document_history(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> Any:
     """Retrieves paginated tenant document history with cross-tenant isolation (PRD FR-11, F-057)."""
     decision = authorize(actor, "view_document")
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    docs, total = generation_pipeline.list_documents(
+    docs, total = pipeline.list_documents(
         tenant_id=actor.tenant_id,
         status=status_filter,
         search=search,
@@ -153,9 +200,10 @@ def list_document_history(
 def get_document_details(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> Any:
     """Retrieves document detail record and immutable data snapshot (cross-tenant yields 404)."""
-    doc = generation_pipeline.get_document(document_id, actor.tenant_id)
+    doc = pipeline.get_document(document_id, actor.tenant_id)
     if not doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -185,9 +233,10 @@ def get_document_details(
 def download_document(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> Response:
     """Retrieves document from object store and streams DOCX master attachment."""
-    doc = generation_pipeline.get_document(document_id, actor.tenant_id)
+    doc = pipeline.get_document(document_id, actor.tenant_id)
     if not doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -223,9 +272,10 @@ def download_document(
 def download_document_pdf(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> Response:
     """Converts/retrieves PDF convenience copy (ADR 010, PRD FR-13, Features F-056)."""
-    doc = generation_pipeline.get_document(document_id, actor.tenant_id)
+    doc = pipeline.get_document(document_id, actor.tenant_id)
     if not doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -238,9 +288,10 @@ def download_document_pdf(
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
     try:
-        pdf_bytes = generation_pipeline.get_or_create_pdf(document_id, actor.tenant_id)
+        pdf_bytes = pipeline.get_or_create_pdf(document_id, actor.tenant_id)
     except Exception as exc:
-        logger.exception("Failed to generate PDF for document %s", document_id)
+        cid = get_correlation_id()
+        logger.exception("Failed to generate PDF for document %s [cid=%s]", document_id, cid)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"PDF generation failed: {exc}",

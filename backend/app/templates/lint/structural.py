@@ -158,7 +158,7 @@ def strip_external_relationships(docx_bytes: bytes) -> bytes:
                         for elem in to_remove:
                             root.remove(elem)
                         data = ET.tostring(root, encoding="utf-8")
-                    except Exception:
-                        pass
+                    except (ET.ParseError, UnicodeDecodeError, KeyError):
+                        continue
                 zout.writestr(item, data)
     return out_buf.getvalue()

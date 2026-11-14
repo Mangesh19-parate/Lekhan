@@ -13,41 +13,62 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import io
 import json
+import re
 import uuid
+import zipfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+from docxtpl import DocxTemplate
+from jinja2.sandbox import SandboxedEnvironment
 
 from app.adapters.pdf import default_pdf_converter
 from app.adapters.storage import ObjectStore, default_storage
 from app.audit.service import audit_service
 from app.generation.jobs import JobRecord
+from app.generation.models import GeneratedDocumentRecord
+from app.generation.repository import (
+    DocumentRepository,
+    InMemoryDocumentRepository,
+)
 from app.generation.spike_engine import (
     PlotSaleDeedInput,
     generate_plot_sale_deed_docx,
 )
 from app.numbering.service import document_numbering_service
 from app.shared.ids import uuid7
-from app.shared.logging import get_logger
+from app.shared.logging import get_correlation_id, get_logger
 
 logger = get_logger(__name__)
 
 
-@dataclass
-class GeneratedDocumentRecord:
-    id: uuid.UUID
-    tenant_id: uuid.UUID
-    template_version_id: uuid.UUID
-    doc_no: str
-    engine_version: str
-    language: str
-    data_snapshot: dict[str, Any]
-    input_hash: bytes
-    output_hash: bytes
-    file_ref: str  # DOCX Master
-    pdf_ref: str | None  # PDF Convenience Copy
-    status: str  # draft, reviewed, finalised
-    created_at: str  # ISO 8601
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent.parent / "templates-library"
+
+
+def _render_template_docx(template_id: str, context: dict[str, Any]) -> bytes:
+    """Renders a template.docx from templates-library/ in a sandboxed Jinja environment."""
+    if not re.fullmatch(r"[a-z0-9_]+", template_id):
+        raise ValueError(f"Invalid template_id: {template_id!r}")
+    template_path = (TEMPLATES_DIR / template_id / "template.docx").resolve()
+    if not template_path.is_relative_to(TEMPLATES_DIR.resolve()) or not template_path.exists():
+        raise ValueError(f"Template '{template_id}' not found.")
+
+    doc = DocxTemplate(str(template_path))
+    doc.render(context, jinja_env=SandboxedEnvironment())
+    out_buf = io.BytesIO()
+    doc.save(out_buf)
+    docx_bytes = out_buf.getvalue()
+
+    with zipfile.ZipFile(io.BytesIO(docx_bytes), "r") as zf:
+        if "word/document.xml" in zf.namelist():
+            xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+            leftover = re.findall(r"\{\{.*?\}\}|\{%.*?%\}", xml)
+            if leftover:
+                raise ValueError(f"Unrendered template tags remain: {leftover[:5]}")
+    return docx_bytes
 
 
 def _normalize_payload(raw_payload: dict[str, Any]) -> dict[str, Any]:
@@ -82,17 +103,37 @@ def _normalize_payload(raw_payload: dict[str, Any]) -> dict[str, Any]:
 class GenerationPipelineFSM:
     """Orchestrates document generation through persisted FSM states."""
 
-    def __init__(self, storage: ObjectStore = default_storage) -> None:
+    def __init__(
+        self,
+        storage: ObjectStore = default_storage,
+        repository: DocumentRepository | None = None,
+    ) -> None:
         self.storage = storage
-        self._documents: dict[uuid.UUID, GeneratedDocumentRecord] = {}
+        self.repository: DocumentRepository = (
+            repository if repository is not None else InMemoryDocumentRepository()
+        )
 
     def process_job(self, job: JobRecord) -> GeneratedDocumentRecord:
-        """Executes the generation pipeline FSM for a claimed job."""
+        """Executes the generation pipeline FSM for a claimed job with idempotent execution."""
         try:
+            # Deterministic document identity for job idempotency
+            doc_id = (
+                uuid.UUID(str(job.payload["document_id"]))
+                if "document_id" in job.payload
+                else job.id
+            )
+
+            # Idempotency check: if document already exists from prior attempt, return it
+            existing_doc = self.repository.get(job.tenant_id, doc_id)
+            if existing_doc is not None:
+                job.state = "COMPLETED"
+                job.status = "succeeded"
+                job.result_ref = existing_doc.file_ref
+                return existing_doc
+
             # 1. State: REQUESTED -> VALIDATED
             job.state = "VALIDATED"
-            normalized_payload = _normalize_payload(job.payload)
-            input_data = PlotSaleDeedInput.model_validate(normalized_payload)
+            template_id = str(job.payload.get("template_id") or "sale_deed_plot_mr")
             canonical_input_bytes = json.dumps(
                 job.payload, sort_keys=True, ensure_ascii=False
             ).encode("utf-8")
@@ -100,16 +141,20 @@ class GenerationPipelineFSM:
 
             # 2. State: VALIDATED -> RENDERED
             job.state = "RENDERED"
-            docx_bytes = generate_plot_sale_deed_docx(input_data)
+            if template_id == "sale_deed_plot_mr":
+                normalized_payload = _normalize_payload(job.payload)
+                input_data = PlotSaleDeedInput.model_validate(normalized_payload)
+                docx_bytes = generate_plot_sale_deed_docx(input_data)
+            else:
+                docx_bytes = _render_template_docx(template_id, job.payload)
 
             # 3. State: RENDERED -> VERIFIED
             # Verification gate: python-docx reopen & zero leftover tags confirmed
             job.state = "VERIFIED"
             output_hash = hashlib.sha256(docx_bytes).digest()
 
-            # 4. State: VERIFIED -> STORED
+            # 4. State: VERIFIED -> STORED (Atomic write: temp file, fsync, rename)
             job.state = "STORED"
-            doc_id = uuid7()
             storage_key = f"documents/{job.tenant_id}/{doc_id}.docx"
             self.storage.put(
                 storage_key,
@@ -150,32 +195,9 @@ class GenerationPipelineFSM:
                 status="draft",
                 created_at=now_iso,
             )
-            self._documents[doc_id] = doc_record
 
-            # Persist to PostgreSQL if database connection is available
-            try:
-                from app.adapters.db import SessionLocal
-                from app.shared.models import Document as DocumentModel
-
-                with SessionLocal() as db_session:
-                    db_doc = DocumentModel(
-                        id=doc_id,
-                        tenant_id=job.tenant_id,
-                        template_version_id=doc_record.template_version_id,
-                        doc_no=doc_no,
-                        language=doc_record.language,
-                        engine_version=doc_record.engine_version,
-                        data_snapshot=data_snapshot,
-                        input_hash=input_hash,
-                        output_hash=output_hash,
-                        file_ref=storage_key,
-                        pdf_ref=None,
-                        status="draft",
-                    )
-                    db_session.add(db_doc)
-                    db_session.commit()
-            except Exception as db_err:
-                logger.debug("Database persistence bypassed (dev/mock mode): %s", db_err)
+            # Persist to repository (fails fast on database error, no silent in-memory fallback)
+            self.repository.save(job.tenant_id, doc_record)
 
             # Audit event
             audit_service.log_event(
@@ -193,7 +215,14 @@ class GenerationPipelineFSM:
             return doc_record
 
         except Exception as exc:
-            logger.exception("Pipeline failed on job %s at state %s", job.id, job.state)
+            cid = get_correlation_id()
+            logger.exception(
+                "Pipeline failed on job %s at state %s [cid=%s]: %s",
+                job.id,
+                job.state,
+                cid,
+                exc,
+            )
             job.status = "failed"
             job.error = {"error": str(exc), "failed_at_state": job.state}
             raise
@@ -202,41 +231,7 @@ class GenerationPipelineFSM:
         self, doc_id: uuid.UUID, tenant_id: uuid.UUID
     ) -> GeneratedDocumentRecord | None:
         """Retrieves document enforcing strict tenant scoping (cross-tenant returns None)."""
-        # 1. Check PostgreSQL first if available
-        try:
-            from app.adapters.db import SessionLocal
-            from app.shared.models import Document as DocumentModel
-
-            with SessionLocal() as db_session:
-                db_doc = (
-                    db_session.query(DocumentModel)
-                    .filter(DocumentModel.id == doc_id, DocumentModel.tenant_id == tenant_id)
-                    .first()
-                )
-                if db_doc:
-                    return GeneratedDocumentRecord(
-                        id=db_doc.id,
-                        tenant_id=db_doc.tenant_id,
-                        template_version_id=db_doc.template_version_id,
-                        doc_no=db_doc.doc_no,
-                        engine_version=db_doc.engine_version,
-                        language=db_doc.language,
-                        data_snapshot=db_doc.data_snapshot,
-                        input_hash=db_doc.input_hash,
-                        output_hash=db_doc.output_hash,
-                        file_ref=db_doc.file_ref,
-                        pdf_ref=db_doc.pdf_ref,
-                        status=db_doc.status,
-                        created_at=db_doc.created_at.isoformat() if db_doc.created_at else "",
-                    )
-        except Exception:
-            pass
-
-        # 2. Fallback to in-memory store
-        doc = self._documents.get(doc_id)
-        if not doc or doc.tenant_id != tenant_id:
-            return None
-        return doc
+        return self.repository.get(tenant_id, doc_id)
 
     def list_documents(
         self,
@@ -247,66 +242,13 @@ class GenerationPipelineFSM:
         offset: int = 0,
     ) -> tuple[list[GeneratedDocumentRecord], int]:
         """Lists tenant documents with filtering, search, and pagination."""
-        # 1. Query PostgreSQL first if available
-        try:
-            from app.adapters.db import SessionLocal
-            from app.shared.models import Document as DocumentModel
-
-            with SessionLocal() as db_session:
-                query = db_session.query(DocumentModel).filter(DocumentModel.tenant_id == tenant_id)
-                if status:
-                    query = query.filter(DocumentModel.status == status)
-                if search:
-                    q = f"%{search.strip()}%"
-                    query = query.filter(DocumentModel.doc_no.ilike(q))
-                total = query.count()
-                db_docs = query.order_by(DocumentModel.created_at.desc()).offset(offset).limit(limit).all()
-                if db_docs or total > 0:
-                    records = [
-                        GeneratedDocumentRecord(
-                            id=d.id,
-                            tenant_id=d.tenant_id,
-                            template_version_id=d.template_version_id,
-                            doc_no=d.doc_no,
-                            engine_version=d.engine_version,
-                            language=d.language,
-                            data_snapshot=d.data_snapshot,
-                            input_hash=d.input_hash,
-                            output_hash=d.output_hash,
-                            file_ref=d.file_ref,
-                            pdf_ref=d.pdf_ref,
-                            status=d.status,
-                            created_at=d.created_at.isoformat() if d.created_at else "",
-                        )
-                        for d in db_docs
-                    ]
-                    return records, total
-        except Exception:
-            pass
-
-        # 2. Fallback to in-memory store
-        tenant_docs = [doc for doc in self._documents.values() if doc.tenant_id == tenant_id]
-
-        # 2. Filter by status
-        if status:
-            tenant_docs = [d for d in tenant_docs if d.status == status]
-
-        # 3. Search filter by doc_no or payload content
-        if search:
-            q = search.lower().strip()
-            tenant_docs = [
-                d
-                for d in tenant_docs
-                if q in d.doc_no.lower()
-                or q in json.dumps(d.data_snapshot, ensure_ascii=False).lower()
-            ]
-
-        # 4. Sort by creation time descending
-        tenant_docs.sort(key=lambda d: d.created_at, reverse=True)
-
-        total_count = len(tenant_docs)
-        paginated = tenant_docs[offset : offset + limit]
-        return paginated, total_count
+        return self.repository.list(
+            tenant_id=tenant_id,
+            status=status,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
 
     def get_or_create_pdf(self, doc_id: uuid.UUID, tenant_id: uuid.UUID) -> bytes:
         """Converts DOCX master into PDF convenience copy with caching."""
@@ -332,10 +274,12 @@ class GenerationPipelineFSM:
             content_type="application/pdf",
         )
         doc.pdf_ref = pdf_storage_key
+        self.repository.update(tenant_id, doc)
         return pdf_bytes
 
     def clear(self) -> None:
-        self._documents.clear()
+        if hasattr(self.repository, "clear"):
+            self.repository.clear()
 
 
 generation_pipeline = GenerationPipelineFSM()

@@ -137,8 +137,8 @@ def repair_and_check_split_runs(
                             if part_merges > 0:
                                 total_merges += part_merges
                                 content = ET.tostring(root, encoding="utf-8")
-                        except Exception:
-                            pass
+                        except (ET.ParseError, UnicodeDecodeError, KeyError):
+                            continue
 
                     zout.writestr(item, content)
 
@@ -155,7 +155,7 @@ def repair_and_check_split_runs(
 
         return out_buf.getvalue(), total_merges, findings
 
-    except Exception as exc:
+    except (zipfile.BadZipFile, OSError) as exc:
         findings.append(
             LintFinding(
                 code="SPLIT_RUN_PROCESSING_ERROR",

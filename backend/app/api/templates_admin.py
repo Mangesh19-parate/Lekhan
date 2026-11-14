@@ -21,6 +21,8 @@ from app.api.auth import get_current_actor
 from app.audit.service import audit_service
 from app.identity.policy import Actor, authorize
 from app.templates.lint import DocxLinter
+from app.templates.lint.models import LintSeverity
+from app.templates.lint.structural import MAX_COMPRESSED_SIZE_BYTES, check_structural_safety
 
 router = APIRouter(prefix="/api/v1/templates", tags=["templates_admin"])
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates-library"
@@ -78,7 +80,13 @@ def list_templates(actor: Actor = Depends(get_current_actor)) -> list[TemplateSu
                     approved_by=meta.get("approved_by"),
                 )
             )
-        except Exception:
+        except (json.JSONDecodeError, OSError, KeyError) as err:
+            logger.warning(
+                "Skipping invalid template directory %s [cid=%s]: %s",
+                item,
+                get_correlation_id(),
+                err,
+            )
             continue
     return results
 
@@ -148,7 +156,45 @@ async def upload_template(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON manifest: {exc}"
         )
 
+    # 1. Filename and extension validation
+    filename = (docx_file.filename or "").lower()
+    if not filename.endswith(".docx"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File upload rejected: only .docx templates are supported (macros/.docm prohibited).",
+        )
+
+    # 2. MIME type validation
+    allowed_mimes = {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/octet-stream",
+        "application/zip",
+        "application/x-zip-compressed",
+    }
+    content_type = (docx_file.content_type or "").lower()
+    if content_type and content_type not in allowed_mimes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File upload rejected: invalid MIME type '{docx_file.content_type}'.",
+        )
+
     docx_bytes = await docx_file.read()
+
+    # 3. File size check (5 MB limit per docs/API.md and AGENTS.md Rule 7)
+    if len(docx_bytes) > MAX_COMPRESSED_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File upload rejected: size ({len(docx_bytes)} bytes) exceeds 5 MB limit.",
+        )
+
+    # 4. Structural security inspection (zip bomb, macros, external relationships, safe XML)
+    structural_findings = check_structural_safety(docx_bytes)
+    critical_errors = [f.message for f in structural_findings if f.severity == LintSeverity.ERROR]
+    if critical_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Structural security validation rejected upload: {'; '.join(critical_errors)}",
+        )
 
     # Pre-upload lint check
     linter = DocxLinter()

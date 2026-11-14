@@ -16,7 +16,7 @@ import threading
 from pathlib import Path
 from typing import Protocol
 
-from app.shared.logging import get_logger
+from app.shared.logging import get_correlation_id, get_logger
 
 logger = get_logger(__name__)
 
@@ -168,8 +168,13 @@ class LibreOfficePdfConverter:
                 )
             else:
                 proc.kill()
-        except Exception as e:
-            logger.error("Failed to kill LibreOffice process %s: %s", proc.pid, e)
+        except OSError as e:
+            logger.error(
+                "Failed to kill LibreOffice process %s [cid=%s]: %s",
+                proc.pid,
+                get_correlation_id(),
+                e,
+            )
 
     def _generate_fallback_convenience_pdf(self, docx_bytes: bytes) -> bytes:
         """Generates a minimal valid PDF/A convenience copy when LibreOffice is not installed."""

@@ -29,19 +29,7 @@ def get_advisory_rules(
     actor: Actor = Depends(get_current_actor),
 ) -> list[AdvisoryAlert]:
     """Returns the complete catalog of registered statutory advisory rules."""
-    # Run evaluation with dummy boundary conditions to trigger all rules
-    test_payload: dict[str, Any] = {
-        "financial": {"total_consideration": 6000000},
-        "parties": {"sellers": [{"pan": ""}], "purchasers": [{"pan": ""}]},
-        "is_agricultural": True,
-        "template_id": "agricultural_sale_deed",
-        "rera_applicable": True,
-    }
-    return advisory_rules_engine.evaluate_payload(
-        payload=test_payload,
-        template_id="agricultural_sale_deed",
-        tenant_id=actor.tenant_id,
-    )
+    return advisory_rules_engine.list_rules()
 
 
 @router.post(

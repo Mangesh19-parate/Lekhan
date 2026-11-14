@@ -47,7 +47,7 @@ def verify_password(hash_str: str, password: str) -> bool:
             return bool(_hasher.verify(hash_str, password))
         except VerifyMismatchError:
             return False
-        except Exception:
+        except (ValueError, TypeError) as err:
             return False
 
     if hash_str.startswith("pbkdf2:sha256:"):
@@ -65,7 +65,7 @@ def verify_password(hash_str: str, password: str) -> bool:
             expected = bytes.fromhex(hash_hex)
             computed = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
             return hmac.compare_digest(computed, expected)
-        except Exception:
+        except (ValueError, TypeError, IndexError):
             return False
 
     return False

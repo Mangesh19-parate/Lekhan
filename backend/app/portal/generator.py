@@ -6,7 +6,7 @@ enabling copy-paste entry into government registration portals without manual re
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from app.generation.pipeline import GeneratedDocumentRecord
 from app.lang_packs.english import number_to_words_en
@@ -111,7 +111,8 @@ class PortalSheetGenerator:
         try:
             total_dec = Decimal(str(tot_val))
             total_int = int(total_dec)
-        except Exception:
+        except (InvalidOperation, ValueError, TypeError) as err:
+            logger.debug("Failed to parse consideration %r for portal summary: %s", tot_val, err)
             total_int = 0
 
         words_mr = number_to_words_mr(total_int, currency=True) if total_int > 0 else "रुपये शून्य फक्त"
