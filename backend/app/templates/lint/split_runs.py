@@ -12,9 +12,14 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from xml.etree import ElementTree as ET
+from typing import TYPE_CHECKING, Any
+
+import defusedxml.ElementTree as ET
 
 from app.templates.lint.models import LintFinding, LintSeverity
+
+if TYPE_CHECKING:
+    from xml.etree.ElementTree import Element
 
 W_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 TAG_SPLIT_REGEX = re.compile(r"(\{\{[^}]*\}\}|\{%[^%]*%\})")
@@ -22,7 +27,7 @@ START_DELIM = re.compile(r"(\{\{|\{%)")
 END_DELIM = re.compile(r"(\}\}|%\})")
 
 
-def get_run_pr_key(r_elem: ET.Element) -> str:
+def get_run_pr_key(r_elem: Element | Any) -> str:
     """Returns canonical string representation of run formatting properties (<w:rPr>)."""
     r_pr = r_elem.find(f"{{{W_NAMESPACE}}}rPr")
     if r_pr is None:

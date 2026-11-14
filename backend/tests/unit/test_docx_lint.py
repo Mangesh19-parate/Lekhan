@@ -239,3 +239,22 @@ def test_sale_deed_plot_mr_template_lint_clean() -> None:
     ), f"Leftover data found in approved template: {report.leftover_data}"
     assert len(report.errors) == 0, f"Errors found in approved template: {report.errors}"
     assert report.can_approve is True
+
+
+def test_defusedxml_xxe_protection() -> None:
+    """Verifies that XML entity expansion (XXE/billion laughs) is defused by defusedxml."""
+    import defusedxml.common
+    import defusedxml.ElementTree as ET
+    import pytest
+
+    xxe_xml = (
+        '<?xml version="1.0"?>'
+        "<!DOCTYPE lolz ["
+        ' <!ENTITY lol "lol">'
+        " <!ELEMENT lolz (#PCDATA)>"
+        ' <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">'
+        "]>"
+        "<lolz>&lol1;</lolz>"
+    )
+    with pytest.raises((defusedxml.common.EntitiesForbidden, defusedxml.common.DTDForbidden)):
+        ET.fromstring(xxe_xml.encode("utf-8"))
