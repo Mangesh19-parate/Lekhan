@@ -29,12 +29,8 @@ def test_openapi_specification_structural_validity() -> None:
     for path, path_item in openapi_spec["paths"].items():
         for method, operation in path_item.items():
             if method.lower() in ("get", "post", "put", "delete", "patch"):
-                assert (
-                    "responses" in operation
-                ), f"Operation {method.upper()} {path} missing 'responses' declaration."
-                assert (
-                    len(operation["responses"]) > 0
-                ), f"Operation {method.upper()} {path} has empty 'responses'."
+                assert "responses" in operation, f"{method.upper()} {path} missing responses"
+                assert len(operation["responses"]) > 0, f"{method.upper()} {path} empty responses"
 
 
 def test_schemathesis_schema_loader() -> None:

@@ -337,6 +337,5 @@ def test_dag_property_topological_precedence() -> None:
     # Verify invariant: for every edge u -> v, pos[u] < pos[v]
     for u in graph._nodes:
         for v in graph.get_dependents(u):
-            assert (
-                pos[u] < pos[v]
-            ), f"Invariant violated: {u} (pos {pos[u]}) must precede dependent {v} (pos {pos[v]})"
+            msg = f"DAG invariant violated: {u} (pos {pos[u]}) must precede {v} (pos {pos[v]})"
+            assert pos[u] < pos[v], msg

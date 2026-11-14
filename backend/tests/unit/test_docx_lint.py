@@ -234,9 +234,7 @@ def test_sale_deed_plot_mr_template_lint_clean() -> None:
     report = linter.lint(docx_bytes, manifest=manifest_data)
 
     # Must be free of leftover data and approval-blocking errors
-    assert (
-        len(report.leftover_data) == 0
-    ), f"Leftover data found in approved template: {report.leftover_data}"
+    assert len(report.leftover_data) == 0, f"Leftover: {report.leftover_data}"
     assert len(report.errors) == 0, f"Errors found in approved template: {report.errors}"
     assert report.can_approve is True
 
