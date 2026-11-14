@@ -7,9 +7,9 @@ export class ApiError extends Error {
   status: number;
   code?: string;
   correlationId?: string;
-  details?: any;
+  details?: unknown;
 
-  constructor(message: string, status: number, code?: string, correlationId?: string, details?: any) {
+  constructor(message: string, status: number, code?: string, correlationId?: string, details?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -23,7 +23,7 @@ export function getCsrfTokenFromStorage(): string | null {
   return localStorage.getItem("lekhan_csrf_token");
 }
 
-export async function apiClient<T = any>(
+export async function apiClient<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {

@@ -27,6 +27,7 @@ import { SystemSettingsView } from "./features/admin/SystemSettingsView";
 import { SystemHealthView } from "./features/admin/SystemHealthView";
 
 import {
+  type LucideIcon,
   LayoutDashboard,
   FilePlus,
   FileText,
@@ -56,6 +57,8 @@ import {
   LogIn,
   Sparkles,
   Check,
+  Menu,
+  X,
 } from "lucide-react";
 
 type ViewId =
@@ -77,13 +80,14 @@ type ViewId =
   | "roles_permissions"
   | "audit_trail"
   | "system_settings"
-  | "system_health";
+  | "system_health"
+  | "not_found";
 
 interface NavItem {
   id: ViewId;
   labelEn: string;
   labelMr: string;
-  icon: any;
+  icon: LucideIcon;
   badge?: string;
 }
 
@@ -146,6 +150,10 @@ const AppShell: React.FC = () => {
 
   // Navigation State
   const [currentView, setCurrentView] = useState<ViewId>(() => {
+    const path = window.location.pathname;
+    if (path !== "/" && path !== "/index.html") {
+      return "not_found";
+    }
     const saved = localStorage.getItem("lekhan_current_view");
     return (saved as ViewId) || "overview";
   });
@@ -153,6 +161,7 @@ const AppShell: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem("lekhan_sidebar_collapsed") === "true";
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // State transferred across views
   const [activeTemplateId, setActiveTemplateId] = useState<string | undefined>(undefined);
@@ -189,7 +198,11 @@ const AppShell: React.FC = () => {
     if (templateId) {
       setActiveTemplateId(templateId);
     }
+    if (window.location.pathname !== "/") {
+      window.history.replaceState(null, "", "/");
+    }
     setCurrentView(viewId as ViewId);
+    setMobileMenuOpen(false);
     localStorage.setItem("lekhan_current_view", viewId);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -220,6 +233,13 @@ const AppShell: React.FC = () => {
 
   // Find active nav metadata for breadcrumbs
   const activeNavMetadata = useMemo(() => {
+    if (currentView === "not_found") {
+      return {
+        sectionTitle: "Lekhan",
+        itemTitle: lang === "mr" ? "पृष्ठ सापडले नाही (404)" : "Page Not Found (404)",
+        icon: HelpCircle,
+      };
+    }
     for (const section of NAVIGATION_SECTIONS) {
       const item = section.items.find((i) => i.id === currentView);
       if (item) {
@@ -237,6 +257,17 @@ const AppShell: React.FC = () => {
     };
   }, [currentView, lang]);
 
+  useEffect(() => {
+    document.title = `${activeNavMetadata.itemTitle} — Lekhan | लेखन`;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        `${activeNavMetadata.itemTitle} — Lekhan (लेखन) multilingual property legal drafting workspace.`
+      );
+    }
+  }, [activeNavMetadata]);
+
   return (
     <div
       style={{
@@ -247,10 +278,21 @@ const AppShell: React.FC = () => {
         fontFamily: "'Inter', 'Noto Sans Devanagari', -apple-system, sans-serif",
       }}
     >
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="lekhan-sidebar-backdrop open"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ------------------------------------------------------------- */}
       {/* SIDEBAR NAVIGATION                                            */}
       {/* ------------------------------------------------------------- */}
       <aside
+        className={`lekhan-sidebar${mobileMenuOpen ? " open" : ""}`}
+        aria-label="Primary Navigation"
         style={{
           width: sidebarCollapsed ? "72px" : "268px",
           backgroundColor: "var(--brand-900, #1E3932)",
@@ -264,7 +306,7 @@ const AppShell: React.FC = () => {
           boxShadow: "2px 0 12px rgba(0, 0, 0, 0.15)",
         }}
       >
-        {/* Brand Header */}
+        {/* Brand Header (Logo links back to home) */}
         <div
           style={{
             height: "64px",
@@ -275,35 +317,22 @@ const AppShell: React.FC = () => {
             borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
           }}
         >
-          {!sidebarCollapsed ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", overflow: "hidden" }}>
-              <div
-                style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "8px",
-                  backgroundColor: "var(--brand-500, #00754A)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.2)",
-                  color: "#FFFFFF",
-                  fontWeight: 800,
-                  fontSize: "18px",
-                }}
-              >
-                लेख
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "-0.01em", color: "#FFFFFF" }}>
-                  LEKHAN
-                </span>
-                <span style={{ fontSize: "10px", color: "var(--approved-400, #DFB96E)", fontWeight: 500 }}>
-                  Enterprise Drafting v2.0
-                </span>
-              </div>
-            </div>
-          ) : (
+          <button
+            type="button"
+            onClick={() => handleNavigate("overview")}
+            aria-label="Lekhan Home"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              overflow: "hidden",
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              textAlign: "left",
+            }}
+          >
             <div
               style={{
                 width: "36px",
@@ -313,14 +342,26 @@ const AppShell: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(0, 0, 0, 0.2)",
                 color: "#FFFFFF",
                 fontWeight: 800,
                 fontSize: "18px",
+                flexShrink: 0,
               }}
             >
               लेख
             </div>
-          )}
+            {!sidebarCollapsed && (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "-0.01em", color: "#FFFFFF" }}>
+                  LEKHAN
+                </span>
+                <span style={{ fontSize: "10px", color: "var(--approved-400, #DFB96E)", fontWeight: 500 }}>
+                  Enterprise Drafting v2.0
+                </span>
+              </div>
+            )}
+          </button>
 
           <button
             onClick={toggleSidebar}
@@ -525,20 +566,39 @@ const AppShell: React.FC = () => {
             boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
           }}
         >
-          {/* Left: Breadcrumb */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
-            <span style={{ color: "var(--text-muted, #737373)", fontWeight: 500 }}>
+          {/* Left: Mobile Menu + Breadcrumb */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", minWidth: 0 }}>
+            <button
+              type="button"
+              className="lekhan-mobile-menu-btn"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
+              style={{
+                background: "none",
+                border: "1px solid var(--border-subtle, #E6E1D8)",
+                borderRadius: "6px",
+                color: "var(--text-primary, #1A1A1A)",
+                cursor: "pointer",
+              }}
+            >
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+            <span className="lekhan-hide-mobile" style={{ color: "var(--text-muted, #737373)", fontWeight: 500 }}>
               {activeNavMetadata.sectionTitle}
             </span>
-            <span style={{ color: "var(--text-muted, #737373)" }}>/</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-primary, #1A1A1A)", fontWeight: 700 }}>
+            <span className="lekhan-hide-mobile" style={{ color: "var(--text-muted, #737373)" }}>/</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-primary, #1A1A1A)", fontWeight: 700, minWidth: 0 }}>
               <activeNavMetadata.icon size={16} color="var(--brand-600, #006241)" />
-              <span>{activeNavMetadata.itemTitle}</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeNavMetadata.itemTitle}</span>
             </div>
           </div>
 
           {/* Center: Command Palette Trigger */}
           <button
+            type="button"
+            className="lekhan-header-search"
+            aria-label="Open quick action or search"
             onClick={() => setCommandPaletteOpen(true)}
             style={{
               display: "flex",
@@ -552,7 +612,6 @@ const AppShell: React.FC = () => {
               fontSize: "12.5px",
               cursor: "pointer",
               transition: "all 0.15s ease",
-              width: "320px",
               justifyContent: "space-between",
             }}
             onMouseEnter={(e) => {
@@ -585,6 +644,7 @@ const AppShell: React.FC = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {/* Sync Status Badge */}
             <div
+              className="lekhan-hide-mobile"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -794,7 +854,69 @@ const AppShell: React.FC = () => {
           {currentView === "system_health" && (
             <SystemHealthView onNavigate={handleNavigate} />
           )}
+
+          {currentView === "not_found" && (
+            <div
+              style={{
+                maxWidth: "480px",
+                margin: "64px auto",
+                padding: "32px",
+                textAlign: "center",
+                backgroundColor: "var(--surface-card, #FFFFFF)",
+                borderRadius: "12px",
+                border: "1px solid var(--line-subtle)",
+                boxShadow: "var(--shadow-card)",
+              }}
+            >
+              <div style={{ fontSize: "48px", fontWeight: 800, color: "var(--brand-600, #005C3B)" }}>404</div>
+              <h1 style={{ fontSize: "20px", fontWeight: 700, margin: "8px 0" }}>
+                {lang === "mr" ? "पृष्ठ सापडले नाही" : "Page Not Found"}
+              </h1>
+              <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "20px" }}>
+                {lang === "mr"
+                  ? "आपण शोधत असलेले पृष्ठ उपलब्ध नाही किंवा हलवले गेले आहे."
+                  : "The page you requested does not exist or has been moved."}
+              </p>
+              <Button variant="primary" onClick={() => handleNavigate("overview")}>
+                {lang === "mr" ? "मुख्यपृष्ठावर जा" : "Back to Overview"}
+              </Button>
+            </div>
+          )}
         </main>
+
+        {/* Compact App Footer */}
+        <footer
+          style={{
+            padding: "12px 24px",
+            borderTop: "1px solid var(--line-subtle)",
+            backgroundColor: "var(--surface-card, #FFFFFF)",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            fontSize: "12px",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <span>© {new Date().getFullYear()} Lekhan (लेखन) — Property Legal Drafting</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <button
+              type="button"
+              onClick={() => handleNavigate("system_health")}
+              style={{ background: "none", border: "none", padding: 0, color: "var(--brand-600)", cursor: "pointer", fontSize: "12px" }}
+            >
+              {lang === "mr" ? "प्रणाली स्थिती" : "System Health"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen(true)}
+              style={{ background: "none", border: "none", padding: 0, color: "var(--brand-600)", cursor: "pointer", fontSize: "12px" }}
+            >
+              {lang === "mr" ? "शॉर्टकट्स (?)" : "Shortcuts (?)"}
+            </button>
+          </div>
+        </footer>
       </div>
 
       {/* Global Command Palette */}
@@ -818,7 +940,16 @@ const AppShell: React.FC = () => {
         onLoadSample={() => {
           handleNavigate("new_draft");
         }}
-        onClearForm={() => {}}
+        onClearForm={() => {
+          localStorage.removeItem("lekhan_current_form");
+          localStorage.removeItem("lekhan_current_repeaters");
+          setResumeDraftData(null);
+          toast({
+            type: "info",
+            title: lang === "mr" ? "मसुदा रिकामा केला" : "Draft Cleared",
+            description: lang === "mr" ? "जतन केलेला फॉर्म डेटा काढून टाकला." : "Saved form data removed.",
+          });
+        }}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}

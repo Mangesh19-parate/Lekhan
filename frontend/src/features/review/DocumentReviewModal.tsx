@@ -3,6 +3,7 @@ import { Modal, Button, Badge } from "../../shared/components";
 import { useI18n } from "../../shared/i18n";
 import { useToast } from "../../shared/components/Toast";
 import { useAuth } from "../../shared/auth/AuthContext";
+import { apiClient } from "../../shared/api";
 import { ShieldCheck, CheckSquare, Square, Lock, AlertTriangle, FileText } from "lucide-react";
 
 interface ReviewMetadata {
@@ -54,20 +55,14 @@ export const DocumentReviewModal: React.FC<Props> = ({
   const fetchReviewStatus = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/v1/documents/${documentId}/review`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data: ReviewMetadata = await res.json();
-        setReviewMeta(data);
-        if (data.checklist) {
-          setPartiesVerified(data.checklist.parties_verified);
-          setPropertyVerified(data.checklist.property_schedule_verified);
-          setConsiderationVerified(data.checklist.consideration_and_payment_verified);
-          setNoBlanksVerified(data.checklist.no_unfilled_blanks);
-          setNotes(data.checklist.reviewer_notes || "");
-        }
+      const data = await apiClient<ReviewMetadata>(`/api/v1/documents/${documentId}/review`);
+      setReviewMeta(data);
+      if (data.checklist) {
+        setPartiesVerified(data.checklist.parties_verified);
+        setPropertyVerified(data.checklist.property_schedule_verified);
+        setConsiderationVerified(data.checklist.consideration_and_payment_verified);
+        setNoBlanksVerified(data.checklist.no_unfilled_blanks);
+        setNotes(data.checklist.reviewer_notes || "");
       }
     } catch {
       // Ignore
@@ -97,13 +92,9 @@ export const DocumentReviewModal: React.FC<Props> = ({
 
     setSubmitting(true);
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-
-      const res = await fetch(`/api/v1/documents/${documentId}/review`, {
+      await apiClient(`/api/v1/documents/${documentId}/review`, {
         method: "POST",
-        headers,
-        credentials: "include",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
         body: JSON.stringify({
           parties_verified: partiesVerified,
           property_schedule_verified: propertyVerified,
@@ -113,11 +104,6 @@ export const DocumentReviewModal: React.FC<Props> = ({
         }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Review submission failed.");
-      }
-
       toast({
         type: "success",
         title: "दस्त तपासणी पूर्ण (Marked as Reviewed)",
@@ -126,11 +112,11 @@ export const DocumentReviewModal: React.FC<Props> = ({
 
       await fetchReviewStatus();
       if (onStatusChanged) onStatusChanged();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         type: "error",
         title: "त्रुटी",
-        description: err.message,
+        description: err instanceof Error ? err.message : "Review submission failed.",
       });
     } finally {
       setSubmitting(false);
@@ -144,19 +130,10 @@ export const DocumentReviewModal: React.FC<Props> = ({
 
     setSubmitting(true);
     try {
-      const headers: Record<string, string> = {};
-      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-
-      const res = await fetch(`/api/v1/documents/${documentId}/finalise`, {
+      await apiClient(`/api/v1/documents/${documentId}/finalise`, {
         method: "POST",
-        headers,
-        credentials: "include",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Finalisation failed.");
-      }
 
       toast({
         type: "success",

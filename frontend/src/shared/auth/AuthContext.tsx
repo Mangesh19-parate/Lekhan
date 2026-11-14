@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { apiClient } from "../api";
 
 export interface UserProfile {
   id: string;
@@ -39,20 +40,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check current session on mount via GET /api/v1/auth/me
   const refreshUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/v1/auth/me", {
-        method: "GET",
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setCsrfToken(data.csrf_token);
-        if (data.csrf_token) {
-          localStorage.setItem("lekhan_csrf_token", data.csrf_token);
-        }
-      } else {
-        setUser(null);
-        setCsrfToken(null);
+      const data = await apiClient<{ user: UserProfile; csrf_token: string }>("/api/v1/auth/me");
+      setUser(data.user);
+      setCsrfToken(data.csrf_token);
+      if (data.csrf_token) {
+        localStorage.setItem("lekhan_csrf_token", data.csrf_token);
       }
     } catch {
       setUser(null);
@@ -67,19 +59,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshUser]);
 
   const login = async (email: string, password: string) => {
-    const res = await fetch("/api/v1/auth/login", {
+    const data = await apiClient<{ user: UserProfile; csrf_token: string }>("/api/v1/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "Authentication failed.");
-    }
-
-    const data = await res.json();
     setUser(data.user);
     setCsrfToken(data.csrf_token);
     if (data.csrf_token) {
@@ -89,10 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await fetch("/api/v1/auth/logout", {
+      await apiClient("/api/v1/auth/logout", {
         method: "POST",
-        credentials: "include",
-        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
       });
     } finally {
       setUser(null);

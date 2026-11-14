@@ -2,12 +2,20 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useI18n } from "../../shared/i18n";
 import { useToast, Button, Badge, Modal } from "../../shared/components";
 import { useAuth } from "../../shared/auth/AuthContext";
+import { apiClient } from "../../shared/api";
 import { DynamicForm } from "../form_engine/DynamicForm";
 import { InspectorPanel } from "../form_engine/InspectorPanel";
 import { PartySearchModal } from "../parties/PartySearchModal";
 import { PropertySearchModal } from "../properties/PropertySearchModal";
 import { TemplateSelectorModal, TemplateCatalogItem } from "../form_engine/TemplateSelectorModal";
 import { defaultManifest } from "../form_engine/sampleManifest";
+import { TemplateManifest } from "../form_engine/types";
+import {
+  buildInitialFormData,
+  buildInitialRepeatersData,
+  normalizeManifest,
+  unflattenFormData,
+} from "../form_engine/manifestNormalizer";
 import {
   FileText,
   Save,
@@ -98,8 +106,9 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
   const [submitting, setSubmitting] = useState(false);
 
-  // Template Modal
+  // Template Modal & Active Manifest
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [activeManifest, setActiveManifest] = useState<TemplateManifest>(defaultManifest);
   const [activeTemplate, setActiveTemplate] = useState<TemplateCatalogItem>({
     template_id: defaultManifest.template_id,
     name_en: defaultManifest.name_en,
@@ -111,6 +120,35 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
     property_type: defaultManifest.property_type,
     has_docx: true,
   });
+
+  const loadTemplateManifest = useCallback(async (templateId: string, resetFields: boolean) => {
+    try {
+      const raw = await apiClient<Partial<TemplateManifest> & { template_id: string }>(
+        `/api/v1/templates/${encodeURIComponent(templateId)}/manifest`
+      );
+      const normalized = normalizeManifest(raw);
+      setActiveManifest(normalized);
+      if (resetFields) {
+        setFormData(buildInitialFormData(normalized));
+        setRepeatersData(buildInitialRepeatersData(normalized));
+        setActiveSectionId(
+          normalized.sections[0]?.id || Object.keys(normalized.repeaters)[0] || ""
+        );
+      }
+    } catch (err: unknown) {
+      toast({
+        type: "error",
+        title: lang === "mr" ? "साचा लोड होऊ शकला नाही" : "Failed to load template schema",
+        description: err instanceof Error ? err.message : templateId,
+      });
+    }
+  }, [lang, toast]);
+
+  useEffect(() => {
+    if (activeTemplateId && activeTemplateId !== defaultManifest.template_id) {
+      loadTemplateManifest(activeTemplateId, !initialDraftData);
+    }
+  }, [activeTemplateId, initialDraftData, loadTemplateManifest]);
 
   // Modals for Party and Property Search & Reuse
   const [partyModalOpen, setPartyModalOpen] = useState(false);
@@ -146,12 +184,12 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
 
   // Count required fields
   const requiredFieldsCount = useMemo(() => {
-    const requiredKeys = Object.entries(defaultManifest.fields)
+    const requiredKeys = Object.entries(activeManifest.fields)
       .filter(([_, def]) => def.required)
       .map(([k]) => k);
     const filled = requiredKeys.filter((k) => !!formData[k]).length;
     return { filled, total: requiredKeys.length };
-  }, [formData]);
+  }, [activeManifest, formData]);
 
   const handleFieldChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -271,88 +309,70 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
         ? `२) श्री. ${repeatersData.witnesses[1].name}, रा. ${repeatersData.witnesses[1].address || "नागपूर"}`
         : "२) श्री. सचिन मनोहर देशमुख, रा. नागपूर";
 
-      const payload = {
-        execution_date: "०९ नोव्हेंबर २०२६",
-        sellers: mappedSellers,
-        purchasers: mappedPurchasers,
-        property_details: {
-          mouza: submitData["property.mouza"] || "सोनेगाव",
-          khasra_no: submitData["property.khasra_no"] || "45/2",
-          plot_no: submitData["property.plot_no"] || "12",
-          layout_name: submitData["property.layout_name"] || "शिवकृपा लेआउट",
-          sheet_no: submitData["property.sheet_no"] || "14",
-          area_sqm: parseFloat(submitData["property.area_sqm"]) || 150.0,
-        },
-        boundaries: {
-          east: submitData["boundaries.east"] || "रस्ता",
-          west: submitData["boundaries.west"] || "प्लॉट क्र. १३",
-          north: submitData["boundaries.north"] || "प्लॉट क्र. ११",
-          south: submitData["boundaries.south"] || "लेआउट सीमा",
-        },
-        financial: {
-          total_consideration: parseFloat(submitData["financial.total_consideration"]) || 2500000.0,
-          earnest_advance: parseFloat(submitData["financial.earnest_advance"]) || 500000.0,
-          instalments: mappedInstalments,
-        },
-        witness_1: witness1,
-        witness_2: witness2,
-      };
+      const payload =
+        activeManifest.template_id === "sale_deed_plot_mr"
+          ? {
+              template_id: activeManifest.template_id,
+              execution_date: "०९ नोव्हेंबर २०२६",
+              sellers: mappedSellers,
+              purchasers: mappedPurchasers,
+              property_details: {
+                mouza: submitData["property.mouza"] || "सोनेगाव",
+                khasra_no: submitData["property.khasra_no"] || "45/2",
+                plot_no: submitData["property.plot_no"] || "12",
+                layout_name: submitData["property.layout_name"] || "शिवकृपा लेआउट",
+                sheet_no: submitData["property.sheet_no"] || "14",
+                area_sqm: parseFloat(submitData["property.area_sqm"]) || 150.0,
+              },
+              boundaries: {
+                east: submitData["boundaries.east"] || "रस्ता",
+                west: submitData["boundaries.west"] || "प्लॉट क्र. १३",
+                north: submitData["boundaries.north"] || "प्लॉट क्र. ११",
+                south: submitData["boundaries.south"] || "लेआउट सीमा",
+              },
+              financial: {
+                total_consideration: parseFloat(submitData["financial.total_consideration"]) || 2500000.0,
+                earnest_advance: parseFloat(submitData["financial.earnest_advance"]) || 500000.0,
+                instalments: mappedInstalments,
+              },
+              witness_1: witness1,
+              witness_2: witness2,
+            }
+          : {
+              template_id: activeManifest.template_id,
+              ...unflattenFormData(submitData),
+              ...repeatersData,
+            };
 
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-
-      const res = await fetch("/api/v1/documents", {
+      const data = await apiClient<{
+        document_id?: string;
+        doc_no?: string;
+        download_url?: string;
+      }>("/api/v1/documents", {
         method: "POST",
-        headers,
-        credentials: "include",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const downloadUrl = data.download_url || `/api/v1/documents/${data.document_id}/download`;
-        const a = document.createElement("a");
-        a.href = downloadUrl;
-        a.download = `Sale_Deed_${payload.property_details.plot_no}_${payload.property_details.mouza}.docx`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-
-        toast({
-          type: "success",
-          title: lang === "mr" ? "दस्त निर्मिती यशस्वी!" : "Document Generated Successfully",
-          description: `क्रमांक: ${data.doc_no || data.document_id}`,
-        });
-        return;
-      }
-
-      // Fallback direct spike
-      const spikeRes = await fetch("/api/v1/documents/generate-spike", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!spikeRes.ok) throw new Error("Document generation failed.");
-      const blob = await spikeRes.blob();
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = data.download_url || `/api/v1/documents/${data.document_id}/download`;
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `Sale_Deed_${payload.property_details.plot_no}_${payload.property_details.mouza}.docx`;
+      a.href = downloadUrl;
+      a.download = `${activeManifest.template_id}_${data.doc_no || data.document_id || "draft"}.docx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
 
       toast({
         type: "success",
-        title: lang === "mr" ? "दस्त डाऊनलोड झाला!" : "DOCX Downloaded Successfully",
-        description: `Sale_Deed_${payload.property_details.plot_no}_${payload.property_details.mouza}.docx`,
+        title: lang === "mr" ? "दस्त निर्मिती यशस्वी!" : "Document Generated Successfully",
+        description: `क्रमांक: ${data.doc_no || data.document_id}`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Please check required fields.";
       toast({
         type: "error",
         title: lang === "mr" ? "दस्त निर्मितीमध्ये त्रुटी आली" : "Document Generation Failed",
-        description: err?.message || "Please check required fields.",
+        description: message,
       });
     } finally {
       setSubmitting(false);
@@ -360,9 +380,10 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
   };
 
   return (
-    <div style={{ display: "flex", flex: 1, minHeight: 0, height: "calc(100vh - 56px)" }}>
+    <div className="lekhan-drafting-shell" style={{ display: "flex", flex: 1, minHeight: 0, height: "calc(100vh - 56px)" }}>
       {/* 1. LEFT FORM SECTIONS NAV */}
       <nav
+        className="lekhan-drafting-nav"
         style={{
           width: "220px",
           flexShrink: 0,
@@ -380,7 +401,7 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
             {lang === "mr" ? "दस्त विभाग" : "Sections"}
           </div>
 
-          {defaultManifest.sections.map((sec) => {
+          {activeManifest.sections.map((sec) => {
             const isActive = activeSectionId === sec.id;
             return (
               <button
@@ -412,7 +433,7 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
             );
           })}
 
-          {Object.entries(defaultManifest.repeaters).map(([repKey, repDef]) => {
+          {Object.entries(activeManifest.repeaters).map(([repKey, repDef]) => {
             const isActive = activeSectionId === repKey;
             return (
               <button
@@ -506,7 +527,7 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
 
         {/* Dynamic Form Engine */}
         <DynamicForm
-          manifest={defaultManifest}
+          manifest={activeManifest}
           formData={formData}
           repeatersData={repeatersData}
           onFieldChange={handleFieldChange}
@@ -519,7 +540,7 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
 
       {/* 3. RIGHT COLLAPSIBLE INSPECTOR PANEL */}
       {inspectorOpen && (
-        <aside style={{ width: "320px", flexShrink: 0, borderLeft: "1px solid var(--line-subtle)", overflowY: "auto", backgroundColor: "var(--surface-card)" }}>
+        <aside className="lekhan-drafting-inspector" style={{ width: "320px", flexShrink: 0, borderLeft: "1px solid var(--line-subtle)", overflowY: "auto", backgroundColor: "var(--surface-card)" }}>
           <InspectorPanel
             formData={formData}
             derivedValues={derivedValues}
@@ -539,6 +560,7 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
         onSelectTemplate={(tmpl) => {
           setActiveTemplate(tmpl);
           setTemplateModalOpen(false);
+          void loadTemplateManifest(tmpl.template_id, true);
         }}
       />
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal, Input, Button, Badge, EmptyState } from "../../shared/components";
 import { useI18n } from "../../shared/i18n";
+import { apiClient } from "../../shared/api";
 import { Search, Landmark, MapPin, Compass, CheckCircle2, Sparkles, Home } from "lucide-react";
 
 export interface PropertySearchResult {
@@ -56,19 +57,14 @@ export const PropertySearchModal: React.FC<Props> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/properties/search?q=${encodeURIComponent(searchTerm.trim())}&limit=10`, {
-        headers: { "Accept": "application/json" },
-        credentials: "include",
-      });
-      if (!res.ok) {
-        throw new Error(`Search failed: HTTP ${res.status}`);
-      }
-      const data: PropertyMatch[] = await res.json();
+      const data = await apiClient<PropertyMatch[]>(
+        `/api/v1/properties/search?q=${encodeURIComponent(searchTerm.trim())}&limit=10`
+      );
       setResults(data);
       setSearched(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Property search error:", err);
-      setError(err.message || "Failed to search properties");
+      setError(err instanceof Error ? err.message : "Failed to search properties");
       setResults([]);
     } finally {
       setIsLoading(false);
