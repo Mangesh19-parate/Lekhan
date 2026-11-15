@@ -29,7 +29,7 @@ export const RegistrationDataView: React.FC<RegistrationDataViewProps> = ({ onNa
     setLoading(true);
     try {
       const res = await api.listDocuments({ limit: 50 });
-      const items = res.items || [];
+      const items = Array.isArray(res?.items) ? res.items : [];
       setDocuments(items);
       if (items.length > 0) {
         const firstId = items[0].id;

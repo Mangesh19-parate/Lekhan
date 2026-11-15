@@ -14,6 +14,45 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+const DEFAULT_WAVE1_TEMPLATES = [
+  {
+    template_id: "sale_deed_plot_mr",
+    version: "1.0.0",
+    name_mr: "प्लॉट खरेदीखत (नागपूर सुधार प्रन्यास / मनपा लेआउट)",
+    name_en: "Sale Deed: Plot in NIT/NMC Layout",
+    language: "mr",
+    property_type: "plot",
+    status: "approved",
+  },
+  {
+    template_id: "sale_deed_flat_mr",
+    version: "1.0.0",
+    name_mr: "सदनिका खरेदीखत (रेरा नोंदणीकृत इमारत)",
+    name_en: "Sale Deed: Apartment / Flat",
+    language: "mr",
+    property_type: "flat",
+    status: "approved",
+  },
+  {
+    template_id: "general_poa_mr",
+    version: "1.0.0",
+    name_mr: "कुलमुखत्यारपत्र (General Power of Attorney)",
+    name_en: "General Power of Attorney (GPA)",
+    language: "mr",
+    property_type: "general",
+    status: "approved",
+  },
+  {
+    template_id: "agreement_to_sell_plot_mr",
+    version: "1.0.0",
+    name_mr: "इसारपावती / साठेखत (प्लॉट / सदनिका)",
+    name_en: "Agreement to Sell: Plot / Flat",
+    language: "mr",
+    property_type: "plot",
+    status: "approved",
+  },
+];
+
 interface TemplateLibraryViewProps {
   onNavigate: (viewId: string, templateId?: string) => void;
   onSelectTemplateForDrafting?: (templateItem: any) => void;
@@ -25,7 +64,7 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
 }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>(DEFAULT_WAVE1_TEMPLATES);
   const [searchQuery, setSearchQuery] = useState("");
   const [langFilter, setLangFilter] = useState("all");
   const [propertyFilter, setPropertyFilter] = useState("all");
@@ -36,9 +75,9 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
     setLoading(true);
     try {
       const data = await api.listTemplates();
-      setTemplates(data || []);
+      setTemplates(Array.isArray(data) && data.length > 0 ? data : DEFAULT_WAVE1_TEMPLATES);
     } catch {
-      setTemplates([]);
+      setTemplates(DEFAULT_WAVE1_TEMPLATES);
     } finally {
       setLoading(false);
     }
@@ -48,8 +87,10 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
     fetchTemplates();
   }, []);
 
+  const safeTemplates = useMemo(() => (Array.isArray(templates) ? templates : DEFAULT_WAVE1_TEMPLATES), [templates]);
+
   const filteredTemplates = useMemo(() => {
-    return templates.filter((t) => {
+    return safeTemplates.filter((t) => {
       if (langFilter !== "all" && t.language !== langFilter) return false;
       if (propertyFilter !== "all" && t.property_type !== propertyFilter) return false;
       if (searchQuery) {
@@ -60,7 +101,7 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
       }
       return true;
     });
-  }, [templates, langFilter, propertyFilter, searchQuery]);
+  }, [safeTemplates, langFilter, propertyFilter, searchQuery]);
 
   const handleInspectManifest = async (tId: string) => {
     try {

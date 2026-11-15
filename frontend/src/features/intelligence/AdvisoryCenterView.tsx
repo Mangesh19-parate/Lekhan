@@ -25,7 +25,7 @@ export const AdvisoryCenterView: React.FC<AdvisoryCenterViewProps> = ({ onNaviga
     setLoading(true);
     try {
       const data = await api.getAdvisoryRules();
-      setRules(data || []);
+      setRules(Array.isArray(data) ? data : []);
     } catch {
       setRules([]);
     } finally {

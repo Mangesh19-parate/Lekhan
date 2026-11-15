@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { I18nProvider, useI18n } from "./shared/i18n";
-import { ToastProvider, useToast, Button, Badge } from "./shared/components";
+import { ToastProvider, useToast, Button, Badge, ErrorBoundary } from "./shared/components";
 import { AuthProvider, useAuth } from "./shared/auth/AuthContext";
 import { LoginModal } from "./shared/auth/LoginModal";
 import { CommandPalette } from "./features/form_engine/CommandPalette";
@@ -976,13 +976,15 @@ const AppShell: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <I18nProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <AppShell />
-        </ToastProvider>
-      </AuthProvider>
-    </I18nProvider>
+    <ErrorBoundary>
+      <I18nProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        </AuthProvider>
+      </I18nProvider>
+    </ErrorBoundary>
   );
 };
 

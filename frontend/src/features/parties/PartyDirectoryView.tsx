@@ -46,7 +46,7 @@ export const PartyDirectoryView: React.FC<PartyDirectoryViewProps> = ({
       try {
         setLoading(true);
         const res = await api.searchParties("जोशी");
-        setParties(res || []);
+        setParties(Array.isArray(res) ? res : []);
       } catch {
         setParties([]);
       } finally {
@@ -58,7 +58,7 @@ export const PartyDirectoryView: React.FC<PartyDirectoryViewProps> = ({
     setLoading(true);
     try {
       const res = await api.searchParties(q);
-      setParties(res || []);
+      setParties(Array.isArray(res) ? res : []);
     } catch {
       setParties([]);
     } finally {

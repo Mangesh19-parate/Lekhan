@@ -30,7 +30,7 @@ export const ReviewCenterView: React.FC<ReviewCenterViewProps> = ({ onNavigate }
     setLoading(true);
     try {
       const res = await api.listDocuments({ limit: 100 });
-      setDocuments(res.items || []);
+      setDocuments(Array.isArray(res?.items) ? res.items : []);
     } catch {
       setDocuments([]);
     } finally {
@@ -42,9 +42,10 @@ export const ReviewCenterView: React.FC<ReviewCenterViewProps> = ({ onNavigate }
     fetchQueue();
   }, []);
 
-  const pendingReviewDocs = documents.filter((d) => d.status === "draft");
-  const reviewedDocs = documents.filter((d) => d.status === "reviewed");
-  const finalisedDocs = documents.filter((d) => d.status === "finalised");
+  const safeDocs = Array.isArray(documents) ? documents : [];
+  const pendingReviewDocs = safeDocs.filter((d) => d.status === "draft");
+  const reviewedDocs = safeDocs.filter((d) => d.status === "reviewed");
+  const finalisedDocs = safeDocs.filter((d) => d.status === "finalised");
 
   return (
     <div style={{ padding: "28px", maxWidth: "1440px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px" }}>
