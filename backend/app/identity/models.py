@@ -19,6 +19,7 @@ class UserRecord:
     role: str = "drafter"
     ui_language: str = "mr"
     mfa_secret_enc: bytes | None = None
+    mfa_recovery_codes: list[str] = field(default_factory=list)
     active: bool = True
     failed_logins: int = 0
     locked_until: datetime.datetime | None = None

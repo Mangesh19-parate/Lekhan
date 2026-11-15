@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 from app.generation.models import GeneratedDocumentRecord
 
 
-@runtime_checkable
 class DocumentRepository(Protocol):
     """Explicit repository interface for generated document persistence."""
 

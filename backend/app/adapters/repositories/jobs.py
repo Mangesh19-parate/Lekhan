@@ -50,15 +50,10 @@ class PostgresJobRepository:
     def enqueue(
         self,
         tenant_id: uuid.UUID,
-        type: str = "generate_docx",
-        payload: dict[str, Any] | None = None,
+        type: str,
+        payload: dict[str, Any],
         idempotency_key: str | None = None,
-        job_type: str | None = None,
     ) -> JobRecord:
-        if job_type is not None:
-            type = job_type
-        if payload is None:
-            payload = {}
         session = self._get_session()
         should_close = self._session is None
         try:

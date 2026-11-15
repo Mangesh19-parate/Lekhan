@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime
 import uuid
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 
 @dataclass
@@ -27,9 +27,9 @@ class SessionData:
     expires_at: datetime.datetime
     user_agent: str | None = None
     ip: str | None = None
+    mfa_pending: bool = False
 
 
-@runtime_checkable
 class SessionRepository(Protocol):
     """Explicit repository interface for tenant session persistence."""
 

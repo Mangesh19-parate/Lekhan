@@ -10,13 +10,12 @@ Enforces:
 from __future__ import annotations
 
 import uuid
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 from app.properties.models import PropertyRecord, PropertyVersionRecord
 from app.shared.trigram import trigram_similarity
 
 
-@runtime_checkable
 class PropertyRepository(Protocol):
     """Explicit repository interface for property persistence."""
 

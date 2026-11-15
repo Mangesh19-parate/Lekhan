@@ -9,11 +9,14 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.identity.models import UserRecord
+from app.shared.logging import get_logger
 from app.shared.models import User as UserModel
+
+logger = get_logger(__name__)
 
 
 def _to_record(model: UserModel) -> UserRecord:
@@ -27,6 +30,7 @@ def _to_record(model: UserModel) -> UserRecord:
         role=model.role,
         ui_language=model.ui_language,
         mfa_secret_enc=model.mfa_secret_enc,
+        mfa_recovery_codes=getattr(model, "mfa_recovery_codes", []) or [],
         active=model.active,
         failed_logins=model.failed_logins,
         locked_until=model.locked_until,
@@ -65,6 +69,39 @@ class PostgresUserRepository:
 
     def find_by_email(self, tenant_id: uuid.UUID | None, email: str) -> UserRecord | None:
         normalized = email.strip().lower()
+        if tenant_id is None:
+            # Pre-auth lookup: invoke narrow SECURITY DEFINER function on PostgreSQL
+            try:
+                bind = self._session.get_bind()
+                if bind and bind.dialect.name == "postgresql":
+                    row = (
+                        self._session.execute(
+                            text("SELECT * FROM auth_lookup_user_by_email(:email)"),
+                            {"email": normalized},
+                        )
+                        .mappings()
+                        .first()
+                    )
+                    if row:
+                        return UserRecord(
+                            id=row["id"],
+                            tenant_id=row["tenant_id"],
+                            email=row["email"],
+                            display_name=row["display_name"],
+                            password_hash=row["password_hash"],
+                            role=row["role"],
+                            ui_language=row["ui_language"],
+                            mfa_secret_enc=row["mfa_secret_enc"],
+                            mfa_recovery_codes=list(row["mfa_recovery_codes"] or []),
+                            active=row["active"],
+                            failed_logins=row["failed_logins"],
+                            locked_until=row["locked_until"],
+                            created_at=row["created_at"],
+                        )
+                    return None
+            except Exception as exc:
+                logger.debug("auth_lookup_user_by_email query fallback: %s", exc)
+
         query = self._session.query(UserModel).filter(func.lower(UserModel.email) == normalized)
         if tenant_id is not None:
             query = query.filter(UserModel.tenant_id == tenant_id)
@@ -85,6 +122,7 @@ class PostgresUserRepository:
             role=user.role,
             ui_language=user.ui_language,
             mfa_secret_enc=user.mfa_secret_enc,
+            mfa_recovery_codes=user.mfa_recovery_codes,
             active=user.active,
             failed_logins=user.failed_logins,
             locked_until=user.locked_until,
@@ -113,6 +151,7 @@ class PostgresUserRepository:
         db_user.role = user.role
         db_user.ui_language = user.ui_language
         db_user.mfa_secret_enc = user.mfa_secret_enc
+        db_user.mfa_recovery_codes = user.mfa_recovery_codes
         db_user.active = user.active
         db_user.failed_logins = user.failed_logins
         db_user.locked_until = user.locked_until
