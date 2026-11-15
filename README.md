@@ -2,7 +2,7 @@
 
 Multilingual **property legal drafting** web app for a Nagpur/Vidarbha document practice. Enter the facts of a transaction once; generate an editable, properly formatted **Marathi or English** deed (Hindi later) from the company's approved templates, with a review trail and a portal-ready data sheet.
 
-> **Status:** planning complete; implementation starts at Week 1 of a 26-week plan (see `docs/PLAN.md`).
+> **Status:** Phase 1 & Phase 2 core implementation complete. Asynchronous generation pipeline, PostgreSQL Row-Level Security (RLS), 2-step MFA, statutory fee rules, and consolidated React frontend with strict TypeScript types are operational.
 > **Important:** generated documents are **drafts**. They must be reviewed by a qualified professional before execution or registration. This software does not provide legal advice and never states that a document is legally valid.
 
 ---
