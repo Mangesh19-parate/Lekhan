@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115.0",
+  "starlette>=0.40.0",
   "uvicorn[standard]>=0.32.0",
   "pydantic>=2.9.0",
   "pydantic-settings>=2.6.0",
@@ -77,6 +78,7 @@ ignore_missing_imports = true
 minversion = "8.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+pythonpath = [".", ".."]
 markers = [
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",
   "golden: marks template golden-file tests",
