@@ -1,10 +1,15 @@
 """Unit and inverse-parser property tests for Marathi and English language packs."""
 
+import uuid
 from datetime import date
 from decimal import Decimal
 
 import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
 
+from app.api.auth import get_current_actor
+from app.identity.policy import Actor
 from app.lang_packs import (
     EnglishLanguagePack,
     MarathiLanguagePack,
@@ -22,6 +27,9 @@ from app.lang_packs import (
     words_to_number_en,
     words_to_number_mr,
 )
+from app.lang_packs.hindi import number_to_words_hi
+from app.main import app
+from app.shared.errors import InvalidAmountError
 
 SAMPLE_AMOUNTS = [
     Decimal("0"),
@@ -184,3 +192,82 @@ def test_language_pack_registry() -> None:
     assert "words_currency" in filters
     assert "curr_fmt" in filters
     assert filters["words"](100) == "शंभर"
+
+
+# ---------------------------------------------------------------------------
+# 7. Validation Bounds and Helper Endpoint Security Tests
+# ---------------------------------------------------------------------------
+
+
+def test_amount_to_words_endpoint_requires_auth_and_validates_bounds() -> None:
+    """Verifies that /api/v1/helpers/amount-to-words requires auth and rejects invalid amounts with 422."""
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # 1. Unauthenticated request -> 401 Unauthorized
+    res_unauth = client.get("/api/v1/helpers/amount-to-words?amount=1000")
+    assert res_unauth.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # Authenticated setup
+    test_actor = Actor(
+        user_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000001"),
+        tenant_id=uuid.UUID("0193132e-504f-7a1b-8000-000000000002"),
+        role="drafter",
+    )
+    app.dependency_overrides[get_current_actor] = lambda: test_actor
+
+    try:
+        # 2. Valid amount with paise -> 200 OK
+        res_ok = client.get("/api/v1/helpers/amount-to-words?amount=1250000.50")
+        assert res_ok.status_code == status.HTTP_200_OK
+        data = res_ok.json()
+        assert data["amount"] == "1250000.50"
+        assert "बारा लाख पन्नास हजार रुपये आणि पन्नास पैसे फक्त" in data["words_mr"]
+
+        # 3. Negative amount -> 422 Unprocessable Entity
+        res_neg = client.get("/api/v1/helpers/amount-to-words?amount=-500")
+        assert res_neg.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "negative" in res_neg.json()["detail"].lower()
+
+        # 4. Non-finite amount (NaN / Infinity) -> 422 Unprocessable Entity
+        res_nan = client.get("/api/v1/helpers/amount-to-words?amount=NaN")
+        assert res_nan.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+        res_inf = client.get("/api/v1/helpers/amount-to-words?amount=Infinity")
+        assert res_inf.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+        # 5. Over 10**15 bound -> 422 Unprocessable Entity
+        res_over = client.get("/api/v1/helpers/amount-to-words?amount=1000000000000001")
+        assert res_over.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "exceeds maximum" in res_over.json()["detail"].lower()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_language_packs_reject_float_and_invalid_bounds() -> None:
+    """Verifies that number_to_words_mr, number_to_words_hi, and number_to_words_en reject invalid inputs."""
+    # 1. Float rejection in Hindi (float removed)
+    with pytest.raises(InvalidAmountError) as exc_hi_float:
+        number_to_words_hi(100.50)  # type: ignore[arg-type]
+    assert exc_hi_float.value.status_code == 422
+
+    # Decimal accepted in Hindi
+    assert "रुपये" in number_to_words_hi(Decimal("100.50"))
+
+    # 2. Negative rejection
+    with pytest.raises(InvalidAmountError) as exc_mr_neg:
+        number_to_words_mr(-50)
+    assert exc_mr_neg.value.status_code == 422
+
+    with pytest.raises(InvalidAmountError) as exc_en_neg:
+        number_to_words_en(Decimal("-0.05"))
+    assert exc_en_neg.value.status_code == 422
+
+    # 3. Non-finite rejection
+    with pytest.raises(InvalidAmountError) as exc_mr_nan:
+        number_to_words_mr(Decimal("NaN"))
+    assert exc_mr_nan.value.status_code == 422
+
+    # 4. Bound > 10**15 rejection
+    with pytest.raises(InvalidAmountError) as exc_en_bound:
+        number_to_words_en(Decimal("1000000000000000.01"))
+    assert exc_en_bound.value.status_code == 422

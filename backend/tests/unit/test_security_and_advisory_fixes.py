@@ -50,7 +50,7 @@ def test_unauthenticated_generate_spike_endpoint_removed() -> None:
     """Legacy unauthenticated /generate-spike endpoint must not be exposed."""
     client = TestClient(app)
     res = client.post("/api/v1/documents/generate-spike", json={})
-    assert res.status_code in (404, 405)
+    assert res.status_code == 404
 
 
 def test_advisory_list_rules_returns_catalog() -> None:

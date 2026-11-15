@@ -30,8 +30,9 @@ def test_gap_free_numbering_50_parallel() -> None:
 
     # 2. Zero duplicates check
     unique_numbers = set(results)
-    msg = f"Duplicate detected: {len(results) - len(unique_numbers)} collisions"
-    assert len(unique_numbers) == worker_count, msg
+    assert (
+        len(unique_numbers) == worker_count
+    ), f"Duplicate detected: {len(results) - len(unique_numbers)} collisions"
 
     # 3. Gap-free sequence check (must be exactly 1 to 50)
     sequences = sorted([int(num.split("/")[-1]) for num in results])

@@ -35,8 +35,9 @@ def test_conformance_vectors() -> None:
 
         # 1. Parse string expression and verify generated AST matches canonical JSON
         parsed_ast = parse_condition(expr)
-        msg = f"[{cid}] AST mismatch for expression: {expr}"
-        assert parsed_ast.to_dict() == expected_ast_dict, msg
+        assert (
+            parsed_ast.to_dict() == expected_ast_dict
+        ), f"[{cid}] AST mismatch for expression: {expr}"
 
         # 2. Evaluate parsed AST against inputs
         res = evaluator.evaluate(parsed_ast, input_data)

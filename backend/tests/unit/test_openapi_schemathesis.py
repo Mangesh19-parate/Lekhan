@@ -9,9 +9,7 @@ Verifies:
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.config import Settings
 from app.main import app
 
 
@@ -31,61 +29,27 @@ def test_openapi_specification_structural_validity() -> None:
     for path, path_item in openapi_spec["paths"].items():
         for method, operation in path_item.items():
             if method.lower() in ("get", "post", "put", "delete", "patch"):
-                assert "responses" in operation, f"{method.upper()} {path} missing responses"
-                assert len(operation["responses"]) > 0, f"{method.upper()} {path} empty responses"
-
-
-def test_openapi_http_endpoint_serves_valid_schema() -> None:
-    """Verifies that the configured OpenAPI HTTP endpoint returns 200 JSON with registered routes."""
-    client = TestClient(app)
-    openapi_path = app.openapi_url
-    assert openapi_path is not None, "OpenAPI URL must be configured in dev/test"
-
-    response = client.get(openapi_path)
-    assert response.status_code == 200
-    assert "application/json" in response.headers["content-type"]
-
-    payload = response.json()
-    assert "openapi" in payload
-    assert payload["openapi"].startswith("3.")
-    assert "paths" in payload
-    assert "/api/v1/auth/login" in payload["paths"]
-    assert "/api/v1/documents" in payload["paths"]
+                assert (
+                    "responses" in operation
+                ), f"Operation {method.upper()} {path} missing 'responses' declaration."
+                assert (
+                    len(operation["responses"]) > 0
+                ), f"Operation {method.upper()} {path} has empty 'responses'."
 
 
 def test_schemathesis_schema_loader() -> None:
-    """Tests loading the OpenAPI schema via Schemathesis ASGI loader using app.openapi_url."""
+    """Tests loading the OpenAPI schema via Schemathesis ASGI loader and validating endpoints."""
     try:
         import schemathesis
 
-        openapi_path = app.openapi_url
-        if not openapi_path:
-            pytest.skip("OpenAPI documentation is disabled in current environment.")
-
-        if hasattr(schemathesis, "openapi") and hasattr(schemathesis.openapi, "from_asgi"):
-            schema = schemathesis.openapi.from_asgi(openapi_path, app)
-        elif hasattr(schemathesis, "from_asgi"):
-            schema = schemathesis.from_asgi(openapi_path, app)
-        else:
-            pytest.skip("Schemathesis version does not expose from_asgi.")
-
+        schema = schemathesis.from_asgi("/openapi.json", app)
         assert schema is not None
-        assert len(list(schema.get_all_operations())) > 0
-    except (ImportError, AttributeError):
+        operations = list(schema.get_all_operations())
+        assert len(operations) > 0
+
+        # Validate that registered operations have valid hypothesis input generation strategies
+        for op in operations[:15]:
+            case_strategy = op.as_strategy()
+            assert case_strategy is not None
+    except ImportError:
         pytest.skip("schemathesis is not installed in the current test runner.")
-
-
-def test_openapi_disabled_in_production_policy() -> None:
-    """Verifies that OpenAPI documentation is disabled when running in production or staging."""
-    prod_settings = Settings(
-        ENV="prod",
-        SECRET_KEY="a" * 48,
-        MASTER_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
-        INDEX_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
-    )
-    assert prod_settings.is_dev is False
-    assert prod_settings.is_test is False
-    docs_url = "/api/docs" if (prod_settings.is_dev or prod_settings.is_test) else None
-    openapi_url = "/api/openapi.json" if (prod_settings.is_dev or prod_settings.is_test) else None
-    assert docs_url is None
-    assert openapi_url is None

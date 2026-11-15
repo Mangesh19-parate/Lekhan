@@ -178,7 +178,7 @@ def test_login_success_sets_http_only_cookie() -> None:
     # Inspect cookie header attributes
     set_cookie = res.headers.get("set-cookie", "")
     assert "HttpOnly" in set_cookie
-    assert "samesite=lax" in set_cookie.lower()
+    assert "SameSite=lax" in set_cookie.lower()
 
 
 def test_login_brute_force_throttling_and_lockout() -> None:

@@ -12,12 +12,17 @@ import concurrent.futures
 import re
 import uuid
 from decimal import Decimal
+from typing import Any
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from app.lang_packs.english import number_to_words_en, words_to_number_en
+from app.lang_packs.hindi import number_to_words_hi
 from app.lang_packs.marathi import number_to_words_mr
 from app.numbering.service import DocumentNumberingService
+from app.shared.errors import InvalidAmountError
 from app.units.area import (
     GUNTHA_TO_SQFT_FACTOR,
     HECTARE_TO_SQM_FACTOR,
@@ -73,8 +78,9 @@ def test_numbering_gap_free_under_concurrency(
     # 2. Sorted sequences must form a gap-free contiguous progression from 1 to total_calls
     sorted_seqs = sorted(seq_numbers)
     expected_contiguous = list(range(1, total_calls + 1))
-    msg = f"Gaps in sequence! Got {sorted_seqs[:10]}... expected {expected_contiguous[:10]}"
-    assert sorted_seqs == expected_contiguous, msg
+    assert (
+        sorted_seqs == expected_contiguous
+    ), f"Gaps detected in document numbering sequence! Got {sorted_seqs[:10]}... expected {expected_contiguous[:10]}"
 
 
 # --- 2. Property: Amount in Words Invariants ---
@@ -128,8 +134,9 @@ def test_decimal_area_sqm_sqft_roundtrip(sqm: Decimal) -> None:
 
     # Due to 2 decimal places rounding on both legs, round-trip error cannot exceed 0.05 sqm
     error = abs(sqm - recomputed_sqm)
-    msg = f"Round-trip error {error} exceeds tolerance for {sqm}"
-    assert error <= Decimal("0.05"), msg
+    assert error <= Decimal(
+        "0.05"
+    ), f"Round-trip area conversion error {error} exceeds tolerance for {sqm}"
 
 
 @settings(max_examples=50, deadline=None)
@@ -173,3 +180,103 @@ def test_hectare_r_to_sqm_invariants(hectare: Decimal, r: Decimal) -> None:
     assert sqm >= Decimal("0.00")
     expected = (hectare * HECTARE_TO_SQM_FACTOR) + (r * Decimal("100.00"))
     assert sqm == expected
+
+
+# --- 4. Property: English Amount in Words Inverse Round-Trip ---
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    amount=st.decimals(
+        min_value=Decimal("0.00"),
+        max_value=Decimal("9999999999999.99"),
+        places=2,
+        allow_nan=False,
+        allow_infinity=False,
+    ),
+)
+def test_english_amount_in_words_roundtrip(amount: Decimal) -> None:
+    """Proves words_to_number_en is an exact mathematical inverse of number_to_words_en."""
+    words = number_to_words_en(amount, currency=True)
+    parsed = words_to_number_en(words)
+    assert parsed == amount, (
+        f"Round-trip failed for {amount}!\n" f"  Words:  {words}\n" f"  Parsed: {parsed}"
+    )
+
+
+# --- 5. Property: Monotonic Grouping and Scale Terms ---
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    amount=st.decimals(
+        min_value=Decimal("0.00"),
+        max_value=Decimal("1000000000000000"),
+        places=2,
+        allow_nan=False,
+        allow_infinity=False,
+    ),
+)
+def test_monotonic_grouping_invariants(amount: Decimal) -> None:
+    """Proves scale hierarchy (Thousand, Lakh, Crore) activates monotonically without inversions."""
+    en_words = number_to_words_en(amount, currency=True)
+    mr_words = number_to_words_mr(amount, currency=True)
+
+    int_amount = int(amount)
+    if int_amount >= 10_000_000:
+        assert "Crore" in en_words
+        assert "कोटी" in mr_words
+    elif int_amount >= 100_000:
+        assert "Lakh" in en_words
+        assert "लाख" in mr_words
+    elif int_amount >= 1_000:
+        assert "Thousand" in en_words
+        assert "हजार" in mr_words
+
+
+# --- 6. Property: No Negative Wraparound and Strict Bounds Enforcement ---
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    invalid_amount=st.one_of(
+        # Negative decimals
+        st.decimals(
+            min_value=Decimal("-1000000000000000"),
+            max_value=Decimal("-0.01"),
+            places=2,
+            allow_nan=False,
+            allow_infinity=False,
+        ),
+        # Over upper bound (> 10**15)
+        st.decimals(
+            min_value=Decimal("1000000000000000.01"),
+            max_value=Decimal("999999999999999999.99"),
+            places=2,
+            allow_nan=False,
+            allow_infinity=False,
+        ),
+        # Non-finite values
+        st.just(Decimal("NaN")),
+        st.just(Decimal("Infinity")),
+        st.just(Decimal("-Infinity")),
+        # Floats (prohibited for money)
+        st.floats(min_value=-1000.0, max_value=1000.0),
+    ),
+)
+def test_no_negative_wraparound_or_invalid_amounts(invalid_amount: Any) -> None:
+    """Proves negative, non-finite, > 10**15, and float amounts raise InvalidAmountError (422)."""
+    # 1. Marathi
+    with pytest.raises(InvalidAmountError) as exc_mr:
+        number_to_words_mr(invalid_amount)
+    assert exc_mr.value.status_code == 422
+
+    # 2. Hindi
+    with pytest.raises(InvalidAmountError) as exc_hi:
+        number_to_words_hi(invalid_amount)
+    assert exc_hi.value.status_code == 422
+
+    # 3. English
+    with pytest.raises(InvalidAmountError) as exc_en:
+        number_to_words_en(invalid_amount)
+    assert exc_en.value.status_code == 422

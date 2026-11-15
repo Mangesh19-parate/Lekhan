@@ -219,38 +219,8 @@ def test_handler_idempotency_and_atomic_file_write() -> None:
         type="generate_docx",
         payload={
             "document_id": str(job_id),
-            "template_id": "sale_deed_plot_mr",
-            "execution_date": "०९ नोव्हेंबर २०२६",
-            "sellers": [
-                {
-                    "full_name": "रमेश पाटील",
-                    "gender": "male",
-                    "age": 45,
-                    "occupation": "नोकरी",
-                    "address": "नागपूर",
-                    "pan": "ABCDE1234F",
-                }
-            ],
-            "purchasers": [
-                {
-                    "full_name": "सुनीता जोशी",
-                    "gender": "female",
-                    "age": 42,
-                    "occupation": "घरकाम",
-                    "address": "नागपूर",
-                    "pan": "XYZPQ9876K",
-                }
-            ],
-            "property_details": {
-                "mouza": "सोनेगाव",
-                "plot_no": "12",
-                "layout_name": "आनंद नगर",
-                "area_sqm": 150.0,
-            },
-            "financial": {
-                "total_consideration": 2500000,
-                "earnest_advance": 500000,
-            },
+            "template_id": "test_template",
+            "parties": [],
         },
     )
 
@@ -271,7 +241,6 @@ def test_handler_idempotency_and_atomic_file_write() -> None:
 def test_database_session_hashed_token_idle_and_absolute_expiry() -> None:
     """Verifies database-backed session repository enforces token hashing, idle and absolute timeout."""
     mock_db = MagicMock()
-    mock_db.query.return_value.filter.return_value.first.return_value = None
     repo = PostgresSessionRepository(session=mock_db, idle_timeout_minutes=30)
 
     user_id = uuid.uuid4()

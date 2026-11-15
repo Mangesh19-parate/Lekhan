@@ -20,6 +20,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from app.audit.jobs import verify_all_audit_chains
+from app.audit.service import audit_service
 from app.config import get_settings
 from app.shared.models import Base, Tenant
 from app.shared.models import Counter as CounterModel
@@ -94,12 +96,20 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
             session.add(counter)
             session.commit()
 
+        # Create chained audit log entries
+        audit_service.log_event(
+            tenant_id=tenant_id, action="create_document", entity="document", entity_id="1"
+        )
+        audit_service.log_event(
+            tenant_id=tenant_id, action="finalise_document", entity="document", entity_id="1"
+        )
+
         # 1. Run backup
         archive = create_backup(destination_dir=backup_dest, include_storage=True)
         assert archive.exists()
         assert (backup_dest / f"{archive.name}.sha256").exists()
 
-        # 2. Simulate disaster: delete counter row
+        # 2. Simulate disaster: delete counter row and wipe memory audit log
         with Session(engine) as session:
             session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).delete()
             session.commit()
@@ -107,13 +117,23 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
                 session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).first()
             )
             assert remaining is None, "Row must be deleted for drill verification"
+        audit_service.clear()
 
         # 3. Run restore drill
         report = restore_backup(archive_path=archive, target_storage_dir=storage_dest)
         assert report["status"] == "success"
 
-        # 4. Verify post-restore data integrity
-        # Note: in synthetic restore script, counter entries are validated against snapshot
+        # 4. Verify post-restore data integrity and audit chain
         assert report["verified_files"] > 0
+        assert report.get("audit_chain_verified") is True
+        restored_check = verify_all_audit_chains()
+        assert restored_check.status == "healthy"
+
+        with Session(engine) as session:
+            restored_counter = (
+                session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).first()
+            )
+            assert restored_counter is not None
+            assert restored_counter.value == 42
     finally:
         shutil.rmtree(stage_dir, ignore_errors=True)

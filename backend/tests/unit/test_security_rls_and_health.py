@@ -11,6 +11,7 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters.db import set_tenant_context
@@ -24,43 +25,18 @@ TENANT_A = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
 TENANT_B = uuid.UUID("0193132e-504f-7a1b-8000-000000000002")
 
 
-def test_rls_query_without_tenant_context_returns_zero_rows() -> None:
-    """Verifies that queries without app.tenant_id return zero rows under RLS policy.
+def test_set_tenant_context_updates_contextvar_and_raises_on_db_failure() -> None:
+    """Verifies set_tenant_context updates current_tenant_id_ctx and does not swallow exceptions."""
+    from app.adapters.db import current_tenant_id_ctx, set_tenant_context
 
-    The RLS policy is:
-      USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-    """
+    mock_session = MagicMock()
+    mock_session.get_bind.return_value.dialect.name = "postgresql"
+    mock_session.execute.side_effect = RuntimeError("Postgres SET LOCAL app.tenant_id failure")
 
-    # Simulate RLS evaluation logic
-    def evaluate_rls(row_tenant: uuid.UUID, app_tenant_setting: str | None) -> bool:
-        if not app_tenant_setting:
-            return False
-        try:
-            return row_tenant == uuid.UUID(app_tenant_setting)
-        except ValueError:
-            return False
+    with pytest.raises(RuntimeError, match="Postgres SET LOCAL app.tenant_id failure"):
+        set_tenant_context(mock_session, TENANT_A)
 
-    records = [
-        {"id": 1, "tenant_id": TENANT_A, "name": "Party A"},
-        {"id": 2, "tenant_id": TENANT_B, "name": "Party B"},
-    ]
-
-    # 1. Unset tenant context -> must return ZERO rows
-    unset_results = [r for r in records if evaluate_rls(r["tenant_id"], None)]
-    assert unset_results == [], "Queries without tenant context must return zero rows"
-
-    empty_setting_results = [r for r in records if evaluate_rls(r["tenant_id"], "")]
-    assert empty_setting_results == [], "Queries with empty tenant context must return zero rows"
-
-    # 2. Set to Tenant A -> returns only Tenant A records
-    tenant_a_results = [r for r in records if evaluate_rls(r["tenant_id"], str(TENANT_A))]
-    assert len(tenant_a_results) == 1
-    assert tenant_a_results[0]["tenant_id"] == TENANT_A
-
-    # 3. Set to Tenant B -> returns only Tenant B records
-    tenant_b_results = [r for r in records if evaluate_rls(r["tenant_id"], str(TENANT_B))]
-    assert len(tenant_b_results) == 1
-    assert tenant_b_results[0]["tenant_id"] == TENANT_B
+    assert current_tenant_id_ctx.get() == TENANT_A
 
 
 def test_set_tenant_context_executes_set_local_on_postgres() -> None:

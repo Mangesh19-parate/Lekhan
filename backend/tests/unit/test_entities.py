@@ -77,7 +77,7 @@ def test_party_optimistic_locking_and_version_snapshot() -> None:
     assert updated.version == 2
 
     # Check version snapshot in party_versions
-    versions = party_service.get_versions(party.id)
+    versions = party_service.get_versions(party.id, TENANT_ID)
     assert len(versions) == 1
     assert versions[0].version == 1
     assert versions[0].data["names"]["mr"]["full"] == "रमेश पाटील"

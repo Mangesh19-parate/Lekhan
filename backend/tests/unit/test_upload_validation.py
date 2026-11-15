@@ -18,7 +18,7 @@ import zipfile
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.auth import get_current_actor
+from app.api.auth import get_current_actor, require_csrf
 from app.identity.policy import Actor
 from app.main import app
 from app.templates.lint.structural import (
@@ -58,8 +58,10 @@ def _make_dummy_docx(files: dict[str, bytes | str]) -> bytes:
 @pytest.fixture(autouse=True)
 def override_actor():
     app.dependency_overrides[get_current_actor] = lambda: TEMPLATE_ADMIN_ACTOR
+    app.dependency_overrides[require_csrf] = lambda: None
     yield
     app.dependency_overrides.pop(get_current_actor, None)
+    app.dependency_overrides.pop(require_csrf, None)
 
 
 def test_upload_rejects_oversized_file() -> None:
@@ -188,7 +190,7 @@ def test_upload_rejects_xxe_and_dangerous_entities() -> None:
     )
 
     findings = check_structural_safety(xxe_docx)
-    assert any(f.code in ("DANGEROUS_XML_ENTITY_DECLARATION", "UNSAFE_XML_DTD") for f in findings)
+    assert any(f.code == "DANGEROUS_XML_ENTITY_DECLARATION" for f in findings)
 
     res = client.post(
         "/api/v1/templates/upload",
@@ -202,7 +204,4 @@ def test_upload_rejects_xxe_and_dangerous_entities() -> None:
         },
     )
     assert res.status_code == 400
-    assert (
-        "Dangerous XML entity" in res.json()["detail"]
-        or "XML entity or DTD declaration" in res.json()["detail"]
-    )
+    assert "Dangerous XML entity" in res.json()["detail"]

@@ -232,7 +232,7 @@ def test_past_document_immutability_on_reuse(clean_services) -> None:
     assert prop_v2.attrs["layout_name"] == "New Renovated Layout B"
 
     # 4. Verify historical versions were archived
-    party_history = p_svc.get_versions(party.id)
+    party_history = p_svc.get_versions(party.id, tenant_id)
     assert len(party_history) == 1
     assert party_history[0].version == 1
 

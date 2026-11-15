@@ -118,21 +118,36 @@ def test_api_document_creation_and_download() -> None:
     )
     assert login_res.status_code == 200
     cookie_val = login_res.cookies["lekhan_session"]
+    csrf_token = login_res.json()["csrf_token"]
 
-    # 2. Enqueue and generate document
+    # 2. Enqueue document generation job (async 202)
     gen_res = client.post(
         "/api/v1/documents",
         json=SAMPLE_PAYLOAD,
         cookies={"lekhan_session": cookie_val},
+        headers={"X-CSRF-Token": csrf_token},
     )
-    assert gen_res.status_code == 200
+    assert gen_res.status_code == 202
     gen_data = gen_res.json()
-    assert gen_data["status"] == "succeeded"
-    assert gen_data["state"] == "COMPLETED"
-    assert "download_url" in gen_data
+    assert gen_data["status"] == "queued"
+    job_id = gen_data["job_id"]
 
-    # 3. Download resulting DOCX
-    download_url = gen_data["download_url"]
+    # 3. Worker executes the claimed job
+    from app.worker import run_worker_once
+
+    processed = run_worker_once(job_queue)
+    assert processed is True
+
+    # 4. Poll GET /jobs/{id}
+    poll_res = client.get(f"/jobs/{job_id}", cookies={"lekhan_session": cookie_val})
+    assert poll_res.status_code == 200
+    poll_data = poll_res.json()
+    assert poll_data["status"] == "succeeded"
+    assert poll_data["outputs"]["docx"] is True
+    assert "download_url" in poll_data
+
+    # 5. Download resulting DOCX
+    download_url = poll_data["download_url"]
     dl_res = client.get(download_url, cookies={"lekhan_session": cookie_val})
     assert dl_res.status_code == 200
     assert (
