@@ -59,9 +59,9 @@ app = FastAPI(
     title="Lekhan API",
     description="Multilingual Property Legal Drafting API (Phase 1)",
     version="0.1.0",
-    docs_url="/api/docs" if settings.is_dev else None,
+    docs_url="/api/docs" if (settings.is_dev or settings.is_test) else None,
     redoc_url=None,
-    openapi_url="/api/openapi.json" if settings.is_dev else None,
+    openapi_url="/api/openapi.json" if (settings.is_dev or settings.is_test) else None,
     lifespan=lifespan,
 )
 
