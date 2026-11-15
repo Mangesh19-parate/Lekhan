@@ -12,8 +12,7 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-
-import defusedxml.ElementTree as ET
+from xml.etree import ElementTree as ET
 
 from app.templates.lint.models import LintFinding, LintSeverity
 

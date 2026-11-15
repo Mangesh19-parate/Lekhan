@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.advisory.engine import advisory_rules_engine
 from app.advisory.models import AdvisoryAlert
 from app.api.auth import get_current_actor
 from app.identity.policy import Actor
+from app.templates.validator import validate_template_id
 
 router = APIRouter(prefix="/api/v1/advisory", tags=["advisory"])
 
@@ -42,6 +43,15 @@ def evaluate_advisory_alerts(
     actor: Actor = Depends(get_current_actor),
 ) -> list[AdvisoryAlert]:
     """Evaluates non-blocking compliance advisories (TDS, PAN, RERA, Agriculturalist check)."""
+    if payload.template_id:
+        try:
+            validate_template_id(payload.template_id)
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid template ID: {err}",
+            )
+
     return advisory_rules_engine.evaluate_payload(
         payload=payload.data,
         template_id=payload.template_id,

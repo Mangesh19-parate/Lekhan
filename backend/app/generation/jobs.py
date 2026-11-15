@@ -12,8 +12,8 @@ import builtins
 import datetime
 import uuid
 from dataclasses import dataclass, field
-from threading import RLock
-from typing import Any, Protocol, runtime_checkable
+from threading import Lock
+from typing import Any, Protocol
 
 from app.shared.ids import uuid7
 
@@ -46,17 +46,15 @@ class JobRecord:
             self.type = self.job_type
 
 
-@runtime_checkable
 class JobRepository(Protocol):
     """Explicit repository interface for background job queue persistence."""
 
     def enqueue(
         self,
         tenant_id: uuid.UUID,
-        type: str = "generate_docx",
-        payload: dict[str, Any] | None = None,
+        type: str,
+        payload: dict[str, Any],
         idempotency_key: str | None = None,
-        job_type: str | None = None,
     ) -> JobRecord:
         """Enqueues a job with idempotency deduplication within tenant_id."""
         ...
@@ -110,21 +108,16 @@ class InMemoryJobRepository:
     """Thread-safe in-memory job repository for unit testing and local mocks."""
 
     def __init__(self) -> None:
-        self._lock = RLock()
+        self._lock = Lock()
         self._jobs: dict[uuid.UUID, JobRecord] = {}
 
     def enqueue(
         self,
         tenant_id: uuid.UUID,
-        type: str = "generate_docx",
-        payload: dict[str, Any] | None = None,
+        type: str,
+        payload: dict[str, Any],
         idempotency_key: str | None = None,
-        job_type: str | None = None,
     ) -> JobRecord:
-        if job_type is not None:
-            type = job_type
-        if payload is None:
-            payload = {}
         with self._lock:
             if idempotency_key:
                 for existing in self._jobs.values():

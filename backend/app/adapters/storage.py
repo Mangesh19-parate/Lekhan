@@ -8,6 +8,7 @@ Adheres strictly to AGENTS.md Hard Rule 9 & ARCHITECTURE.md Section 5:
 from __future__ import annotations
 
 import os
+import urllib.parse
 import uuid
 from pathlib import Path
 from typing import Protocol
@@ -48,11 +49,26 @@ class LocalObjectStore:
 
     def _resolve_path(self, key: str) -> Path:
         """Resolves clean storage path, preventing directory traversal."""
-        clean_key = key.replace("\\", "/").lstrip("/")
-        path = (self.base_path / clean_key).resolve()
-        if not str(path).startswith(str(self.base_path.resolve())):
-            raise ValueError(f"Directory traversal detected in storage key: {key}")
-        return path
+        if not isinstance(key, str):
+            raise ValueError("Storage key must be a string")
+        if "\0" in key:
+            raise ValueError(f"NUL byte detected in storage key: {key!r}")
+
+        decoded = urllib.parse.unquote(key)
+        if "\0" in decoded:
+            raise ValueError(f"NUL byte detected in decoded storage key: {key!r}")
+
+        clean_key = decoded.replace("\\", "/").lstrip("/")
+        base_resolved = self.base_path.resolve()
+        raw_target = base_resolved / clean_key
+
+        if raw_target.is_symlink():
+            raise ValueError(f"Symlinks prohibited in storage key: {key!r}")
+
+        target_path = raw_target.resolve()
+        if not target_path.is_relative_to(base_resolved):
+            raise ValueError(f"Directory traversal detected in storage key: {key!r}")
+        return target_path
 
     def put(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
         """Atomically writes data to disk using temporary file, fsync, and rename."""

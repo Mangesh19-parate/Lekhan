@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.auth import get_current_actor
+from app.audit.service import audit_service
 from app.generation.pipeline import generation_pipeline
 from app.identity.policy import Actor, Resource, authorize
 from app.review.fsm import (
@@ -115,11 +116,20 @@ def finalise_document(
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
     try:
-        return document_review_service.mark_finalised(
+        res = document_review_service.mark_finalised(
             document_id=document_id,
             tenant_id=actor.tenant_id,
             finaliser_id=str(actor.user_id),
         )
+        audit_service.log_event(
+            tenant_id=doc.tenant_id,
+            action="finalise_document",
+            entity="document",
+            entity_id=str(document_id),
+            actor_id=actor.user_id,
+            meta={"doc_no": doc.doc_no, "finalised_by": str(actor.user_id)},
+        )
+        return res
     except (InvalidReviewTransitionError, DocumentFinalisedError) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 

@@ -7,15 +7,46 @@ Executes the generation pipeline FSM idempotently with atomic file writes.
 
 from __future__ import annotations
 
+import subprocess
 import time
 
+from app.adapters.pdf import LibreOfficeNotFoundError, PdfConversionTimeoutError
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.generation.jobs import JobRepository
-from app.generation.pipeline import generation_pipeline
+from app.generation.pipeline import GenerationTimeoutError, generation_pipeline
 from app.shared.logging import get_correlation_id, get_logger, setup_logging
 
 setup_logging()
 logger = get_logger("worker")
+
+
+def classify_job_exception(exc: Exception) -> tuple[str, str, bool]:
+    """Classifies an exception into a safe error code, customer-safe message, and transient flag.
+
+    Never leaks raw exception strings, file paths, or internal variables to clients.
+    """
+    if isinstance(exc, ValueError):
+        return "VALIDATION_FAILED", "Document input validation failed.", False
+    if isinstance(exc, KeyError):
+        return "PAYLOAD_ERROR", "Required generation parameter missing.", False
+    if isinstance(exc, LibreOfficeNotFoundError):
+        return "CONVERTER_MISSING", "Document conversion utility not available.", False
+    if isinstance(
+        exc,
+        (
+            PdfConversionTimeoutError,
+            GenerationTimeoutError,
+            subprocess.TimeoutExpired,
+            TimeoutError,
+        ),
+    ):
+        return "CONVERTER_TIMEOUT", "Document generation or conversion timed out.", True
+    # SQLAlchemy or DB operational errors are transient
+    err_type_name = type(exc).__name__
+    if "OperationalError" in err_type_name or "DBAPIError" in err_type_name:
+        return "DATABASE_TIMEOUT", "Database service temporarily unavailable.", True
+
+    return "GENERATION_ERROR", "Document generation encountered a temporary failure.", True
 
 
 def run_worker_once(
@@ -48,7 +79,7 @@ def run_worker_once(
                 tenant_id=job.tenant_id,
                 job_id=job.id,
                 status="succeeded",
-                state=job.state,
+                state=job.state or "COMPLETED",
             )
             logger.info(
                 "Job %s completed successfully. Document reference: %s [cid=%s]",
@@ -62,16 +93,52 @@ def run_worker_once(
                 tenant_id=job.tenant_id,
                 job_id=job.id,
                 status="dead",
-                error={"error": f"Unknown job type: {job.type}"},
+                error={
+                    "code": "UNKNOWN_JOB_TYPE",
+                    "message": f"Unsupported job type: {job.type}",
+                    "correlation_id": cid,
+                    "dead_letter": True,
+                },
             )
     except Exception as exc:
-        logger.exception("Job %s failed with error [cid=%s]: %s", job.id, cid, exc)
-        active_repo.record_failure(
-            tenant_id=job.tenant_id,
-            job_id=job.id,
-            error={"error": str(exc)},
-            max_attempts=max_attempts,
+        code, safe_msg, is_transient = classify_job_exception(exc)
+        logger.exception(
+            "Job %s failed with %s (code=%s, transient=%s) [cid=%s]: %s",
+            job.id,
+            type(exc).__name__,
+            code,
+            is_transient,
+            cid,
+            exc,
         )
+
+        error_payload = {
+            "code": code,
+            "message": safe_msg,
+            "correlation_id": cid,
+        }
+
+        if is_transient:
+            # Retry with exponential backoff; transitions to dead letter after max_attempts
+            active_repo.record_failure(
+                tenant_id=job.tenant_id,
+                job_id=job.id,
+                error=error_payload,
+                max_attempts=max_attempts,
+            )
+        else:
+            # Permanent failure: do not retry; mark failed immediately
+            active_repo.update_state(
+                tenant_id=job.tenant_id,
+                job_id=job.id,
+                status="failed",
+                error={
+                    **error_payload,
+                    "retryable": False,
+                    "dead_letter": True,
+                    "attempts": job.attempts,
+                },
+            )
 
     return True
 

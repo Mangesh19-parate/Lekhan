@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115.0",
-  "starlette>=0.40.0",
   "uvicorn[standard]>=0.32.0",
   "pydantic>=2.9.0",
   "pydantic-settings>=2.6.0",
@@ -35,6 +34,7 @@ dev = [
   "ruff>=0.7.3",
   "import-linter>=2.1",
   "schemathesis>=3.28.0",
+  "mutmut>=2.4.4",
   "bandit>=1.7.10",
   "pip-audit>=2.7.3",
 ]
@@ -71,7 +71,7 @@ warn_unused_ignores = true
 warn_return_any = true
 
 [[tool.mypy.overrides]]
-module = ["docxtpl", "defusedxml", "defusedxml.*", "argon2", "argon2.*"]
+module = ["docxtpl", "argon2", "argon2.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -83,6 +83,22 @@ markers = [
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",
   "golden: marks template golden-file tests",
   "property: marks Hypothesis property-based tests",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = ["tests/*", "migrations/*"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
 ]
 
 [tool.bandit]

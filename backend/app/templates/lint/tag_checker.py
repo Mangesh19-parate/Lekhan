@@ -11,8 +11,7 @@ import io
 import re
 import zipfile
 from typing import Any
-
-import defusedxml.ElementTree as ET
+from xml.etree import ElementTree as ET
 
 from app.templates.lint.models import LintFinding, LintSeverity
 

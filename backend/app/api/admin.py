@@ -16,6 +16,8 @@ from app.adapters.repositories.audit import PostgresAuditRepository
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.api.auth import get_current_actor, get_user_repo
 from app.api.templates_admin import list_templates
+from app.audit.export import create_signed_audit_export, verify_signed_audit_export
+from app.audit.jobs import verify_all_audit_chains
 from app.audit.repository import AuditRepository
 from app.audit.service import AuditService
 from app.config import get_settings
@@ -209,6 +211,61 @@ def verify_audit_trail(
         "chain_valid": chain_valid,
         "tamper_detected": not chain_valid,
     }
+
+
+@router.get("/audit/export", summary="Export cryptographic audit trail as signed JSON")
+def export_audit_trail(
+    actor: Actor = Depends(get_current_actor),
+    audit_repo: AuditRepository = Depends(get_audit_repo),
+) -> dict[str, Any]:
+    """Exports tenant audit trail with SHA-256 chain and HMAC-SHA256 signature."""
+    decision = authorize(actor, "view_document")
+    if not decision.allowed:
+        raise HTTPException(status_code=decision.status_code, detail=decision.reason)
+
+    records = audit_repo.get_chain(actor.tenant_id, limit=1000)
+    chain_valid = audit_repo.verify_audit_chain(actor.tenant_id)
+    return create_signed_audit_export(
+        tenant_id=actor.tenant_id,
+        records=records,
+        chain_valid=chain_valid,
+        secret_key=settings.SECRET_KEY,
+    )
+
+
+@router.post("/audit/verify-export", summary="Verify integrity of an exported signed audit trail")
+def verify_exported_audit(
+    payload: dict[str, Any],
+    actor: Actor = Depends(get_current_actor),
+) -> dict[str, Any]:
+    """Cryptographically verifies HMAC-SHA256 signature of an exported audit trail envelope."""
+    decision = authorize(actor, "view_document")
+    if not decision.allowed:
+        raise HTTPException(status_code=decision.status_code, detail=decision.reason)
+
+    valid = verify_signed_audit_export(payload, settings.SECRET_KEY)
+    return {
+        "valid": valid,
+        "tamper_detected": not valid,
+    }
+
+
+@router.post(
+    "/audit/nightly-check",
+    summary="Trigger nightly audit chain verification job across all tenants",
+)
+def run_nightly_audit_check(
+    actor: Actor = Depends(get_current_actor),
+    audit_repo: AuditRepository = Depends(get_audit_repo),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Runs the audit-chain verification job and triggers alerts on broken hash chains."""
+    decision = authorize(actor, "manage_users")
+    if not decision.allowed:
+        raise HTTPException(status_code=decision.status_code, detail=decision.reason)
+
+    report = verify_all_audit_chains(session=db, audit_repo=audit_repo)
+    return report.to_dict()
 
 
 @router.get("/system-health", summary="Detailed system health report")

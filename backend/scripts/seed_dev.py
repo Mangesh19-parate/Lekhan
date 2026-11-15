@@ -12,12 +12,14 @@ Strictly synthetic data only. Seeds:
 
 from __future__ import annotations
 
+import datetime
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from app.adapters.db import SessionLocal
 from app.shared.logging import get_logger
-from app.shared.models import Tenant, User
+from app.shared.models import FeeRule, Tenant, User
 from app.shared.security import hash_password
 
 logger = get_logger(__name__)
@@ -91,10 +93,71 @@ DEV_USERS: list[dict[str, Any]] = [
 ]
 
 
+DEV_FEE_RULES: list[dict[str, Any]] = [
+    {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000f01"),
+        "jurisdiction": "maharashtra:municipal_corporation",
+        "instrument": "conveyance_sale_deed",
+        "rate": Decimal("0.0700"),  # 5% base + 1% metro + 1% LBT
+        "cap": None,
+        "concession": Decimal("0.0100"),  # 1% female concession
+        "effective_from": datetime.date(2024, 1, 1),
+        "effective_to": None,
+        "source_url": "TODO(lawyer): official gazette URL",
+        "verified_by": None,
+        "verified_at": None,
+        "notes": "TODO(lawyer): statutory rate pending verification by legal counsel",
+    },
+    {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000f02"),
+        "jurisdiction": "maharashtra:municipal_council",
+        "instrument": "conveyance_sale_deed",
+        "rate": Decimal("0.0600"),  # 5% base + 1% LBT
+        "cap": None,
+        "concession": Decimal("0.0100"),
+        "effective_from": datetime.date(2024, 1, 1),
+        "effective_to": None,
+        "source_url": "TODO(lawyer): official gazette URL",
+        "verified_by": None,
+        "verified_at": None,
+        "notes": "TODO(lawyer): statutory rate pending verification by legal counsel",
+    },
+    {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000f03"),
+        "jurisdiction": "maharashtra:gram_panchayat",
+        "instrument": "conveyance_sale_deed",
+        "rate": Decimal("0.0400"),  # 3% base + 1% ZP cess
+        "cap": None,
+        "concession": None,
+        "effective_from": datetime.date(2024, 1, 1),
+        "effective_to": None,
+        "source_url": "TODO(lawyer): official gazette URL",
+        "verified_by": None,
+        "verified_at": None,
+        "notes": "TODO(lawyer): statutory rate pending verification by legal counsel",
+    },
+    {
+        "id": uuid.UUID("0193132e-504f-7a1b-8000-000000000f04"),
+        "jurisdiction": "maharashtra",
+        "instrument": "registration_fee",
+        "rate": Decimal("0.0100"),  # 1%
+        "cap": Decimal("30000.00"),  # Statutory cap
+        "concession": None,
+        "effective_from": datetime.date(2024, 1, 1),
+        "effective_to": None,
+        "source_url": "TODO(lawyer): official registration fee schedule",
+        "verified_by": None,
+        "verified_at": None,
+        "notes": "TODO(lawyer): statutory registration fee cap pending verification by legal counsel",
+    },
+]
+
+
 def seed_dev_data() -> dict[str, int]:
-    """Inserts or updates dev tenants and synthetic dev users in the PostgreSQL database."""
+    """Inserts or updates dev tenants, synthetic dev users, and TODO(lawyer) fee rules."""
     tenants_seeded = 0
     users_seeded = 0
+    fee_rules_seeded = 0
 
     with SessionLocal() as session:
         # 1. Upsert Tenants
@@ -141,10 +204,48 @@ def seed_dev_data() -> dict[str, int]:
                 user.ui_language = u["ui_language"]
                 user.active = True
 
+        # 3. Upsert TODO(lawyer) Fee Rules (strictly unverified)
+        for r in DEV_FEE_RULES:
+            rule = session.query(FeeRule).filter(FeeRule.id == r["id"]).first()
+            if not rule:
+                rule = FeeRule(
+                    id=r["id"],
+                    jurisdiction=r["jurisdiction"],
+                    instrument=r["instrument"],
+                    rate=r["rate"],
+                    cap=r["cap"],
+                    concession=r["concession"],
+                    effective_from=r["effective_from"],
+                    effective_to=r["effective_to"],
+                    source_url=r["source_url"],
+                    verified_by=r["verified_by"],
+                    verified_at=r["verified_at"],
+                    notes=r["notes"],
+                )
+                session.add(rule)
+                fee_rules_seeded += 1
+            else:
+                rule.jurisdiction = r["jurisdiction"]
+                rule.instrument = r["instrument"]
+                rule.rate = r["rate"]
+                rule.cap = r["cap"]
+                rule.concession = r["concession"]
+                rule.effective_from = r["effective_from"]
+                rule.effective_to = r["effective_to"]
+                rule.source_url = r["source_url"]
+                rule.verified_by = r["verified_by"]
+                rule.verified_at = r["verified_at"]
+                rule.notes = r["notes"]
+
         session.commit()
 
-    logger.info("Dev seed complete: %d tenants, %d users.", tenants_seeded, users_seeded)
-    return {"tenants": tenants_seeded, "users": users_seeded}
+    logger.info(
+        "Dev seed complete: %d tenants, %d users, %d fee rules (TODO(lawyer)).",
+        tenants_seeded,
+        users_seeded,
+        fee_rules_seeded,
+    )
+    return {"tenants": tenants_seeded, "users": users_seeded, "fee_rules": fee_rules_seeded}
 
 
 if __name__ == "__main__":

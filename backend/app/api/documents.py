@@ -5,7 +5,17 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -14,10 +24,13 @@ from app.adapters.repositories.documents import PostgresDocumentRepository
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.storage import default_storage
 from app.api.auth import get_current_actor
+from app.audit.service import audit_service
 from app.generation.jobs import JobRepository
 from app.generation.pipeline import GenerationPipelineFSM
+from app.generation.provenance import verify_docx_provenance
 from app.generation.repository import DocumentRepository
 from app.identity.policy import Actor, Resource, authorize
+from app.shared.errors import AppError
 from app.shared.logging import get_correlation_id, get_logger
 
 logger = get_logger(__name__)
@@ -56,6 +69,7 @@ class JobEnqueueResponse(BaseModel):
     doc_no: str | None = None
     download_url: str | None = None
     pdf_url: str | None = None
+    job: dict[str, Any] | None = None
 
 
 class DocumentSummaryItem(BaseModel):
@@ -89,21 +103,55 @@ class DocumentDetailResponse(BaseModel):
     pdf_download_url: str
 
 
-@router.post("", response_model=JobEnqueueResponse, summary="Enqueue document generation job")
+class ProvenanceVerificationResponse(BaseModel):
+    valid: bool
+    tampered: bool
+    document_id: str | None = None
+    tenant_id: str | None = None
+    template_version_id: str | None = None
+    template_sha256: str | None = None
+    engine_version: str | None = None
+    expected_document_hash: str | None = None
+    actual_document_hash: str | None = None
+    generated_at: str | None = None
+    verified_at: str
+    message: str
+
+
+@router.post(
+    "",
+    response_model=JobEnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enqueue document generation job asynchronously",
+)
 def create_document_generation_job(
     payload: dict[str, Any],
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
     actor: Actor = Depends(get_current_actor),
-    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
     job_repo: JobRepository = Depends(get_job_repo),
 ) -> Any:
-    """Enqueues document generation job with idempotency deduplication."""
+    """Enqueues document generation job asynchronously with 202 Accepted and idempotency deduplication."""
     # 1. Authorize action
     decision = authorize(actor, "create_document")
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    # 2. Enqueue in job queue
+    # 2. Extract or assign deterministic document_id
+    if "document_id" in payload:
+        try:
+            doc_id = uuid.UUID(str(payload["document_id"]))
+        except (ValueError, TypeError):
+            from app.shared.ids import uuid7
+
+            doc_id = uuid7()
+            payload["document_id"] = str(doc_id)
+    else:
+        from app.shared.ids import uuid7
+
+        doc_id = uuid7()
+        payload["document_id"] = str(doc_id)
+
+    # 3. Enqueue in job queue (deduplicated by idempotency_key within tenant_id)
     job = job_repo.enqueue(
         tenant_id=actor.tenant_id,
         type="generate_docx",
@@ -111,35 +159,21 @@ def create_document_generation_job(
         idempotency_key=idempotency_key,
     )
 
-    # 3. Synchronous execution for dev/immediate responses
-    try:
-        doc = pipeline.process_job(job)
-        job_repo.update_state(
-            tenant_id=actor.tenant_id,
-            job_id=job.id,
-            status=job.status,
-            state=job.state,
-        )
-    except ValueError as exc:
-        job_repo.update_state(
-            tenant_id=actor.tenant_id,
-            job_id=job.id,
-            status="failed",
-            error={"error": str(exc)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
+    # If existing job from idempotency has a document_id in payload, use it
+    if "document_id" in job.payload:
+        try:
+            doc_id = uuid.UUID(str(job.payload["document_id"]))
+        except (ValueError, TypeError):
+            pass
 
     return JobEnqueueResponse(
         job_id=job.id,
         status=job.status,
-        state=job.state,
-        document_id=doc.id,
-        doc_no=doc.doc_no,
-        download_url=f"/api/v1/documents/{doc.id}/download",
-        pdf_url=f"/api/v1/documents/{doc.id}/pdf",
+        state=job.state or "REQUESTED",
+        document_id=doc_id,
+        job={"id": str(job.id), "state": job.state or "REQUESTED"},
+        download_url=f"/api/v1/documents/{doc_id}/download",
+        pdf_url=f"/api/v1/documents/{doc_id}/pdf",
     )
 
 
@@ -255,6 +289,16 @@ def download_document(
             detail="Stored document file missing or expired.",
         )
 
+    # Log download event per PRD FR-17
+    audit_service.log_event(
+        tenant_id=doc.tenant_id,
+        action="download_document",
+        entity="document",
+        entity_id=str(doc.id),
+        actor_id=actor.user_id,
+        meta={"format": "docx", "doc_no": doc.doc_no},
+    )
+
     safe_doc_no = doc.doc_no.replace("/", "_")
     filename = f"Draft_{safe_doc_no}.docx"
     return Response(
@@ -291,11 +335,24 @@ def download_document_pdf(
         pdf_bytes = pipeline.get_or_create_pdf(document_id, actor.tenant_id)
     except Exception as exc:
         cid = get_correlation_id()
-        logger.exception("Failed to generate PDF for document %s [cid=%s]", document_id, cid)
-        raise HTTPException(
+        logger.exception(
+            "Failed to generate PDF for document %s [cid=%s]: %s", document_id, cid, exc
+        )
+        raise AppError(
+            message=f"PDF generation failed (Correlation ID: {cid}).",
+            code="PDF_GENERATION_FAILED",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"PDF generation failed: {exc}",
         ) from exc
+
+    # Log download event per PRD FR-17
+    audit_service.log_event(
+        tenant_id=doc.tenant_id,
+        action="download_document",
+        entity="document",
+        entity_id=str(doc.id),
+        actor_id=actor.user_id,
+        meta={"format": "pdf", "doc_no": doc.doc_no},
+    )
 
     safe_doc_no = doc.doc_no.replace("/", "_")
     filename = f"Convenience_Copy_{safe_doc_no}.pdf"
@@ -308,6 +365,90 @@ def download_document_pdf(
             "X-Lekhan-Document-Type": "convenience-copy",
             "X-Lekhan-Master-Format": "docx",
         },
+    )
+
+
+@router.post(
+    "/verify",
+    response_model=ProvenanceVerificationResponse,
+    summary="Cryptographically verify provenance and integrity of an uploaded DOCX file",
+)
+async def verify_uploaded_docx(
+    file: UploadFile = File(...),
+    actor: Actor = Depends(get_current_actor),
+) -> Any:
+    """Extracts custom XML provenance and verifies against word/document.xml SHA-256."""
+    decision = authorize(actor, "view_document")
+    if not decision.allowed:
+        raise HTTPException(status_code=decision.status_code, detail=decision.reason)
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty."
+        )
+
+    res = verify_docx_provenance(content)
+    return ProvenanceVerificationResponse(
+        valid=res.valid,
+        tampered=res.tampered,
+        document_id=res.document_id,
+        tenant_id=res.tenant_id,
+        template_version_id=res.template_version_id,
+        template_sha256=res.template_sha256,
+        engine_version=res.engine_version,
+        expected_document_hash=res.expected_document_hash,
+        actual_document_hash=res.actual_document_hash,
+        generated_at=res.generated_at,
+        verified_at=res.verified_at,
+        message=res.message,
+    )
+
+
+@router.get(
+    "/{document_id}/verify",
+    response_model=ProvenanceVerificationResponse,
+    summary="Cryptographically verify provenance and integrity of a stored document",
+)
+def verify_stored_document(
+    document_id: uuid.UUID,
+    actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
+) -> Any:
+    """Retrieves stored DOCX for tenant and verifies cryptographic provenance against tamper."""
+    doc = pipeline.get_document(document_id, actor.tenant_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
+    resource = Resource(tenant_id=doc.tenant_id, resource_type="document")
+    decision = authorize(actor, "view_document", resource)
+    if not decision.allowed:
+        raise HTTPException(status_code=decision.status_code, detail=decision.reason)
+
+    docx_bytes = default_storage.get(doc.file_ref)
+    if not docx_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stored document file missing or expired.",
+        )
+
+    res = verify_docx_provenance(docx_bytes)
+    return ProvenanceVerificationResponse(
+        valid=res.valid,
+        tampered=res.tampered,
+        document_id=res.document_id,
+        tenant_id=res.tenant_id,
+        template_version_id=res.template_version_id,
+        template_sha256=res.template_sha256,
+        engine_version=res.engine_version,
+        expected_document_hash=res.expected_document_hash,
+        actual_document_hash=res.actual_document_hash,
+        generated_at=res.generated_at,
+        verified_at=res.verified_at,
+        message=res.message,
     )
 
 
@@ -334,16 +475,19 @@ def validate_draft_data(
 ) -> Any:
     """Evaluates cross-field validation rules, derived fields, and visibility."""
     import json
-    from pathlib import Path
 
     from app.templates.compiler import ManifestCompiler, ManifestRuntime
+    from app.templates.validator import validate_template_id
 
-    manifest_path = (
-        Path(__file__).parent.parent.parent.parent
-        / "templates-library"
-        / template_id
-        / "manifest.json"
-    )
+    try:
+        tmpl_dir = validate_template_id(template_id)
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid template ID: {err}",
+        )
+
+    manifest_path = tmpl_dir / "manifest.json"
     if not manifest_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Template '{template_id}' not found."

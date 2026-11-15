@@ -131,9 +131,7 @@ class PartyService:
         )
         return updated
 
-    def get_versions(
-        self, party_id: uuid.UUID, tenant_id: uuid.UUID | None = None
-    ) -> list[PartyVersionRecord]:
+    def get_versions(self, party_id: uuid.UUID, tenant_id: uuid.UUID) -> list[PartyVersionRecord]:
         """Returns historical revisions for a party strictly within tenant_id."""
         return self.repository.get_versions(tenant_id, party_id)
 

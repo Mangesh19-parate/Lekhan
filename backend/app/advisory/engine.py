@@ -20,6 +20,7 @@ from app.shared.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 _ADVISORY_CATALOG: tuple[AdvisoryAlert, ...] = (
     AdvisoryAlert(
         id="ADVISORY_TDS_194IA",

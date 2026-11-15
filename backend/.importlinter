@@ -4,6 +4,7 @@ root_package = app
 [importlinter:contract:domain-isolation]
 name = Domain layer must not import FastAPI or SQLAlchemy
 type = forbidden
+include_external_packages = True
 source_modules =
     app.lang_packs
     app.units

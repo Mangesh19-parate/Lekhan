@@ -6,8 +6,55 @@ Strict compliance with docs/ARCHITECTURE.md Section 3.6.
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Protocol, runtime_checkable
+
+from app.shared.errors import InvalidAmountError
+
+MAX_CONVEYANCING_AMOUNT = Decimal("1000000000000000")  # 10**15
+
+
+def validate_and_quantize_amount(amount: Decimal | int) -> tuple[int, int]:
+    """Validates money amount per PRD FR-08, rejecting negative, non-finite, float, and > 10**15 amounts.
+
+    Returns:
+        tuple of (integer_rupees, paise_0_to_99)
+    Raises:
+        InvalidAmountError with 422 status code on violation.
+    """
+    if isinstance(amount, float):
+        raise InvalidAmountError(
+            "Floating-point numbers are prohibited for legal money calculations. Use Decimal or int."
+        )
+
+    if isinstance(amount, Decimal):
+        if not amount.is_finite():
+            raise InvalidAmountError(f"Non-finite amount {amount} is prohibited in conveyancing.")
+        d_amount = amount
+    elif isinstance(amount, int):
+        d_amount = Decimal(amount)
+    else:
+        try:
+            d_amount = Decimal(str(amount))
+            if not d_amount.is_finite():
+                raise InvalidAmountError(
+                    f"Non-finite amount {amount} is prohibited in conveyancing."
+                )
+        except Exception as exc:
+            raise InvalidAmountError(f"Invalid monetary amount: {amount}") from exc
+
+    if d_amount < Decimal("0"):
+        raise InvalidAmountError(f"Negative amounts are prohibited in conveyancing: {d_amount}")
+
+    if d_amount > MAX_CONVEYANCING_AMOUNT:
+        raise InvalidAmountError(
+            f"Amount {d_amount} exceeds maximum conveyancing threshold of 10^15."
+        )
+
+    quantized = d_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    integer_part = int(quantized)
+    paise_part = int((quantized - Decimal(integer_part)) * 100)
+    return integer_part, paise_part
 
 
 @runtime_checkable

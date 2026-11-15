@@ -11,10 +11,9 @@ from __future__ import annotations
 import io
 import re
 import zipfile
+from xml.etree import ElementTree as ET
 
-import defusedxml.ElementTree as ET
-
-from app.templates.lint.models import LeftoverFinding
+from app.templates.lint.models import LeftoverFinding, LintFinding, LintSeverity
 
 W_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
@@ -55,9 +54,11 @@ def mask_sensitive_value(value: str, category: str) -> str:
     return "[REDACTED_LITERAL]"
 
 
-def scan_docx_for_leftover_data(docx_bytes: bytes) -> list[LeftoverFinding]:
+def scan_docx_for_leftover_data(
+    docx_bytes: bytes,
+) -> list[LeftoverFinding | LintFinding]:
     """Scans all paragraph and table texts in DOCX for leftover client data and PII."""
-    findings: list[LeftoverFinding] = []
+    findings: list[LeftoverFinding | LintFinding] = []
 
     try:
         with zipfile.ZipFile(io.BytesIO(docx_bytes), "r") as zf:
@@ -152,12 +153,10 @@ def scan_docx_for_leftover_data(docx_bytes: bytes) -> list[LeftoverFinding]:
 
     except (zipfile.BadZipFile, OSError, KeyError):
         findings.append(
-            LeftoverFinding(
-                category="CORRUPT_ARCHIVE",
-                count=1,
-                part="archive",
-                paragraph_idx=0,
-                masked_sample="[MALFORMED_DOCX]",
+            LintFinding(
+                code="MALFORMED_DOCX",
+                severity=LintSeverity.ERROR,
+                message="Template DOCX archive could not be read for sensitive leftover scanning.",
             )
         )
 

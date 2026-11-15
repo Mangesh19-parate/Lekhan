@@ -22,6 +22,7 @@ from app.pilot.corrections import (
     PilotStats,
     pilot_corrections_service,
 )
+from app.templates.validator import validate_template_id
 
 router = APIRouter(prefix="/api/v1/pilot", tags=["pilot"])
 
@@ -66,6 +67,15 @@ def list_pilot_corrections(
     actor: Actor = Depends(get_current_actor),
 ) -> Any:
     """Retrieves tenant-scoped pilot corrections log."""
+    if template_id:
+        try:
+            validate_template_id(template_id)
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid template ID: {err}",
+            )
+
     return pilot_corrections_service.list_corrections(
         tenant_id=actor.tenant_id,
         template_id=template_id,

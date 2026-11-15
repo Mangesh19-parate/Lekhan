@@ -10,7 +10,9 @@ Implements:
 from __future__ import annotations
 
 import datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
+
+from app.lang_packs.base import validate_and_quantize_amount
 
 HINDI_NUMS_0_TO_99: dict[int, str] = {
     0: "शून्य",
@@ -135,20 +137,9 @@ DEVANAGARI_DIGITS = str.maketrans("0123456789", "०१२३४५६७८९"
 WESTERN_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
 
 
-def number_to_words_hi(amount: Decimal | int | float, *, currency: bool = True) -> str:
+def number_to_words_hi(amount: Decimal | int, *, currency: bool = True) -> str:
     """Converts number into formal legal Hindi words using Indian grouping."""
-    if isinstance(amount, float):
-        dec_amount = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    elif isinstance(amount, int):
-        dec_amount = Decimal(amount).quantize(Decimal("0.01"))
-    else:
-        dec_amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-    if dec_amount < Decimal("0"):
-        raise ValueError(f"Negative amounts not supported in conveyancing: {dec_amount}")
-
-    rupees = int(dec_amount)
-    paise = int((dec_amount - Decimal(rupees)) * 100)
+    rupees, paise = validate_and_quantize_amount(amount)
 
     if rupees == 0 and paise == 0:
         return "रुपये शून्य मात्र" if currency else "शून्य"

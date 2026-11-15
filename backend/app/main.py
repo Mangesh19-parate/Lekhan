@@ -3,21 +3,24 @@
 import hmac
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.adapters.db import engine, ping_db
 from app.api.admin import router as admin_router
 from app.api.advisory import router as advisory_router
+from app.api.auth import get_current_actor, require_csrf
 from app.api.auth import router as auth_router
 from app.api.dashboard import router as dashboard_router
 from app.api.documents import router as documents_router
+from app.api.jobs import router as jobs_router
 from app.api.parties import router as parties_router
 from app.api.pilot import router as pilot_router
 from app.api.portal import router as portal_router
@@ -25,6 +28,7 @@ from app.api.properties import router as properties_router
 from app.api.review import router as review_router
 from app.api.templates_admin import router as templates_admin_router
 from app.config import get_settings
+from app.identity.policy import Actor
 from app.lang_packs.marathi import number_to_words_mr
 from app.observability import (
     ObservabilityMetricsMiddleware,
@@ -34,7 +38,12 @@ from app.observability import (
 )
 from app.shared.errors import AppError, problem_json_response
 from app.shared.logging import get_correlation_id, get_logger, setup_logging
-from app.shared.middleware import CorrelationIdMiddleware, RequestSizeLimitMiddleware
+from app.shared.middleware import (
+    CorrelationIdMiddleware,
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
+from app.shared.network import get_client_ip
 
 # Configure structured logging with correlation ID
 setup_logging()
@@ -59,9 +68,9 @@ app = FastAPI(
     title="Lekhan API",
     description="Multilingual Property Legal Drafting API (Phase 1)",
     version="0.1.0",
-    docs_url="/api/docs" if (settings.is_dev or settings.is_test) else None,
+    docs_url="/api/docs" if settings.is_dev else None,
     redoc_url=None,
-    openapi_url="/api/openapi.json" if (settings.is_dev or settings.is_test) else None,
+    openapi_url="/api/openapi.json" if settings.is_dev else None,
     lifespan=lifespan,
 )
 
@@ -77,7 +86,10 @@ app.add_middleware(ObservabilityMetricsMiddleware)
 # 4. Correlation ID and structured logging middleware
 app.add_middleware(CorrelationIdMiddleware)
 
-# 5. CORS configuration
+# 5. Security headers middleware (CSP, HSTS, X-Content-Type-Options, frame-ancestors none)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 6. CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -111,7 +123,6 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         status_code=exc.status_code,
         code=code,
         detail=detail_str,
-        headers=dict(exc.headers) if exc.headers is not None else None,
     )
 
 
@@ -160,18 +171,22 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
-# Include Routers
-app.include_router(auth_router)
-app.include_router(dashboard_router)
-app.include_router(documents_router)
-app.include_router(parties_router)
-app.include_router(properties_router)
-app.include_router(review_router)
-app.include_router(templates_admin_router)
-app.include_router(pilot_router)
-app.include_router(advisory_router)
-app.include_router(portal_router)
-app.include_router(admin_router)
+# Include Routers with router-level CSRF protection for all mutating operations
+csrf_deps = [Depends(require_csrf)]
+
+app.include_router(auth_router)  # login is exempted; other mutating auth routes have require_csrf
+app.include_router(dashboard_router, dependencies=csrf_deps)
+app.include_router(documents_router, dependencies=csrf_deps)
+app.include_router(jobs_router, prefix="/api/v1/jobs", dependencies=csrf_deps)
+app.include_router(jobs_router, prefix="/jobs", dependencies=csrf_deps)
+app.include_router(parties_router, dependencies=csrf_deps)
+app.include_router(properties_router, dependencies=csrf_deps)
+app.include_router(review_router, dependencies=csrf_deps)
+app.include_router(templates_admin_router, dependencies=csrf_deps)
+app.include_router(pilot_router, dependencies=csrf_deps)
+app.include_router(advisory_router, dependencies=csrf_deps)
+app.include_router(portal_router, dependencies=csrf_deps)
+app.include_router(admin_router, dependencies=csrf_deps)
 
 
 # --- Health Probes (docs/PLAN.md Week 4) ---
@@ -203,9 +218,7 @@ def verify_metrics_access(
     x_metrics_token: str | None = Header(None, alias="X-Metrics-Token"),
 ) -> None:
     """Protects /metrics endpoints via network IP allowlist or secret token."""
-    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (
-        request.client.host if request.client else "127.0.0.1"
-    )
+    client_ip = get_client_ip(request)
 
     token_valid = False
     if settings.METRICS_TOKEN:
@@ -216,9 +229,14 @@ def verify_metrics_access(
         if supplied and hmac.compare_digest(supplied, settings.METRICS_TOKEN):
             token_valid = True
 
+    # "testclient" is strictly excluded in production/staging environments
+    allowed_direct = (
+        ("127.0.0.1", "::1", "localhost", "testclient")
+        if settings.is_dev
+        else ("127.0.0.1", "::1", "localhost")
+    )
     ip_allowed = client_ip in settings.METRICS_ALLOWED_IPS or (
-        not request.headers.get("X-Forwarded-For")
-        and client_ip in ("127.0.0.1", "::1", "localhost", "testclient")
+        not request.headers.get("X-Forwarded-For") and client_ip in allowed_direct
     )
 
     if not (token_valid or ip_allowed):
@@ -254,57 +272,40 @@ def get_metrics_json() -> dict[str, Any]:
 
 
 @app.get("/api/v1/helpers/amount-to-words", summary="Live Marathi Amount in Words")
-def amount_to_words(amount: int) -> dict[str, str]:
-    """Returns the live Marathi currency amount in words."""
-    words = number_to_words_mr(amount, currency=True)
-    return {"amount": str(amount), "words_mr": words}
+def amount_to_words(
+    amount: str = Query(..., description="Monetary amount in INR (supports Decimal with paise)"),
+    actor: Actor = Depends(get_current_actor),
+) -> dict[str, str]:
+    """Returns the live Marathi currency amount in words with paise support.
 
+    Requires authentication per security hardening. Rejects negative, non-finite,
+    and amounts > 10**15 with 422 Unprocessable Entity.
+    """
+    try:
+        d_amount = Decimal(amount.strip())
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid monetary format '{amount}'. Must be a valid numeric Decimal.",
+        ) from exc
 
-# --- Standalone Interactive Form UI (Week 7 Milestone & Week 12 Form Engine) ---
+    if not d_amount.is_finite():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Non-finite amount '{amount}' is prohibited in conveyancing.",
+        )
 
+    if d_amount < Decimal("0"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Negative amounts not supported in conveyancing: {d_amount}",
+        )
 
-@app.get("/form", response_class=HTMLResponse, summary="Schema-Driven Form Engine UI")
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
-def get_form_engine_ui() -> str:
-    """Serves the complete schema-driven dynamic drafting form styled per DESIGN.md."""
-    from pathlib import Path
+    if d_amount > Decimal("1000000000000000"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Amount {d_amount} exceeds maximum supported limit of 10^15.",
+        )
 
-    html_path = Path(__file__).parent / "static" / "form_engine.html"
-    if html_path.exists():
-        return html_path.read_text(encoding="utf-8")
-    return "<h1>Lekhan Form Engine</h1>"
-
-
-@app.get(
-    "/templates/admin", response_class=HTMLResponse, summary="Template Admin & Lifecycle Dashboard"
-)
-def get_template_admin_ui() -> str:
-    """Serves the template admin and DocxLinter audit dashboard."""
-    from pathlib import Path
-
-    html_path = Path(__file__).parent / "static" / "template_admin.html"
-    if html_path.exists():
-        return html_path.read_text(encoding="utf-8")
-    return "<h1>Template Admin</h1>"
-
-
-@app.get("/pilot", response_class=HTMLResponse, summary="Gate 2 Pilot Drafter Dashboard")
-def get_pilot_ui() -> str:
-    """Serves the Gate 2 Pilot Drafter Feedback & Corrections Dashboard."""
-    from pathlib import Path
-
-    html_path = Path(__file__).parent / "static" / "pilot_dashboard.html"
-    if html_path.exists():
-        return html_path.read_text(encoding="utf-8")
-    return "<h1>Lekhan Pilot Dashboard</h1>"
-
-
-@app.get("/spike", response_class=HTMLResponse, summary="Interactive Spike Drafting Form")
-def get_spike_ui() -> str:
-    """Serves the bilingual Marathi drafting form styled per DESIGN.md."""
-    from pathlib import Path
-
-    html_path = Path(__file__).parent / "static" / "spike.html"
-    if html_path.exists():
-        return html_path.read_text(encoding="utf-8")
-    return "<h1>Lekhan Drafting UI</h1><p>Visit /api/docs for OpenAPI documentation.</p>"
+    words_mr = number_to_words_mr(d_amount, currency=True)
+    return {"amount": str(d_amount), "words_mr": words_mr}

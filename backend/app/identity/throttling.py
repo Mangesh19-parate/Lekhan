@@ -18,6 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.adapters.db import SessionLocal
+from app.config import get_settings
 from app.shared.logging import get_logger
 from app.shared.models import RateLimit as RateLimitModel
 
@@ -132,6 +133,12 @@ class DatabaseThrottler:
 
                 return False, 0
         except SQLAlchemyError as exc:
+            settings = get_settings()
+            if not settings.is_dev:
+                logger.error(
+                    "Database throttler error in staging/prod: failing closed. Error: %s", exc
+                )
+                return True, 60
             logger.debug("Database throttler fallback to memory: %s", exc)
             return self._fallback.is_locked(key)
 
@@ -173,6 +180,13 @@ class DatabaseThrottler:
                 session.commit()
                 return is_locked, lock_duration
         except SQLAlchemyError as exc:
+            settings = get_settings()
+            if not settings.is_dev:
+                logger.error(
+                    "Database throttler failure recording in staging/prod: failing closed. Error: %s",
+                    exc,
+                )
+                return True, LOCKOUT_SECONDS
             logger.debug("Database throttler failure recording fallback to memory: %s", exc)
             return self._fallback.record_failure(key)
 
@@ -186,6 +200,13 @@ class DatabaseThrottler:
                     entry.locked_until = 0.0
                     session.commit()
         except SQLAlchemyError as exc:
+            settings = get_settings()
+            if not settings.is_dev:
+                logger.error(
+                    "Database throttler reset failure in staging/prod: failing closed. Error: %s",
+                    exc,
+                )
+                raise
             logger.debug("Database throttler reset failure fallback: %s", exc)
             self._fallback.record_success(key)
 
