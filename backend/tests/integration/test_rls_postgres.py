@@ -290,9 +290,9 @@ def test_pre_auth_security_definer_lookups_succeed_without_tenant_context(
             text("SELECT * FROM sessions WHERE id_hash = :hash;"),
             {"hash": seeded_tenants["session_hash_a"]},
         ).first()
-        assert (
-            direct_session is None
-        ), "Direct session SELECT must return None under RLS with no context"
+        assert direct_session is None, (
+            "Direct session SELECT must return None under RLS with no context"
+        )
 
         # 2. Narrow SECURITY DEFINER functions succeed and return the records safely
         fn_user = (

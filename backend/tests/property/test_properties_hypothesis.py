@@ -78,9 +78,9 @@ def test_numbering_gap_free_under_concurrency(
     # 2. Sorted sequences must form a gap-free contiguous progression from 1 to total_calls
     sorted_seqs = sorted(seq_numbers)
     expected_contiguous = list(range(1, total_calls + 1))
-    assert (
-        sorted_seqs == expected_contiguous
-    ), f"Gaps detected in document numbering sequence! Got {sorted_seqs[:10]}... expected {expected_contiguous[:10]}"
+    assert sorted_seqs == expected_contiguous, (
+        f"Gaps detected in document numbering sequence! Got {sorted_seqs[:10]}... expected {expected_contiguous[:10]}"
+    )
 
 
 # --- 2. Property: Amount in Words Invariants ---
@@ -134,9 +134,9 @@ def test_decimal_area_sqm_sqft_roundtrip(sqm: Decimal) -> None:
 
     # Due to 2 decimal places rounding on both legs, round-trip error cannot exceed 0.05 sqm
     error = abs(sqm - recomputed_sqm)
-    assert error <= Decimal(
-        "0.05"
-    ), f"Round-trip area conversion error {error} exceeds tolerance for {sqm}"
+    assert error <= Decimal("0.05"), (
+        f"Round-trip area conversion error {error} exceeds tolerance for {sqm}"
+    )
 
 
 @settings(max_examples=50, deadline=None)
@@ -200,7 +200,7 @@ def test_english_amount_in_words_roundtrip(amount: Decimal) -> None:
     words = number_to_words_en(amount, currency=True)
     parsed = words_to_number_en(words)
     assert parsed == amount, (
-        f"Round-trip failed for {amount}!\n" f"  Words:  {words}\n" f"  Parsed: {parsed}"
+        f"Round-trip failed for {amount}!\n  Words:  {words}\n  Parsed: {parsed}"
     )
 
 

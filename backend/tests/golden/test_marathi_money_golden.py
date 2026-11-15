@@ -42,9 +42,9 @@ def test_marathi_numbers_golden_vectors() -> None:
 
         if not is_verified:
             # Unverified rows are designated for lawyer signoff
-            assert (
-                "TODO(lawyer)" in notes
-            ), f"Unverified row for {vec['amount']} must be marked TODO(lawyer)"
+            assert "TODO(lawyer)" in notes, (
+                f"Unverified row for {vec['amount']} must be marked TODO(lawyer)"
+            )
             continue
 
         actual_words = number_to_words_mr(amount_dec, currency=True)

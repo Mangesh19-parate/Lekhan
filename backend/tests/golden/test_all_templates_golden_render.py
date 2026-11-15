@@ -159,9 +159,9 @@ def test_every_template_manifest_and_lint(tmpl_dir: Path) -> None:
     report = linter.lint(docx_bytes, manifest=raw_manifest)
 
     assert report.can_approve is True, f"Lint failed on {tmpl_dir.name}: {report.errors}"
-    assert (
-        len(report.leftover_data) == 0
-    ), f"Leftover data found in {tmpl_dir.name}: {report.leftover_data}"
+    assert len(report.leftover_data) == 0, (
+        f"Leftover data found in {tmpl_dir.name}: {report.leftover_data}"
+    )
     assert len(report.errors) == 0, f"Errors in {tmpl_dir.name}: {report.errors}"
 
 
@@ -207,14 +207,14 @@ def test_every_template_golden_render_and_devanagari_typography(tmpl_dir: Path) 
     is_marathi = raw_manifest.get("language") == "mr"
     if is_marathi:
         # A. NFC Normalization (AGENTS.md Section 6: Unicode text normalised to NFC)
-        assert unicodedata.is_normalized(
-            "NFC", all_rendered_text
-        ), f"Devanagari text in {tmpl_dir.name} is not NFC normalized!"
+        assert unicodedata.is_normalized("NFC", all_rendered_text), (
+            f"Devanagari text in {tmpl_dir.name} is not NFC normalized!"
+        )
 
         # B. Absence of Unicode replacement characters
-        assert (
-            "\ufffd" not in all_rendered_text
-        ), f"Unicode replacement character \\uFFFD detected in {tmpl_dir.name}"
+        assert "\ufffd" not in all_rendered_text, (
+            f"Unicode replacement character \\uFFFD detected in {tmpl_dir.name}"
+        )
 
         # C. Reph (रफार) Integrity: \\u0930 + \\u094D followed by consonant
         # Example words: सर्व, वर्ग, खर्च, संदर्भ, मार्गदर्शन
@@ -225,12 +225,12 @@ def test_every_template_golden_render_and_devanagari_typography(tmpl_dir: Path) 
         # Broken halant pattern 1: Whitespace followed by halant or halant followed by whitespace
         orphan_halant_before = re.findall(r"\s\u094D", all_rendered_text)
         orphan_halant_after = re.findall(r"\u094D\s", all_rendered_text)
-        assert (
-            not orphan_halant_before
-        ), f"Orphan pre-halant found in {tmpl_dir.name}: {orphan_halant_before}"
-        assert (
-            not orphan_halant_after
-        ), f"Orphan post-halant found in {tmpl_dir.name}: {orphan_halant_after}"
+        assert not orphan_halant_before, (
+            f"Orphan pre-halant found in {tmpl_dir.name}: {orphan_halant_before}"
+        )
+        assert not orphan_halant_after, (
+            f"Orphan post-halant found in {tmpl_dir.name}: {orphan_halant_after}"
+        )
 
         # Broken halant pattern 2: Double halant (\\u094D\\u094D)
         assert "\u094d\u094d" not in all_rendered_text, f"Double halant detected in {tmpl_dir.name}"
@@ -242,6 +242,6 @@ def test_every_template_golden_render_and_devanagari_typography(tmpl_dir: Path) 
 
     assert pdf_bytes is not None
     assert pdf_bytes.startswith(b"%PDF-"), f"Rendered output for {tmpl_dir.name} is not valid PDF"
-    assert (
-        len(pdf_bytes) > 200
-    ), f"Rendered PDF for {tmpl_dir.name} is suspiciously small ({len(pdf_bytes)} bytes)"
+    assert len(pdf_bytes) > 200, (
+        f"Rendered PDF for {tmpl_dir.name} is suspiciously small ({len(pdf_bytes)} bytes)"
+    )
