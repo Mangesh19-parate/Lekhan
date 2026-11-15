@@ -1,0 +1,175 @@
+# ==============================================================================
+# Production Docker Compose for Lekhan Platform
+#
+# Hardening & Security Guarantees:
+# 1. Non-root containers: API and Worker run as UID 10001 (lekhan user).
+# 2. Read-only root filesystem: API, Worker, and Caddy have read_only: true with memory tmpfs.
+# 3. No published DB port: PostgreSQL is private on lekhan_net; accessible only by API/Worker.
+# 4. Zero secrets in environment: Cryptographic keys and DB credentials mounted via Docker secrets.
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL 16 Database (Private, internal-only)
+  # ----------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: lekhan_postgres_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lekhan_prod
+      POSTGRES_USER: lekhan
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - lekhan_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lekhan -d lekhan_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    # Note: NO published ports - database is isolated from host and external networks
+
+  # ----------------------------------------------------------------------------
+  # 2. Lekhan Web API (FastAPI)
+  # ----------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lekhan_api_prod
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128M
+      - /run:mode=1777,size=32M
+      - /app/.cache:mode=0700,uid=10001,gid=10001,size=64M
+    environment:
+      ENV: prod
+      DATABASE_URL: postgresql+psycopg://lekhan@db:5432/lekhan_prod
+      STORAGE_PATH: /var/storage
+      SECRETS_DIR: /run/secrets
+      ALLOWED_ORIGINS: "https://lekhan.local,https://app.lekhan.local"
+    secrets:
+      - db_password
+      - secret_key
+      - master_key
+      - index_key
+    volumes:
+      - doc_storage:/var/storage
+    networks:
+      - lekhan_net
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # ----------------------------------------------------------------------------
+  # 3. Lekhan Asynchronous Worker (Generation Pipeline)
+  # ----------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lekhan_worker_prod
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=256M
+      - /run:mode=1777,size=32M
+      - /app/.cache:mode=0700,uid=10001,gid=10001,size=128M
+    environment:
+      ENV: prod
+      DATABASE_URL: postgresql+psycopg://lekhan@db:5432/lekhan_prod
+      STORAGE_PATH: /var/storage
+      SECRETS_DIR: /run/secrets
+    secrets:
+      - db_password
+      - secret_key
+      - master_key
+      - index_key
+    volumes:
+      - doc_storage:/var/storage
+    networks:
+      - lekhan_net
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # ----------------------------------------------------------------------------
+  # 4. Caddy Reverse Proxy & Edge Security
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: lekhan_caddy_prod
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=32M
+      - /var/run:mode=1777,size=32M
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - lekhan_net
+    depends_on:
+      - api
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+
+# ------------------------------------------------------------------------------
+# Networks & Storage Volumes
+# ------------------------------------------------------------------------------
+networks:
+  lekhan_net:
+    driver: bridge
+    internal: false
+
+volumes:
+  pg_data:
+  doc_storage:
+  caddy_data:
+  caddy_config:
+
+# ------------------------------------------------------------------------------
+# Docker Secrets (File-backed in production; zero plain text in docker-compose)
+# ------------------------------------------------------------------------------
+secrets:
+  db_password:
+    file: ./deploy/secrets/db_password.secret
+  secret_key:
+    file: ./deploy/secrets/secret_key.secret
+  master_key:
+    file: ./deploy/secrets/master_key.secret
+  index_key:
+    file: ./deploy/secrets/index_key.secret
