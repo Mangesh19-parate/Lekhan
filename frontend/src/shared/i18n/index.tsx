@@ -25,10 +25,10 @@ export const I18nProvider = ({ children }: { children: React.ReactNode }): React
 
   const t = (key: string): string => {
     const keys = key.split(".");
-    let current: any = translations[lang];
+    let current: unknown = translations[lang];
     for (const k of keys) {
       if (current && typeof current === "object" && k in current) {
-        current = current[k];
+        current = (current as Record<string, unknown>)[k];
       } else {
         return key;
       }

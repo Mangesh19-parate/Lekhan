@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { apiClient } from "../api";
+import { apiClient, setMemoryCsrfToken } from "../api";
 
 export interface UserProfile {
   id: string;
@@ -43,12 +43,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await apiClient<{ user: UserProfile; csrf_token: string }>("/api/v1/auth/me");
       setUser(data.user);
       setCsrfToken(data.csrf_token);
-      if (data.csrf_token) {
-        localStorage.setItem("lekhan_csrf_token", data.csrf_token);
-      }
+      setMemoryCsrfToken(data.csrf_token);
     } catch {
       setUser(null);
       setCsrfToken(null);
+      setMemoryCsrfToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -65,9 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     setUser(data.user);
     setCsrfToken(data.csrf_token);
-    if (data.csrf_token) {
-      localStorage.setItem("lekhan_csrf_token", data.csrf_token);
-    }
+    setMemoryCsrfToken(data.csrf_token);
   };
 
   const logout = async () => {
@@ -79,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setCsrfToken(null);
-      localStorage.removeItem("lekhan_csrf_token");
+      setMemoryCsrfToken(null);
     }
   };
 

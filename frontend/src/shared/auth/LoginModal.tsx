@@ -41,8 +41,9 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose }) => {
         description: `Signed in as ${email}`,
       });
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Login failed.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed.";
+      setErrorMsg(message);
     } finally {
       setIsLoading(false);
     }

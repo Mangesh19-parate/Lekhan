@@ -32,6 +32,7 @@
   --text-primary:   #151E1B;      /* High-contrast charcoal (92% black) */
   --text-secondary: #515E59;      /* Muted slate for secondary labels (AA compliant) */
   --text-tertiary:  #7C8B86;      /* Captions, placeholders */
+  --text-muted:     #515E59;      /* Alias for secondary/muted text */
   --text-on-dark:   #FFFFFF;
   --text-on-dark-2: rgba(255, 255, 255, 0.75);
 
@@ -39,7 +40,10 @@
   --line-subtle: rgba(20, 40, 35, 0.12);
   --line-medium: rgba(20, 40, 35, 0.20);
   --line-strong: rgba(20, 40, 35, 0.32);
+  --border-subtle: rgba(20, 40, 35, 0.12);
   --focus-ring:  0 0 0 3px rgba(0, 117, 74, 0.35);
+
+  --approved-400: #DFB96E;
 
   /* Semantic Feedback */
   --danger-600:   #C82014;
@@ -95,6 +99,7 @@
   --text-primary:   #EDF2F0;      /* Crisp off-white */
   --text-secondary: #95A5A0;      /* Clear sage-grey */
   --text-tertiary:  #687873;      /* Captions */
+  --text-muted:     #95A5A0;      /* Alias for secondary/muted text */
   --text-on-dark:   #FFFFFF;
   --text-on-dark-2: rgba(255, 255, 255, 0.75);
 
@@ -102,7 +107,10 @@
   --line-subtle: rgba(255, 255, 255, 0.12);
   --line-medium: rgba(255, 255, 255, 0.20);
   --line-strong: rgba(255, 255, 255, 0.32);
+  --border-subtle: rgba(255, 255, 255, 0.12);
   --focus-ring:  0 0 0 3px rgba(16, 185, 129, 0.40);
+
+  --approved-400: #DFB96E;
 
   /* Semantic Feedback */
   --danger-600:   #F87171;
@@ -151,8 +159,10 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* Typography Stacks */
+  /* Typography Stacks: High-craft Editorial Judicial Serif + Pristine Sans */
   --font-ui: "Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Newsreader", "Charter", "Georgia", "Cambria", "Noto Serif Devanagari", serif;
+  --font-display: "Playfair Display", "Georgia", "Noto Serif Devanagari", serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
   /* Typography Scale */
@@ -180,6 +190,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
   transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+/* Archival Themed Selection (Refuses generic OS blue) */
+::selection {
+  background-color: var(--brand-100);
+  color: var(--brand-900);
+}
+::-moz-selection {
+  background-color: var(--brand-100);
+  color: var(--brand-900);
 }
 
 /* Strict Devanagari Rules per DESIGN.md §2.2 */

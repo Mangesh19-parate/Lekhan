@@ -136,7 +136,7 @@ export function Table<T>({
                       textAlign: col.align || "left",
                     }}
                   >
-                    {col.render ? col.render(row) : (row as any)[col.key]}
+                    {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? "")}
                   </td>
                 ))}
               </tr>

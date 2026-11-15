@@ -85,7 +85,7 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--brand-900)", margin: 0 }}>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--brand-900)", margin: 0, fontFamily: "var(--font-heading)" }}>
               {lang === "mr" ? "साचे ग्रंथालय (Approved Template Library)" : "Approved Template Library"}
             </h1>
             <Badge variant="approved" size="md" label="Wave 1 Legal Suite" />

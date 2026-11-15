@@ -27,7 +27,6 @@ import { SystemSettingsView } from "./features/admin/SystemSettingsView";
 import { SystemHealthView } from "./features/admin/SystemHealthView";
 
 import {
-  type LucideIcon,
   LayoutDashboard,
   FilePlus,
   FileText,
@@ -87,7 +86,7 @@ interface NavItem {
   id: ViewId;
   labelEn: string;
   labelMr: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<{ size?: number | string; className?: string; color?: string }>;
   badge?: string;
 }
 
@@ -99,45 +98,45 @@ interface NavSection {
 
 const NAVIGATION_SECTIONS: NavSection[] = [
   {
-    titleEn: "WORKSPACE",
-    titleMr: "कार्यक्षेत्र",
+    titleEn: "DRAFTING & MATTERS",
+    titleMr: "मसुदा व प्रकरणे",
     items: [
-      { id: "overview", labelEn: "Overview", labelMr: "आढावा", icon: LayoutDashboard },
-      { id: "new_draft", labelEn: "New Draft", labelMr: "नवीन मसुदा", icon: FilePlus },
-      { id: "my_documents", labelEn: "My Documents", labelMr: "माझे दस्तऐवज", icon: FileText },
-      { id: "drafts_pending", labelEn: "Drafts & Pending", labelMr: "प्रलंबित मसुदे", icon: Clock },
-      { id: "review_center", labelEn: "Review Center", labelMr: "तपासणी केंद्र", icon: ShieldCheck },
+      { id: "overview", labelEn: "Chamber Overview", labelMr: "दफ्तर आढावा", icon: LayoutDashboard },
+      { id: "new_draft", labelEn: "New Deed Draft", labelMr: "नवीन दस्त मसुदा", icon: FilePlus },
+      { id: "my_documents", labelEn: "Deed Register", labelMr: "दस्तऐवज नोंदवही", icon: FileText },
+      { id: "drafts_pending", labelEn: "Active Drafts", labelMr: "चालू मसुदे", icon: Clock },
+      { id: "review_center", labelEn: "Advocate Review", labelMr: "वकील तपासणी", icon: ShieldCheck },
     ],
   },
   {
-    titleEn: "DOCUMENT OPERATIONS",
-    titleMr: "दस्त कामकाज",
+    titleEn: "CHAMBER REGISTERS",
+    titleMr: "दफ्तर नोंदवह्या",
     items: [
-      { id: "template_library", labelEn: "Template Library", labelMr: "साचा ग्रंथालय", icon: Layers },
+      { id: "template_library", labelEn: "Approved Templates", labelMr: "मान्य साचे", icon: Layers },
       { id: "template_studio", labelEn: "Template Studio", labelMr: "साचा स्टुडिओ", icon: FileCode },
-      { id: "party_directory", labelEn: "Party Directory", labelMr: "पक्षकार सूची", icon: Users },
-      { id: "property_directory", labelEn: "Property Directory", labelMr: "मिळकती सूची", icon: MapPin },
-      { id: "document_archive", labelEn: "Document Archive", labelMr: "अभिलेखागार", icon: Archive },
+      { id: "party_directory", labelEn: "Party Directory", labelMr: "पक्षकार नोंदवही", icon: Users },
+      { id: "property_directory", labelEn: "Property Register", labelMr: "मिळकत नोंदवही", icon: MapPin },
+      { id: "document_archive", labelEn: "Deed Archive", labelMr: "अभिलेखागार", icon: Archive },
     ],
   },
   {
-    titleEn: "INTELLIGENCE",
-    titleMr: "दस्त बुद्धिमत्ता",
+    titleEn: "STATUTORY VERIFICATION",
+    titleMr: "वैधानिक पडताळणी",
     items: [
-      { id: "document_quality", labelEn: "Document Quality", labelMr: "गुणवत्ता तपासणी", icon: CheckCircle2 },
-      { id: "validation_center", labelEn: "Validation Center", labelMr: "नियम पडताळणी", icon: Cpu },
-      { id: "advisory_center", labelEn: "Advisory Center", labelMr: "कायदेशीर सल्ला", icon: HelpCircle },
-      { id: "registration_data", labelEn: "Registration Data", labelMr: "नोंदणी डेटा (PDE)", icon: ExternalLink },
+      { id: "document_quality", labelEn: "Quality & Lint Check", labelMr: "गुणवत्ता व लिंट", icon: CheckCircle2 },
+      { id: "validation_center", labelEn: "Statutory Rules", labelMr: "कायदेशीर नियम", icon: Cpu },
+      { id: "advisory_center", labelEn: "Legal Advisory", labelMr: "कायदेशीर सल्ला", icon: HelpCircle },
+      { id: "registration_data", labelEn: "Sub-Registrar PDE", labelMr: "नोंदणी डेटा (PDE)", icon: ExternalLink },
     ],
   },
   {
-    titleEn: "ADMINISTRATION",
+    titleEn: "CHAMBER ADMIN",
     titleMr: "प्रशासन व नियंत्रण",
     items: [
-      { id: "user_management", labelEn: "User Management", labelMr: "वापरकर्ते", icon: UserCheck },
-      { id: "roles_permissions", labelEn: "Roles & Permissions", labelMr: "भूमिका व अधिकार", icon: Lock },
-      { id: "audit_trail", labelEn: "Audit Trail", labelMr: "ऑडिट ट्रेल", icon: History },
-      { id: "system_settings", labelEn: "System Settings", labelMr: "प्रणाली संरचना", icon: Settings },
+      { id: "user_management", labelEn: "Users & Staff", labelMr: "वापरकर्ते", icon: UserCheck },
+      { id: "roles_permissions", labelEn: "Roles & Sign-off", labelMr: "अधिकार व स्वाक्षरी", icon: Lock },
+      { id: "audit_trail", labelEn: "Immutable Audit Trail", labelMr: "ऑडिट ट्रेल", icon: History },
+      { id: "system_settings", labelEn: "Chamber Settings", labelMr: "दफ्तर संरचना", icon: Settings },
       { id: "system_health", labelEn: "System Health", labelMr: "प्रणाली आरोग्य", icon: Activity },
     ],
   },
@@ -345,19 +344,20 @@ const AppShell: React.FC = () => {
                 boxShadow: "0 2px 6px rgba(0, 0, 0, 0.2)",
                 color: "#FFFFFF",
                 fontWeight: 800,
-                fontSize: "18px",
+                fontSize: "17px",
                 flexShrink: 0,
+                border: "1px solid rgba(203, 162, 88, 0.4)",
               }}
             >
               लेख
             </div>
             {!sidebarCollapsed && (
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "-0.01em", color: "#FFFFFF" }}>
-                  LEKHAN
+                <span style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "0.02em", color: "#FFFFFF", fontFamily: "var(--font-heading)" }}>
+                  LEKHAN · लेखन
                 </span>
-                <span style={{ fontSize: "10px", color: "var(--approved-400, #DFB96E)", fontWeight: 500 }}>
-                  Enterprise Drafting v2.0
+                <span style={{ fontSize: "10.5px", color: "var(--approved-400, #DFB96E)", fontWeight: 500 }}>
+                  नागपूर व विदर्भ | Legal Documentation
                 </span>
               </div>
             )}
@@ -605,20 +605,20 @@ const AppShell: React.FC = () => {
               alignItems: "center",
               gap: "10px",
               padding: "6px 14px",
-              borderRadius: "20px",
-              backgroundColor: "var(--surface-canvas, #F2F0EB)",
-              border: "1px solid var(--border-subtle, #E6E1D8)",
-              color: "var(--text-muted, #737373)",
+              borderRadius: "var(--radius-input)",
+              backgroundColor: "var(--surface-sunken)",
+              border: "1px solid var(--line-subtle)",
+              color: "var(--text-secondary)",
               fontSize: "12.5px",
               cursor: "pointer",
-              transition: "all 0.15s ease",
+              transition: "border-color 0.15s ease, box-shadow 0.15s ease",
               justifyContent: "space-between",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--brand-500, #00754A)";
+              e.currentTarget.style.borderColor = "var(--brand-500)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border-subtle, #E6E1D8)";
+              e.currentTarget.style.borderColor = "var(--line-subtle)";
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -627,13 +627,14 @@ const AppShell: React.FC = () => {
             </div>
             <kbd
               style={{
-                backgroundColor: "var(--surface-card, #FFFFFF)",
-                border: "1px solid var(--border-subtle, #E6E1D8)",
+                backgroundColor: "var(--surface-card)",
+                border: "1px solid var(--line-medium)",
                 borderRadius: "4px",
                 padding: "2px 6px",
                 fontSize: "10px",
                 fontWeight: 600,
-                color: "var(--text-muted, #737373)",
+                color: "var(--text-secondary)",
+                fontFamily: "var(--font-mono)",
               }}
             >
               ⌘K
@@ -665,24 +666,25 @@ const AppShell: React.FC = () => {
             <div
               style={{
                 display: "flex",
-                backgroundColor: "var(--surface-canvas, #F2F0EB)",
-                borderRadius: "6px",
+                backgroundColor: "var(--surface-sunken)",
+                borderRadius: "var(--radius-input)",
                 padding: "2px",
-                border: "1px solid var(--border-subtle, #E6E1D8)",
+                border: "1px solid var(--line-subtle)",
               }}
             >
               <button
                 onClick={() => setLang("mr")}
                 style={{
                   border: "none",
-                  padding: "4px 8px",
+                  padding: "4px 9px",
                   borderRadius: "4px",
                   fontSize: "12px",
                   fontWeight: lang === "mr" ? 700 : 500,
-                  backgroundColor: lang === "mr" ? "var(--surface-card, #FFFFFF)" : "transparent",
-                  color: lang === "mr" ? "var(--brand-600, #006241)" : "var(--text-muted, #737373)",
-                  boxShadow: lang === "mr" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  backgroundColor: lang === "mr" ? "var(--surface-card)" : "transparent",
+                  color: lang === "mr" ? "var(--brand-600)" : "var(--text-secondary)",
+                  boxShadow: lang === "mr" ? "0 1px 2px rgba(20, 40, 35, 0.08)" : "none",
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 मराठी
@@ -691,14 +693,15 @@ const AppShell: React.FC = () => {
                 onClick={() => setLang("en")}
                 style={{
                   border: "none",
-                  padding: "4px 8px",
+                  padding: "4px 9px",
                   borderRadius: "4px",
                   fontSize: "12px",
                   fontWeight: lang === "en" ? 700 : 500,
-                  backgroundColor: lang === "en" ? "var(--surface-card, #FFFFFF)" : "transparent",
-                  color: lang === "en" ? "var(--brand-600, #006241)" : "var(--text-muted, #737373)",
-                  boxShadow: lang === "en" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  backgroundColor: lang === "en" ? "var(--surface-card)" : "transparent",
+                  color: lang === "en" ? "var(--brand-600)" : "var(--text-secondary)",
+                  boxShadow: lang === "en" ? "0 1px 2px rgba(20, 40, 35, 0.08)" : "none",
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 EN
@@ -710,13 +713,14 @@ const AppShell: React.FC = () => {
               onClick={toggleTheme}
               style={{
                 background: "none",
-                border: "1px solid var(--border-subtle, #E6E1D8)",
+                border: "1px solid var(--line-subtle)",
                 padding: "6px 8px",
-                borderRadius: "6px",
-                color: "var(--text-primary, #1A1A1A)",
+                borderRadius: "var(--radius-input)",
+                color: "var(--text-primary)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
+                transition: "border-color 0.15s ease",
               }}
               title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
             >

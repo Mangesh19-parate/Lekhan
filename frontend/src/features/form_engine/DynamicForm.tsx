@@ -19,6 +19,7 @@ interface Props {
   onOpenPropertySearch?: () => void;
   onOpenPartySearch?: (targetRole: string, index?: number) => void;
   advisoryElement?: React.ReactNode;
+  fieldErrors?: Record<string, string>;
 }
 
 export const DynamicForm: React.FC<Props> = ({
@@ -34,6 +35,7 @@ export const DynamicForm: React.FC<Props> = ({
   onOpenPropertySearch,
   onOpenPartySearch,
   advisoryElement,
+  fieldErrors,
 }) => {
   const { lang, t } = useI18n();
 
@@ -268,6 +270,7 @@ export const DynamicForm: React.FC<Props> = ({
                       requiredMarker={t("form.required")}
                       helperText={lang === "mr" ? fDef.help_text_mr : fDef.help_text_en}
                       placeholder={fDef.type === "decimal" ? "0.00" : undefined}
+                      error={fieldErrors?.[fKey]}
                     />
 
                     {/* Live Amount in words for financial inputs */}
@@ -356,6 +359,7 @@ export const DynamicForm: React.FC<Props> = ({
             items={repeatersData[repKey] || []}
             onChange={(items) => handleRepeatersChange(repKey, items)}
             onOpenPartySearch={onOpenPartySearch}
+            errors={fieldErrors}
           />
         </Card>
       ))}

@@ -13,6 +13,7 @@ interface Props {
   items: any[];
   onChange: (items: any[]) => void;
   onOpenPartySearch?: (targetRole: string, index?: number) => void;
+  errors?: Record<string, string>;
 }
 
 export const RepeaterGroup: React.FC<Props> = ({
@@ -24,6 +25,7 @@ export const RepeaterGroup: React.FC<Props> = ({
   items,
   onChange,
   onOpenPartySearch,
+  errors,
 }) => {
   const { lang, t } = useI18n();
 
@@ -99,10 +101,10 @@ export const RepeaterGroup: React.FC<Props> = ({
           >
             {label}
           </h3>
-          <p style={{ margin: "2px 0 0 0", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-            {lang === "mr"
+          <p style={{ margin: "2px 0 0 0", fontSize: "0.75rem", color: errors?.[`${id}__count`] ? "var(--danger-600)" : "var(--text-secondary)" }}>
+            {errors?.[`${id}__count`] || (lang === "mr"
               ? `किमान ${min}, कमाल ${max} नोंदी (सध्या: ${items.length})`
-              : `Min ${min}, Max ${max} entries (Current: ${items.length})`}
+              : `Min ${min}, Max ${max} entries (Current: ${items.length})`)}
           </p>
         </div>
 
@@ -278,6 +280,7 @@ export const RepeaterGroup: React.FC<Props> = ({
                     required={fDef.required}
                     requiredMarker={t("form.required")}
                     placeholder={fDef.type === "date" ? "dd/mm/yyyy" : undefined}
+                    error={errors?.[`${id}.${idx}.${fKey}`]}
                   />
                 ))}
               </div>

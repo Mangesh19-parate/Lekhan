@@ -27,8 +27,8 @@ export const DraftsPendingView: React.FC<DraftsPendingViewProps> = ({
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch {
-        /* ignore parse error */
+      } catch (_e) {
+        // Ignore corrupt local storage cache
       }
     }
     return [];
