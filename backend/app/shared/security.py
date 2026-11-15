@@ -81,6 +81,13 @@ def hash_token(token: str) -> bytes:
     return hashlib.sha256(token.encode("utf-8")).digest()
 
 
+def derive_csrf_token(secret_key: str, session_id: str) -> str:
+    """Derives a deterministic, cryptographically secure CSRF token as HMAC-SHA256(secret_key, session_id)."""
+    return hmac.new(
+        secret_key.encode("utf-8"), session_id.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
 def verify_csrf_token(stored_hash: bytes, supplied_token: str) -> bool:
     """Compares supplied CSRF token against stored SHA-256 hash in constant time."""
     supplied_hash = hash_token(supplied_token)

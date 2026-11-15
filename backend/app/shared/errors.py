@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
 
 from fastapi.responses import JSONResponse
@@ -27,13 +26,19 @@ class AppError(Exception):
         self.errors = errors or []
 
 
+class InvalidAmountError(AppError, ValueError):
+    """Raised when monetary or numerical amount is negative, non-finite, or exceeds bounds."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message=message, code="INVALID_AMOUNT", status_code=422)
+
+
 def problem_json_response(
     status_code: int,
     code: str,
     detail: str,
     title: str | None = None,
     errors: list[dict[str, Any]] | None = None,
-    headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:
     """Builds an RFC 9457 compliant application/problem+json response."""
     cid = get_correlation_id()
@@ -51,13 +56,9 @@ def problem_json_response(
     if errors:
         payload["errors"] = errors
 
-    resp_headers = {"X-Correlation-ID": cid}
-    if headers:
-        resp_headers.update(headers)
-
     return JSONResponse(
         status_code=status_code,
         content=payload,
         media_type="application/problem+json",
-        headers=resp_headers,
+        headers={"X-Correlation-ID": cid},
     )
