@@ -264,6 +264,7 @@ def get_document_details(
 
 
 @router.get("/{document_id}/download", summary="Download generated document DOCX (Master)")
+@router.get("/{document_id}/docx", summary="Download generated document DOCX (Master alias)")
 def download_document(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),

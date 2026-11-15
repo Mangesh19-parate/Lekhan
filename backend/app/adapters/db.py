@@ -94,7 +94,10 @@ def get_db() -> Generator[Session, None, None]:
         raise
     finally:
         db.close()
-        current_tenant_id_ctx.reset(token)
+        try:
+            current_tenant_id_ctx.reset(token)
+        except ValueError:
+            current_tenant_id_ctx.set(None)
 
 
 def ping_db() -> bool:

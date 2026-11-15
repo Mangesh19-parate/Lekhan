@@ -14,6 +14,9 @@ import re
 import zipfile
 from xml.etree import ElementTree as ET
 
+import defusedxml.ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
+
 from app.templates.lint.models import LintFinding, LintSeverity
 
 MAX_COMPRESSED_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB (docs/API.md)
@@ -150,7 +153,12 @@ def strip_external_relationships(docx_bytes: bytes) -> bytes:
                 data = zin.read(item.filename)
                 if item.filename.endswith(".rels") and b'TargetMode="External"' in data:
                     try:
-                        root = ET.fromstring(data)
+                        root = SafeET.fromstring(
+                            data,
+                            forbid_dtd=True,
+                            forbid_entities=True,
+                            forbid_external=True,
+                        )
                         # Remove nodes with TargetMode == "External"
                         to_remove = [
                             elem for elem in root if elem.attrib.get("TargetMode") == "External"
@@ -158,7 +166,7 @@ def strip_external_relationships(docx_bytes: bytes) -> bytes:
                         for elem in to_remove:
                             root.remove(elem)
                         data = ET.tostring(root, encoding="utf-8")
-                    except (ET.ParseError, UnicodeDecodeError, KeyError):
+                    except (DefusedXmlException, SafeET.ParseError, UnicodeDecodeError, KeyError):
                         continue
                 zout.writestr(item, data)
     return out_buf.getvalue()

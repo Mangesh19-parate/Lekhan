@@ -11,7 +11,9 @@ import io
 import re
 import zipfile
 from typing import Any
-from xml.etree import ElementTree as ET
+
+from defusedxml import ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
 
 from app.templates.lint.models import LintFinding, LintSeverity
 
@@ -54,7 +56,12 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
             ):
                 content = zf.read(info.filename)
                 try:
-                    root = ET.fromstring(content)
+                    root = SafeET.fromstring(
+                        content,
+                        forbid_dtd=True,
+                        forbid_entities=True,
+                        forbid_external=True,
+                    )
                     for p_idx, p in enumerate(root.iter(f"{{{W_NAMESPACE}}}p")):
                         text = "".join(t.text or "" for t in p.iter(f"{{{W_NAMESPACE}}}t"))
 
@@ -90,7 +97,7 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
                                             (info.filename, p_idx)
                                         )
 
-                except (ET.ParseError, UnicodeDecodeError, KeyError):
+                except (DefusedXmlException, SafeET.ParseError, UnicodeDecodeError, KeyError):
                     continue
 
     return found_vars, locations

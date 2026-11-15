@@ -6,12 +6,15 @@ import io
 import json
 import uuid
 import zipfile
+from unittest.mock import MagicMock
 
 import docx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.auth import get_current_actor
+from app.adapters.db import get_db
+from app.api.auth import get_current_actor, require_csrf
+from app.api.documents import get_pipeline
 from app.audit.export import create_signed_audit_export, verify_signed_audit_export
 from app.audit.jobs import verify_all_audit_chains
 from app.audit.repository import InMemoryAuditRepository
@@ -215,6 +218,7 @@ def test_api_document_verify_endpoints() -> None:
 
     actor = Actor(user_id=uuid.uuid4(), tenant_id=tenant_id, role="drafter")
     app.dependency_overrides[get_current_actor] = lambda: actor
+    app.dependency_overrides[require_csrf] = lambda: None
 
     client = TestClient(app)
     try:
@@ -236,7 +240,15 @@ def test_api_document_verify_endpoints() -> None:
         assert data["document_id"] == str(doc_id)
 
         # Test POST /api/v1/documents/verify with tampered DOCX
-        tampered_docx = stamped_docx.replace(b"Sample", b"Simple")
+        with zipfile.ZipFile(io.BytesIO(stamped_docx), "r") as in_z:
+            z_files = {name: in_z.read(name) for name in in_z.namelist()}
+        z_files["word/document.xml"] = z_files["word/document.xml"] + b"<!-- tampered -->"
+        tampered_buf = io.BytesIO()
+        with zipfile.ZipFile(tampered_buf, "w", compression=zipfile.ZIP_DEFLATED) as out_z:
+            for fname, fcontent in z_files.items():
+                out_z.writestr(fname, fcontent)
+        tampered_docx = tampered_buf.getvalue()
+
         resp_tampered = client.post(
             "/api/v1/documents/verify",
             files={
@@ -253,6 +265,10 @@ def test_api_document_verify_endpoints() -> None:
         assert data_tampered["tampered"] is True
     finally:
         app.dependency_overrides.pop(get_current_actor, None)
+        app.dependency_overrides.pop(get_pipeline, None)
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(require_csrf, None)
+        app.dependency_overrides.pop(require_csrf, None)
 
 
 def test_api_download_and_finalise_audit_logging() -> None:
@@ -282,6 +298,7 @@ def test_api_download_and_finalise_audit_logging() -> None:
         input_hash=b"0" * 32,
         output_hash=b"1" * 32,
         file_ref=storage_key,
+        pdf_ref=None,
         status="draft",
         created_at="2026-11-14T10:00:00Z",
     )
@@ -289,6 +306,9 @@ def test_api_download_and_finalise_audit_logging() -> None:
 
     actor = Actor(user_id=user_id, tenant_id=tenant_id, role="admin")
     app.dependency_overrides[get_current_actor] = lambda: actor
+    app.dependency_overrides[get_pipeline] = lambda: generation_pipeline
+    app.dependency_overrides[get_db] = lambda: MagicMock()
+    app.dependency_overrides[require_csrf] = lambda: None
     client = TestClient(app)
 
     try:
@@ -304,11 +324,10 @@ def test_api_download_and_finalise_audit_logging() -> None:
 
         # 2. Advance document to reviewed so it can be finalised
         checklist = ReviewChecklist(
-            parties_identified=True,
-            title_search_attached=True,
-            consideration_matches=True,
-            encumbrances_disclosed=True,
-            statutory_notes_acknowledged=True,
+            parties_verified=True,
+            property_schedule_verified=True,
+            consideration_and_payment_verified=True,
+            no_unfilled_blanks=True,
         )
         document_review_service.mark_reviewed(doc_id, tenant_id, checklist, str(user_id))
 
@@ -321,3 +340,6 @@ def test_api_download_and_finalise_audit_logging() -> None:
         assert any(e.action == "finalise_document" and e.entity_id == str(doc_id) for e in events)
     finally:
         app.dependency_overrides.pop(get_current_actor, None)
+        app.dependency_overrides.pop(get_pipeline, None)
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(require_csrf, None)

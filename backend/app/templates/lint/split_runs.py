@@ -14,6 +14,9 @@ import re
 import zipfile
 from xml.etree import ElementTree as ET
 
+import defusedxml.ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
+
 from app.templates.lint.models import LintFinding, LintSeverity
 
 W_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -116,7 +119,12 @@ def repair_and_check_split_runs(
                         or "footer" in item.filename
                     ):
                         try:
-                            root = ET.fromstring(content)
+                            root = SafeET.fromstring(
+                                content,
+                                forbid_dtd=True,
+                                forbid_entities=True,
+                                forbid_external=True,
+                            )
                             part_merges = 0
 
                             for p_idx, p in enumerate(root.iter(f"{{{W_NAMESPACE}}}p")):
@@ -137,7 +145,16 @@ def repair_and_check_split_runs(
                             if part_merges > 0:
                                 total_merges += part_merges
                                 content = ET.tostring(root, encoding="utf-8")
-                        except (ET.ParseError, UnicodeDecodeError, KeyError):
+                        except DefusedXmlException as exc:
+                            findings.append(
+                                LintFinding(
+                                    code="UNSAFE_XML_DETECTED",
+                                    severity=LintSeverity.ERROR,
+                                    message=f"Malicious XML detected in '{item.filename}': {exc}",
+                                    part=item.filename,
+                                )
+                            )
+                        except (SafeET.ParseError, UnicodeDecodeError, KeyError):
                             continue
 
                     zout.writestr(item, content)

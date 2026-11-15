@@ -11,7 +11,9 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from xml.etree import ElementTree as ET
+
+from defusedxml import ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
 
 from app.templates.lint.models import LeftoverFinding, LintFinding, LintSeverity
 
@@ -70,7 +72,12 @@ def scan_docx_for_leftover_data(
                 ):
                     content = zf.read(info.filename)
                     try:
-                        root = ET.fromstring(content)
+                        root = SafeET.fromstring(
+                            content,
+                            forbid_dtd=True,
+                            forbid_entities=True,
+                            forbid_external=True,
+                        )
                         for p_idx, p in enumerate(root.iter(f"{{{W_NAMESPACE}}}p")):
                             raw_text = "".join(t.text or "" for t in p.iter(f"{{{W_NAMESPACE}}}t"))
 
@@ -148,7 +155,16 @@ def scan_docx_for_leftover_data(
                                     )
                                 )
 
-                    except (ET.ParseError, UnicodeDecodeError, KeyError):
+                    except DefusedXmlException as exc:
+                        findings.append(
+                            LintFinding(
+                                code="UNSAFE_XML_DETECTED",
+                                severity=LintSeverity.ERROR,
+                                message=f"Malicious XML detected in '{info.filename}': {exc}",
+                                part=info.filename,
+                            )
+                        )
+                    except (SafeET.ParseError, UnicodeDecodeError, KeyError):
                         continue
 
     except (zipfile.BadZipFile, OSError, KeyError):

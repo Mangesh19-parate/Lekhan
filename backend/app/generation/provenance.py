@@ -17,6 +17,9 @@ import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
 
+import defusedxml.ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
+
 PROVENANCE_XML_PATH = "customXml/provenance.xml"
 PROVENANCE_XML_NS = "http://schemas.lekhan.local/provenance/v1"
 
@@ -105,7 +108,15 @@ def extract_docx_provenance(docx_bytes: bytes) -> ProvenanceRecord | None:
                 return None
             xml_bytes = zf.read(PROVENANCE_XML_PATH)
 
-        root = ET.fromstring(xml_bytes)
+        try:
+            root = SafeET.fromstring(
+                xml_bytes,
+                forbid_dtd=True,
+                forbid_entities=True,
+                forbid_external=True,
+            )
+        except (DefusedXmlException, SafeET.ParseError):
+            return None
         ns = {"p": PROVENANCE_XML_NS}
 
         def _get_val(tag: str) -> str:
@@ -153,7 +164,21 @@ def verify_docx_provenance(docx_bytes: bytes) -> ProvenanceVerificationResult:
                 )
             prov_xml_bytes = zf.read(PROVENANCE_XML_PATH)
 
-        root = ET.fromstring(prov_xml_bytes)
+        try:
+            root = SafeET.fromstring(
+                prov_xml_bytes,
+                forbid_dtd=True,
+                forbid_entities=True,
+                forbid_external=True,
+            )
+        except (DefusedXmlException, SafeET.ParseError) as exc:
+            return ProvenanceVerificationResult(
+                valid=False,
+                tampered=True,
+                actual_document_hash=actual_doc_hash,
+                verified_at=verified_at_iso,
+                message=f"Malicious or malformed provenance XML rejected: {exc}",
+            )
         ns = {"p": PROVENANCE_XML_NS}
 
         def _get(tag: str) -> str:
