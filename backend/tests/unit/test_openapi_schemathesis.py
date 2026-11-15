@@ -38,8 +38,14 @@ def test_schemathesis_schema_loader() -> None:
     try:
         import schemathesis
 
-        schema = schemathesis.from_asgi("/openapi.json", app)
+        if hasattr(schemathesis, "openapi") and hasattr(schemathesis.openapi, "from_asgi"):
+            schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+        elif hasattr(schemathesis, "from_asgi"):
+            schema = schemathesis.from_asgi("/openapi.json", app)
+        else:
+            pytest.skip("Schemathesis version does not expose from_asgi.")
+
         assert schema is not None
         assert len(list(schema.get_all_operations())) > 0
-    except ImportError:
+    except (ImportError, AttributeError):
         pytest.skip("schemathesis is not installed in the current test runner.")
