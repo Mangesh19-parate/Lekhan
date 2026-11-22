@@ -66,17 +66,16 @@ def list_drafts(
     actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> list[DraftResponse]:
-    """Retrieves all active in-progress drafting sessions for tenant, ordered by most recently updated."""
+    """Retrieves active in-progress drafting sessions for tenant. Drafters see only their own drafts."""
     decision = authorize(actor, "view_document")
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    drafts = (
-        db.query(Draft)
-        .filter(Draft.tenant_id == actor.tenant_id)
-        .order_by(Draft.updated_at.desc())
-        .all()
-    )
+    query = db.query(Draft).filter(Draft.tenant_id == actor.tenant_id)
+    if actor.role == "drafter":
+        query = query.filter(Draft.user_id == actor.user_id)
+
+    drafts = query.order_by(Draft.updated_at.desc()).all()
     return [_format_draft(d) for d in drafts]
 
 
@@ -120,7 +119,8 @@ def get_draft(
     if not draft:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found.")
 
-    decision = authorize(actor, "view_document")
+    resource = Resource(tenant_id=draft.tenant_id, resource_type="draft", owner_id=draft.user_id)
+    decision = authorize(actor, "view_document", resource)
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
@@ -143,7 +143,8 @@ def update_draft(
     if not draft:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found.")
 
-    decision = authorize(actor, "edit_document")
+    resource = Resource(tenant_id=draft.tenant_id, resource_type="draft", owner_id=draft.user_id)
+    decision = authorize(actor, "edit_document", resource)
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
@@ -175,7 +176,8 @@ def delete_draft(
     if not draft:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found.")
 
-    decision = authorize(actor, "create_document")
+    resource = Resource(tenant_id=draft.tenant_id, resource_type="draft", owner_id=draft.user_id)
+    decision = authorize(actor, "delete_document", resource)
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 

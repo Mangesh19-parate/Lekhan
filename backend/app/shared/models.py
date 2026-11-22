@@ -574,6 +574,34 @@ class Document(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
     )
 
 
+class DocumentReview(Base, UUIDv7PKMixin, TenantScopedMixin):
+    """Persisted review metadata, checklist, and finalization lock for documents."""
+
+    __tablename__ = "document_reviews"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "document_id", name="uq_doc_reviews_tenant_document"),
+        CheckConstraint("status IN ('draft','reviewed','finalised')", name="chk_review_status"),
+        Index("ix_doc_reviews_tenant_doc", "tenant_id", "document_id"),
+    )
+
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    checklist: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reviewed_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finalised_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    finalised_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class Job(Base, UUIDv7PKMixin, TenantScopedMixin):
     """PostgreSQL background job queue (FOR UPDATE SKIP LOCKED)."""
 

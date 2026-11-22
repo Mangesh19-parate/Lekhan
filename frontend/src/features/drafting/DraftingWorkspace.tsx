@@ -118,7 +118,9 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [activeSectionId, setActiveSectionId] = useState<string>("property_details");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
-  const [activeDraftId, setActiveDraftId] = useState<string | null>(initialDraftData?.id || null);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(
+    initialDraftData?.id ? String(initialDraftData.id) : null
+  );
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -242,11 +244,11 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
 
   // Derived values calculation
   const derivedValues = useMemo(() => {
-    const total = parseFloat(formData["financial.total_consideration"] || 0);
-    const advance = parseFloat(formData["financial.earnest_advance"] || 0);
+    const total = parseFloat(String(formData["financial.total_consideration"] ?? 0));
+    const advance = parseFloat(String(formData["financial.earnest_advance"] ?? 0));
     const balance = Math.max(0, total - advance);
 
-    const areaSqm = parseFloat(formData["property.area_sqm"] || 0);
+    const areaSqm = parseFloat(String(formData["property.area_sqm"] ?? 0));
     const areaSqft = (areaSqm * 10.7639104).toFixed(2);
 
     return {
@@ -334,10 +336,8 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
       description: String(propertyData["property.mouza"] || "Property attributes loaded."),
     });
   };
-});
-  };
 
-const handleLoadSample = () => {
+  const handleLoadSample = () => {
   setFormData((prev) => ({ ...prev, ...SAMPLE_NAGPUR_PLOT }));
   setRepeatersData({
     sellers: [
@@ -432,55 +432,6 @@ const validateRequiredFields = (
       });
     });
   });
-
-  return errors;
-};
-
-const startPollingJob = (jobId: string, docIdFallback: string | null) => {
-  if (pollTimerRef.current) {
-    window.clearTimeout(pollTimerRef.current);
-  }
-
-  const poll = async () => {
-    try {
-      const job = await apiClient<JobDetailResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}`);
-
-      let step: ProgressStep = "REQUESTED";
-      if (job.status === "succeeded" || job.state === "COMPLETED") {
-        step = "DONE";
-      } else if (job.state === "VERIFIED" || job.state === "STORED") {
-        step = "VERIFIED";
-      } else if (job.state === "RENDERED") {
-        step = "RENDERED";
-      } else {
-        step = "REQUESTED";
-      }
-
-      if (job.status === "succeeded") {
-        setSubmitting(false);
-        setProgressState((prev) => ({
-          ...prev,
-          currentStep: "DONE",
-          status: "succeeded",
-          documentId: job.document_id || docIdFallback || prev.documentId,
-        }));
-
-        const downloadUrl =
-          job.download_url || `/api/v1/documents/${job.document_id || docIdFallback}/download`;
-        const a = document.createElement("a");
-        a.href = downloadUrl;
-        a.download = `${activeManifest.template_id}_${job.document_id || docIdFallback || "draft"}.docx`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-
-        toast({
-          type: "success",
-          title: lang === "mr" ? "दस्त निर्मिती यशस्वी!" : "Document Generated Successfully",
-          description: `ID: ${job.document_id || docIdFallback || jobId}`,
-        });
-      });
-    });
 
     return errors;
   };
@@ -579,121 +530,7 @@ const startPollingJob = (jobId: string, docIdFallback: string | null) => {
   };
 
   // Submit and DOCX Generation
-  const handleSubmit = async (submitData?: Record<string, any>) => {
-    const currentSubmitData = submitData || formData;
-    setSubmitting(true);
-
-    // 1. Block submit and show field-level errors if required fields are empty
-    const errors = validateRequiredFields(activeManifest, currentSubmitData, repeatersData);
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      setSubmitting(false);
-      toast({
-        type: "error",
-        title: lang === "mr" ? "कृपया आवश्यक माहिती भरा" : "Required Fields Missing",
-        description:
-          lang === "mr"
-            ? `${Object.keys(errors).length} आवश्यक नोंदी भरणे बाकी आहे.`
-            : `${Object.keys(errors).length} required fields are empty.`,
-      });
-      const firstKey = Object.keys(errors)[0];
-      const el = document.getElementById(firstKey) || document.getElementById(`input-${firstKey}`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.focus();
-      }
-      return;
-    }
-
-    setFieldErrors({});
-
-    try {
-      // 2. Call /documents/validate/{template_id} before submitting
-      const preparedValidationData = unflattenFormData(
-        Object.fromEntries(
-          Object.entries(currentSubmitData).map(([k, v]) => {
-            const fDef = activeManifest.fields[k];
-            if ((fDef?.type === "decimal" || fDef?.type === "integer") && typeof v === "string" && v.trim() !== "") {
-              const num = parseFloat(v);
-              return [k, isNaN(num) ? v : num];
-            }
-            return [k, v];
-          })
-        )
-      );
-
-      const validationRes = await apiClient<ValidationResponse>(
-        `/api/v1/documents/validate/${encodeURIComponent(activeManifest.template_id)}`,
-        {
-          method: "POST",
-          headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
-          body: JSON.stringify({ data: preparedValidationData }),
-        }
-      );
-
-      if (!validationRes.valid || (validationRes.violations && validationRes.violations.length > 0)) {
-        const firstViolation = validationRes.violations[0];
-        const msg = firstViolation
-          ? (lang === "mr" ? firstViolation.message_mr : firstViolation.message_en)
-          : "Validation rules failed";
-        toast({
-          type: "error",
-          title: lang === "mr" ? "साचा प्रमाणीकरण त्रुटी" : "Validation Failed",
-          description: msg,
-        });
-        setSubmitting(false);
-        return;
-      }
-
-      if (job.status === "failed" || job.status === "dead") {
-        setSubmitting(false);
-        const errCode = job.error?.code || "JOB_FAILED";
-        const errMsg =
-          job.error?.message ||
-          (lang === "mr" ? "दस्त निर्मिती अयशस्वी झाली." : "Document generation failed.");
-        setProgressState((prev) => ({
-          ...prev,
-          status: "failed",
-          errorCode: errCode,
-          errorMessage: errMsg,
-        }));
-        toast({
-          type: "error",
-          title: lang === "mr" ? "दस्त निर्मितीमध्ये त्रुटी आली" : "Document Generation Failed",
-          description: `[${errCode}] ${errMsg}`,
-        });
-        return;
-      }
-
-      setProgressState((prev) => ({
-        ...prev,
-        currentStep: step,
-      }));
-
-      pollTimerRef.current = window.setTimeout(poll, 1500);
-    } catch (err: unknown) {
-      setSubmitting(false);
-      const errCode = err instanceof ApiError && err.code ? err.code : "POLL_FAILED";
-      const errMsg = err instanceof Error ? err.message : "Failed to fetch job status.";
-      setProgressState((prev) => ({
-        ...prev,
-        status: "failed",
-        errorCode: errCode,
-        errorMessage: errMsg,
-      }));
-      toast({
-        type: "error",
-        title: lang === "mr" ? "पडताळणी त्रुटी" : "Polling Failed",
-        description: `[${errCode}] ${errMsg}`,
-      });
-    }
-  };
-
-  pollTimerRef.current = window.setTimeout(poll, 1500);
-};
-
-// Submit and DOCX Generation
-const handleSubmit = async (submitData?: Record<string, unknown>) => {
+  const handleSubmit = async (submitData?: Record<string, unknown>) => {
   const currentSubmitData = submitData || formData;
   setSubmitting(true);
 
@@ -765,29 +602,29 @@ const handleSubmit = async (submitData?: Record<string, unknown>) => {
 
     // 3. Construct payload without ANY hardcoded fallbacks
     const mappedSellers = (repeatersData.sellers || []).map((s) => ({
-      full_name: s.full_name || "",
-      gender: s.gender || "male",
-      age: s.age ? parseInt(s.age, 10) : 0,
-      occupation: s.occupation || "",
-      address: s.address || "",
-      pan: s.pan || "",
+      full_name: String(s.full_name || ""),
+      gender: String(s.gender || "male"),
+      age: s.age ? parseInt(String(s.age), 10) : 0,
+      occupation: String(s.occupation || ""),
+      address: String(s.address || ""),
+      pan: String(s.pan || ""),
     }));
 
     const mappedPurchasers = (repeatersData.purchasers || []).map((p) => ({
-      full_name: p.full_name || "",
-      gender: p.gender || "male",
-      age: p.age ? parseInt(p.age, 10) : 0,
-      occupation: p.occupation || "",
-      address: p.address || "",
-      pan: p.pan || "",
+      full_name: String(p.full_name || ""),
+      gender: String(p.gender || "male"),
+      age: p.age ? parseInt(String(p.age), 10) : 0,
+      occupation: String(p.occupation || ""),
+      address: String(p.address || ""),
+      pan: String(p.pan || ""),
     }));
 
     const mappedInstalments = (repeatersData.instalments || []).map((inst) => ({
-      amount: inst.amount ? parseFloat(inst.amount) : 0,
-      mode: inst.mode || "cheque",
-      ref_no: inst.ref_no || "",
-      bank_name: inst.bank_name || "",
-      date_str: inst.date || "",
+      amount: inst.amount ? parseFloat(String(inst.amount)) : 0,
+      mode: String(inst.mode || "cheque"),
+      ref_no: String(inst.ref_no || ""),
+      bank_name: String(inst.bank_name || ""),
+      date_str: String(inst.date || ""),
     }));
 
     const witness1 = repeatersData.witnesses?.[0]?.name
@@ -811,7 +648,7 @@ const handleSubmit = async (submitData?: Record<string, unknown>) => {
             plot_no: currentSubmitData["property.plot_no"] || "",
             layout_name: currentSubmitData["property.layout_name"] || "",
             sheet_no: currentSubmitData["property.sheet_no"] || "",
-            area_sqm: currentSubmitData["property.area_sqm"] ? parseFloat(currentSubmitData["property.area_sqm"]) : 0,
+            area_sqm: currentSubmitData["property.area_sqm"] ? parseFloat(String(currentSubmitData["property.area_sqm"])) : 0,
           },
           boundaries: {
             east: currentSubmitData["boundaries.east"] || "",
@@ -821,10 +658,10 @@ const handleSubmit = async (submitData?: Record<string, unknown>) => {
           },
           financial: {
             total_consideration: currentSubmitData["financial.total_consideration"]
-              ? parseFloat(currentSubmitData["financial.total_consideration"])
+              ? parseFloat(String(currentSubmitData["financial.total_consideration"]))
               : 0,
             earnest_advance: currentSubmitData["financial.earnest_advance"]
-              ? parseFloat(currentSubmitData["financial.earnest_advance"])
+              ? parseFloat(String(currentSubmitData["financial.earnest_advance"]))
               : 0,
             instalments: mappedInstalments,
           },

@@ -6,6 +6,7 @@ import { useI18n } from "../../shared/i18n";
 export interface StepperWizardProps {
   onSelectTemplate: (templateId: string) => void;
   onCancel?: () => void;
+  onNavigate?: (viewId: string, templateId?: string) => void;
 }
 
 export const StepperWizard: React.FC<StepperWizardProps> = ({ onSelectTemplate, onCancel }) => {

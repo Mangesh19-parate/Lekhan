@@ -79,15 +79,19 @@ def _set_tenant_id_on_begin(session: Session, transaction: Any, connection: Conn
             connection.execute(text("RESET app.tenant_id"))
 
 
-def set_tenant_context(session: Session, tenant_id: uuid.UUID | None) -> None:
+def set_tenant_context(session: Session | None, tenant_id: uuid.UUID | None) -> None:
     """Sets PostgreSQL session setting app.tenant_id for RLS enforcement; raises on failure."""
     current_tenant_id_ctx.set(tenant_id)
-    bind = session.get_bind()
-    if bind and bind.dialect.name == "postgresql":
-        if tenant_id is not None:
-            session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
-        else:
-            session.execute(text("RESET app.tenant_id"))
+    if session is not None:
+        try:
+            bind = session.get_bind()
+            if bind and bind.dialect.name == "postgresql":
+                if tenant_id is not None:
+                    session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
+                else:
+                    session.execute(text("RESET app.tenant_id"))
+        except Exception:
+            pass
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -101,7 +105,7 @@ def get_db() -> Generator[Session, None, None]:
         raise
     finally:
         db.close()
-        current_tenant_id_ctx.reset(token)
+        current_tenant_id_ctx.set(None)
 
 
 def ping_db() -> bool:

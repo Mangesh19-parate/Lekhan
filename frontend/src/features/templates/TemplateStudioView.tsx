@@ -17,11 +17,11 @@ import {
   Archive,
 } from "lucide-react";
 
-const DEFAULT_STUDIO_TEMPLATES = [
-  { template_id: "sale_deed_plot_mr", name_mr: "प्लॉट खरेदीखत (नागपूर सुधार प्रन्यास / मनपा)", name_en: "Sale Deed: Plot", version: "1.0.0", status: "approved" },
-  { template_id: "sale_deed_flat_mr", name_mr: "सदनिका खरेदीखत (रेरा नोंदणीकृत इमारत)", name_en: "Sale Deed: Flat", version: "1.0.0", status: "approved" },
-  { template_id: "general_poa_mr", name_mr: "कुलमुखत्यारपत्र (General Power of Attorney)", name_en: "General POA", version: "1.0.0", status: "approved" },
-  { template_id: "agreement_to_sell_plot_mr", name_mr: "इसारपावती / साठेखत", name_en: "Agreement to Sell", version: "1.0.0", status: "approved" },
+const DEFAULT_STUDIO_TEMPLATES: TemplateSummaryItem[] = [
+  { template_id: "sale_deed_plot_mr", name_mr: "प्लॉट खरेदीखत (नागपूर सुधार प्रन्यास / मनपा)", name_en: "Sale Deed: Plot", version: "1.0.0", status: "approved", language: "mr", document_type: "deed", property_type: "plot" },
+  { template_id: "sale_deed_flat_mr", name_mr: "सदनिका खरेदीखत (रेरा नोंदणीकृत इमारत)", name_en: "Sale Deed: Flat", version: "1.0.0", status: "approved", language: "mr", document_type: "deed", property_type: "flat" },
+  { template_id: "general_poa_mr", name_mr: "कुलमुखत्यारपत्र (General Power of Attorney)", name_en: "General POA", version: "1.0.0", status: "approved", language: "mr", document_type: "poa", property_type: "general" },
+  { template_id: "agreement_to_sell_plot_mr", name_mr: "इसारपावती / साठेखत", name_en: "Agreement to Sell", version: "1.0.0", status: "approved", language: "mr", document_type: "agreement", property_type: "plot" },
 ];
 
 interface TemplateStudioViewProps {
@@ -276,7 +276,7 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
                       size="md"
                       variant="primary"
                       onClick={() => handleApproveTemplate(selectedTemplateId)}
-                      disabled={lifecycleLoading || linting || (lintReport && !lintReport.can_approve)}
+                      disabled={lifecycleLoading || linting || Boolean(lintReport && !lintReport.can_approve)}
                       leftIcon={<CheckCircle2 size={15} />}
                     >
                       {lifecycleLoading ? "Approving..." : lang === "mr" ? "साचा मंजूर करा (Approve)" : "Approve Template"}

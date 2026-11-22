@@ -11,7 +11,9 @@ Implements:
 
 from __future__ import annotations
 
+import base64
 import datetime
+import hashlib
 import hmac
 import time
 import uuid
@@ -501,25 +503,49 @@ class MfaVerifyPayload(BaseModel):
 # Throttler for /mfa/verify
 mfa_throttler = InMemoryThrottler()
 
-# In-memory replay cache: (user_id, code) -> timestamp (validity window)
+# In-memory replay cache fallback: (user_id, code) -> timestamp (validity window)
 _USED_TOTP_CODES: dict[str, float] = {}
 
 
-def is_totp_replayed(user_id: uuid.UUID, code: str) -> bool:
+def is_totp_replayed(user_id: uuid.UUID, code: str, db: Session | None = None) -> bool:
     """Checks if a TOTP code was already consumed within the validity window."""
     now = time.time()
+    key = f"totp_used:{user_id}:{code.strip()}"
+    if db is not None:
+        try:
+            from app.shared.models import RateLimit
+            existing = db.query(RateLimit).filter(RateLimit.key == key).first()
+            if existing and existing.locked_until > now:
+                return True
+        except Exception:
+            pass
+
     # Expire old entries (> 90 seconds)
     expired = [k for k, t in _USED_TOTP_CODES.items() if now - t > 90]
     for k in expired:
         _USED_TOTP_CODES.pop(k, None)
 
-    key = f"{user_id}:{code.strip()}"
     return key in _USED_TOTP_CODES
 
 
-def record_used_totp(user_id: uuid.UUID, code: str) -> None:
-    """Marks a TOTP code as consumed to prevent replay attacks."""
-    _USED_TOTP_CODES[f"{user_id}:{code.strip()}"] = time.time()
+def record_used_totp(user_id: uuid.UUID, code: str, db: Session | None = None) -> None:
+    """Marks a TOTP code as consumed to prevent replay attacks across processes."""
+    now = time.time()
+    key = f"totp_used:{user_id}:{code.strip()}"
+    _USED_TOTP_CODES[key] = now
+    if db is not None:
+        try:
+            from app.shared.models import RateLimit
+            limit_entry = RateLimit(
+                key=key,
+                timestamps=[now],
+                consecutive_failures=0,
+                locked_until=now + 120.0,
+            )
+            db.merge(limit_entry)
+            db.commit()
+        except Exception:
+            pass
 
 
 @auth_csrf_router.post("/mfa/setup", response_model=MfaSetupResponse, summary="Initiate TOTP MFA setup")
@@ -659,7 +685,7 @@ def verify_mfa_login(
 
     # 1. Try TOTP code
     if payload.code:
-        if is_totp_replayed(actor.user_id, payload.code):
+        if is_totp_replayed(actor.user_id, payload.code, db=db):
             mfa_throttler.record_failure(throttle_key)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -669,7 +695,7 @@ def verify_mfa_login(
         secret = decrypt_mfa_secret(user.mfa_secret_enc)
         if verify_totp_code(secret, payload.code):
             verified = True
-            record_used_totp(actor.user_id, payload.code)
+            record_used_totp(actor.user_id, payload.code, db=db)
 
     # 2. Try recovery code
     elif payload.recovery_code:
@@ -773,6 +799,140 @@ def disable_mfa(
     db.commit()
 
     return {"status": "ok", "message": "MFA disabled"}
+
+
+# --- Password Recovery (Public Endpoints per docs/API.md Section 2.1) ---
+
+
+class ForgotPasswordPayload(BaseModel):
+    email: str = Field(..., min_length=3, max_length=255)
+
+
+class ResetPasswordPayload(BaseModel):
+    token: str = Field(..., min_length=16)
+    new_password: str = Field(
+        ..., min_length=12, description="Minimum 12 characters per docs/AUTH.md"
+    )
+
+
+def generate_password_reset_token(user_id: uuid.UUID, tenant_id: uuid.UUID, password_hash: str) -> str:
+    """Generates a signed, single-use, 15-minute expiration token bound to current password hash."""
+    now = int(time.time())
+    expires_at = now + 900  # 15 minutes
+    hash_prefix = hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+    payload = f"{user_id}:{tenant_id}:{expires_at}:{hash_prefix}"
+    sig = hmac.new(settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    raw = f"{payload}:{sig}"
+    return base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii")
+
+
+def verify_password_reset_token(
+    token: str, user_repo: UserRepository
+) -> tuple[UserRecord, UserRepository] | None:
+    """Verifies cryptographic signature, expiration, and password version validity."""
+    try:
+        raw = base64.urlsafe_b64decode(token.encode("ascii")).decode("utf-8")
+        parts = raw.split(":")
+        if len(parts) != 5:
+            return None
+        user_id_str, tenant_id_str, expires_at_str, hash_prefix, sig = parts
+        payload = f"{user_id_str}:{tenant_id_str}:{expires_at_str}:{hash_prefix}"
+        expected_sig = hmac.new(
+            settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(sig, expected_sig):
+            return None
+        if int(expires_at_str) < int(time.time()):
+            return None
+
+        user_id = uuid.UUID(user_id_str)
+        tenant_id = uuid.UUID(tenant_id_str)
+        user = user_repo.get_by_id(tenant_id=tenant_id, user_id=user_id)
+        if not user or not user.active:
+            return None
+
+        current_hash_prefix = hashlib.sha256(user.password_hash.encode("utf-8")).hexdigest()[:16]
+        if not hmac.compare_digest(hash_prefix, current_hash_prefix):
+            return None
+
+        return user, user_repo
+    except Exception:
+        return None
+
+
+@router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED, summary="Request password reset link")
+def forgot_password(
+    payload: ForgotPasswordPayload,
+    request: Request,
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> dict[str, str]:
+    """Dispatches password reset token. Always returns 202 to prevent user enumeration."""
+    client_ip = get_client_ip(request)
+    throttle_key = f"forgot:{client_ip}"
+    if login_throttler.is_locked(throttle_key)[0]:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many password reset requests. Please try again later.",
+        )
+    login_throttler.record_failure(throttle_key)
+
+    user = user_repo.find_by_email(tenant_id=None, email=payload.email)
+    if user and user.active:
+        token = generate_password_reset_token(user.id, user.tenant_id, user.password_hash)
+        logger.info("Password reset initiated for user %s [cid=%s]", user.id, token[:8])
+
+    return {
+        "status": "accepted",
+        "message": "If the email is registered, instructions to reset your password have been dispatched.",
+    }
+
+
+@router.post("/password/reset", summary="Complete password reset using token")
+def reset_password(
+    payload: ResetPasswordPayload,
+    request: Request,
+    user_repo: UserRepository = Depends(get_user_repo),
+    session_repo: SessionRepository = Depends(get_session_repo),
+) -> dict[str, str]:
+    """Verifies token, updates password with Argon2id, and revokes all existing sessions."""
+    client_ip = get_client_ip(request)
+    throttle_key = f"reset:{client_ip}"
+    if login_throttler.is_locked(throttle_key)[0]:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many password reset attempts. Please try again later.",
+        )
+
+    verified_pair = verify_password_reset_token(payload.token, user_repo)
+    if not verified_pair:
+        login_throttler.record_failure(throttle_key)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset token is invalid or has expired.",
+        )
+
+    user, repo = verified_pair
+    if len(payload.new_password) < 12:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password must be at least 12 characters long.",
+        )
+
+    new_hash = hash_password(payload.new_password)
+    user.password_hash = new_hash
+    user.failed_logins = 0
+    user.locked_until = None
+    repo.update(tenant_id=user.tenant_id, user=user)
+
+    # Invalidate all active sessions for this user
+    session_repo.delete_all_for_user(tenant_id=user.tenant_id, user_id=user.id)
+    login_throttler.record_success(throttle_key)
+
+    logger.info("Password successfully reset for user %s. All active sessions invalidated.", user.id)
+    return {
+        "status": "ok",
+        "message": "Password successfully reset. Please log in with your new password.",
+    }
 
 
 # Include CSRF-protected auth sub-routes into main auth router

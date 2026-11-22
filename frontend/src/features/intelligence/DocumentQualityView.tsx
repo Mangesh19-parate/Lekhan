@@ -46,8 +46,8 @@ export const DocumentQualityView: React.FC<DocumentQualityViewProps> = ({ onNavi
       if (tmplsRes && tmplsRes.length > 0) {
         tmplsRes.forEach((t) => {
           opts.push({
-            label: `Template: ${t.name} (${t.id})`,
-            value: t.id,
+            label: `Template: ${t.name || t.name_en || t.template_id} (${t.id || t.template_id})`,
+            value: t.id || t.template_id || "",
           });
         });
       }

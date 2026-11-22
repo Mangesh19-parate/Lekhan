@@ -72,6 +72,7 @@ export interface DocumentSummaryItem {
   created_at: string;
   docx_download_url: string;
   pdf_download_url: string;
+  data_snapshot?: Record<string, unknown>;
 }
 
 export interface DocumentHistoryResponse {
@@ -117,18 +118,40 @@ export interface DashboardStatsResponse {
   review_count: number;
   finalised_count: number;
   templates_count: number;
-  operational_alerts?: Array<{ id: string; type: string; message: string; severity?: string }>;
+  drafts_in_progress?: number;
+  pending_reviews?: number;
+  finalised_documents?: number;
+  approved_templates?: number;
+  language_distribution?: { mr?: number; en?: number; [key: string]: number | undefined };
+  operational_alerts?: Array<{
+    id: string;
+    type: string;
+    message: string;
+    severity?: string;
+    title_mr?: string;
+    title_en?: string;
+    action_url?: string;
+  }>;
   document_type_distribution?: Record<string, number>;
-  recent_activity?: Array<{ id: string; action: string; title: string; timestamp: string; actor: string }>;
+  recent_activity?: Array<{
+    id: string;
+    action: string;
+    title: string;
+    timestamp: string;
+    actor: string;
+    entity?: string;
+    entity_id?: string;
+    meta?: Record<string, unknown>;
+  }>;
 }
 
 export interface TemplateSummaryItem {
   template_id: string;
   name_en: string;
   name_mr: string;
-  version: number;
+  version: number | string;
   status: string;
-  language: string;
+  language?: string;
   document_type?: string;
   property_type?: string;
   has_docx?: boolean;
@@ -218,6 +241,13 @@ export interface AdvisoryRule {
   severity: "info" | "warning" | "critical";
   description: string;
   statutory_citation?: string;
+  title_mr?: string;
+  title_en?: string;
+  rule_name?: string;
+  statutory_ref?: string;
+  advice_mr?: string;
+  advice_en?: string;
+  action_needed?: string;
 }
 
 export interface AdvisoryEvaluationItem {
@@ -232,13 +262,17 @@ export interface PortalSheetResponse {
   parties_text: string;
   property_text: string;
   market_value_text: string;
+  copy_paste_text?: string;
+  property?: Record<string, unknown>;
 }
 
 export interface UserItem {
   id: string;
   email: string;
+  display_name?: string;
   role: string;
   active: boolean;
+  mfa_enabled?: boolean;
   created_at: string;
   ui_language?: string;
 }
@@ -283,6 +317,35 @@ export interface SystemHealthResponse {
   uptime_seconds: number;
   worker_active: boolean;
   worker_queue?: Record<string, unknown>;
+  api?: {
+    status: string;
+    uptime_seconds?: number;
+    version?: string;
+    environment?: string;
+    docs_url?: string;
+  };
+  database?: {
+    status: string;
+    connected?: boolean;
+    latency_ms?: number;
+    pool_size?: number;
+    adapter?: string;
+    connection_pooling?: string;
+  };
+  storage?: {
+    status: string;
+    writeable?: boolean;
+    path?: string;
+    type?: string;
+    free_space_gb?: number;
+  };
+  template_engine?: {
+    status: string;
+    templates_loaded?: number;
+    total_templates?: number;
+    approved_templates?: number;
+  };
+  [key: string]: unknown;
 }
 
 export interface DocumentQualityResponse {

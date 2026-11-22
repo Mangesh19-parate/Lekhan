@@ -37,6 +37,31 @@ services:
     # Note: NO published ports - database is isolated from host and external networks
 
   # ----------------------------------------------------------------------------
+  # 1.5 Database Migrator (Runs Alembic migrations to latest schema before API/Worker start)
+  # ----------------------------------------------------------------------------
+  migrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lekhan_migrator_prod
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    user: "10001:10001"
+    environment:
+      ENV: prod
+      DATABASE_URL: postgresql+psycopg://lekhan@db:5432/lekhan_prod
+      SECRETS_DIR: /run/secrets
+    secrets:
+      - db_password
+    networks:
+      - lekhan_net
+    depends_on:
+      db:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+
+  # ----------------------------------------------------------------------------
   # 2. Lekhan Web API (FastAPI)
   # ----------------------------------------------------------------------------
   api:
@@ -69,6 +94,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      migrator:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health/live"]
       interval: 15s
@@ -113,6 +142,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -134,6 +165,7 @@ services:
       - "443:443"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend/dist:/srv/frontend/dist:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:

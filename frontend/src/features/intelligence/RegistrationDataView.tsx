@@ -143,19 +143,30 @@ export const RegistrationDataView: React.FC<RegistrationDataViewProps> = ({ onNa
                 <Landmark size={18} />
                 <span>{lang === "mr" ? "मिळकतीचे वर्णन (Property Schedule)" : "Property Schedule for PDE"}</span>
               </div>
-              <div style={{ backgroundColor: "var(--surface-sunken)", padding: "12px", borderRadius: "var(--radius-input)", fontSize: "0.8125rem", display: "flex", flexDirection: "column", gap: "6px" }}>
-                <div><strong>District:</strong> Nagpur (नागपूर)</div>
-                <div><strong>Taluka:</strong> Nagpur Urban / Rural</div>
-                <div><strong>Mouza:</strong> {portalSheet.property?.mouza || "सोनेगाव (Sonegaon)"}</div>
-                <div><strong>Survey / Khasra No:</strong> {portalSheet.property?.khasra_no || "45/2"}</div>
-                <div><strong>Plot No:</strong> {portalSheet.property?.plot_no || "12"}</div>
-                <div><strong>Area:</strong> {portalSheet.property?.area_sqm || 150} Sq. Metres ({((portalSheet.property?.area_sqm || 150) * 10.7639104).toFixed(2)} Sq. Feet)</div>
-                {portalSheet.property?.boundaries && (
-                  <div style={{ marginTop: "4px" }}>
-                    <strong>Boundaries:</strong> E: {portalSheet.property.boundaries.east}, W: {portalSheet.property.boundaries.west}, N: {portalSheet.property.boundaries.north}, S: {portalSheet.property.boundaries.south}
+              {(() => {
+                const prop = portalSheet.property as {
+                  mouza?: string;
+                  khasra_no?: string;
+                  plot_no?: string;
+                  area_sqm?: number;
+                  boundaries?: { east?: string; west?: string; north?: string; south?: string };
+                } | undefined;
+                return (
+                  <div style={{ backgroundColor: "var(--surface-sunken)", padding: "12px", borderRadius: "var(--radius-input)", fontSize: "0.8125rem", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <div><strong>District:</strong> Nagpur (नागपूर)</div>
+                    <div><strong>Taluka:</strong> Nagpur Urban / Rural</div>
+                    <div><strong>Mouza:</strong> {prop?.mouza || "सोनेगाव (Sonegaon)"}</div>
+                    <div><strong>Survey / Khasra No:</strong> {prop?.khasra_no || "45/2"}</div>
+                    <div><strong>Plot No:</strong> {prop?.plot_no || "12"}</div>
+                    <div><strong>Area:</strong> {prop?.area_sqm || 150} Sq. Metres ({((prop?.area_sqm || 150) * 10.7639104).toFixed(2)} Sq. Feet)</div>
+                    {prop?.boundaries && (
+                      <div style={{ marginTop: "4px" }}>
+                        <strong>Boundaries:</strong> E: {prop.boundaries.east}, W: {prop.boundaries.west}, N: {prop.boundaries.north}, S: {prop.boundaries.south}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </Card>
 
             {/* Parties Schedule */}
@@ -192,7 +203,7 @@ export const RegistrationDataView: React.FC<RegistrationDataViewProps> = ({ onNa
 
             <textarea
               readOnly
-              value={portalSheet.copy_paste_text}
+              value={portalSheet.copy_paste_text || ""}
               style={{
                 width: "100%",
                 height: "400px",

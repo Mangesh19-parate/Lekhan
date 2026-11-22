@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Copy,
+  CheckCircle2,
 } from "lucide-react";
 
 interface PartyDirectoryViewProps {

@@ -46,7 +46,10 @@ class PostgresAuditRepository:
         return self._session if self._session is not None else SessionLocal()
 
     def append(self, tenant_id: uuid.UUID, record: AuditRecord) -> AuditRecord:
-        """Appends an immutable audit entry to the tenant's cryptographic log."""
+        """Appends an immutable audit entry to the tenant's cryptographic log.
+
+        Uses FOR UPDATE on the latest tenant record to prevent concurrent append race conditions.
+        """
         if record.tenant_id != tenant_id:
             raise ValueError(
                 f"Cross-tenant audit append rejected: record tenant {record.tenant_id} != {tenant_id}"
@@ -55,6 +58,31 @@ class PostgresAuditRepository:
         session = self._get_session()
         should_close = self._session is None
         try:
+            # Concurrency safety: Lock the latest tenant record to guarantee valid SHA-256 chain
+            last_stmt = (
+                select(AuditLogModel)
+                .where(AuditLogModel.tenant_id == tenant_id)
+                .order_by(AuditLogModel.id.desc())
+                .limit(1)
+                .with_for_update()
+            )
+            last_model = session.execute(last_stmt).scalars().first()
+            resolved_prev_hash = bytes(last_model.hash) if last_model else None
+
+            if record.prev_hash != resolved_prev_hash:
+                actual_hash = compute_audit_hash(
+                    tenant_id=tenant_id,
+                    actor_id=record.actor_id,
+                    action=record.action,
+                    entity=record.entity,
+                    entity_id=record.entity_id,
+                    at=record.at,
+                    meta=record.meta,
+                    prev_hash=resolved_prev_hash,
+                )
+            else:
+                actual_hash = record.hash
+
             db_record = AuditLogModel(
                 tenant_id=tenant_id,
                 actor_id=record.actor_id,
@@ -63,8 +91,8 @@ class PostgresAuditRepository:
                 entity_id=record.entity_id,
                 at=record.at,
                 meta=record.meta,
-                prev_hash=record.prev_hash,
-                hash=record.hash,
+                prev_hash=resolved_prev_hash,
+                hash=actual_hash,
             )
             session.add(db_record)
             session.commit()

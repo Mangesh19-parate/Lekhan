@@ -115,8 +115,17 @@ class DatabaseThrottler:
     def __init__(self, session_factory: type[Session] = SessionLocal) -> None:
         self._session_factory = session_factory
         self._fallback = InMemoryThrottler()
+        self._last_db_failure: float = 0.0
+
+    def _should_try_db(self) -> bool:
+        settings = get_settings()
+        if settings.is_dev and (time.time() - self._last_db_failure < 30.0):
+            return False
+        return True
 
     def is_locked(self, key: str) -> tuple[bool, int]:
+        if not self._should_try_db():
+            return self._fallback.is_locked(key)
         try:
             with self._session_factory() as session:
                 entry = session.query(RateLimitModel).filter(RateLimitModel.key == key).first()
@@ -138,6 +147,7 @@ class DatabaseThrottler:
 
                 return False, 0
         except SQLAlchemyError as exc:
+            self._last_db_failure = time.time()
             settings = get_settings()
             if not settings.is_dev:
                 logger.error("Database throttler error in staging/prod: failing closed. Error: %s", exc)
@@ -146,6 +156,8 @@ class DatabaseThrottler:
             return self._fallback.is_locked(key)
 
     def record_failure(self, key: str) -> tuple[bool, int]:
+        if not self._should_try_db():
+            return self._fallback.record_failure(key)
         try:
             with self._session_factory() as session:
                 entry = (
@@ -183,6 +195,7 @@ class DatabaseThrottler:
                 session.commit()
                 return is_locked, lock_duration
         except SQLAlchemyError as exc:
+            self._last_db_failure = time.time()
             settings = get_settings()
             if not settings.is_dev:
                 logger.error("Database throttler failure recording in staging/prod: failing closed. Error: %s", exc)
@@ -191,6 +204,9 @@ class DatabaseThrottler:
             return self._fallback.record_failure(key)
 
     def record_success(self, key: str) -> None:
+        if not self._should_try_db():
+            self._fallback.record_success(key)
+            return
         try:
             with self._session_factory() as session:
                 entry = session.query(RateLimitModel).filter(RateLimitModel.key == key).first()
@@ -200,6 +216,7 @@ class DatabaseThrottler:
                     entry.locked_until = Decimal("0.0")
                     session.commit()
         except SQLAlchemyError as exc:
+            self._last_db_failure = time.time()
             settings = get_settings()
             if not settings.is_dev:
                 logger.error("Database throttler reset failure in staging/prod: failing closed. Error: %s", exc)
@@ -208,12 +225,13 @@ class DatabaseThrottler:
             self._fallback.record_success(key)
 
     def reset(self) -> None:
-        try:
-            with self._session_factory() as session:
-                session.query(RateLimitModel).delete()
-                session.commit()
-        except SQLAlchemyError:
-            pass
+        if self._should_try_db():
+            try:
+                with self._session_factory() as session:
+                    session.query(RateLimitModel).delete()
+                    session.commit()
+            except SQLAlchemyError:
+                self._last_db_failure = time.time()
         self._fallback.reset()
 
 

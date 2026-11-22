@@ -173,7 +173,7 @@ export const PropertySearchModal: React.FC<Props> = ({
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "360px", overflowY: "auto" }}>
             {results.map((match) => {
               const p = match.property;
-              const attrs = p.attrs || {};
+              const attrs = (p.attrs || {}) as Record<string, string | number | undefined>;
               const matchPercent = Math.round(match.similarity * 100);
 
               const title = attrs.plot_no

@@ -12,6 +12,8 @@ import io
 import re
 import zipfile
 
+import defusedxml.ElementTree as SafeET
+
 from app.templates.lint.models import LeftoverFinding, LintFinding, LintSeverity
 
 W_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"

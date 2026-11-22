@@ -84,11 +84,11 @@ export const DynamicForm: React.FC<Props> = ({
 
   // Derived calculations live
   const derivedValues = useMemo(() => {
-    const total = parseFloat(formData["financial.total_consideration"] || 0);
-    const advance = parseFloat(formData["financial.earnest_advance"] || 0);
+    const total = parseFloat(String(formData["financial.total_consideration"] ?? 0));
+    const advance = parseFloat(String(formData["financial.earnest_advance"] ?? 0));
     const balance = Math.max(0, total - advance);
 
-    const areaSqm = parseFloat(formData["property.area_sqm"] || 0);
+    const areaSqm = parseFloat(String(formData["property.area_sqm"] ?? 0));
     const areaSqft = (areaSqm * 10.7639104).toFixed(2);
 
     return {
@@ -264,7 +264,7 @@ export const DynamicForm: React.FC<Props> = ({
                       id={fKey}
                       label={lang === "mr" ? fDef.label_mr || fKey : fDef.label_en || fKey}
                       type={fDef.type === "decimal" || fDef.type === "integer" ? "number" : "text"}
-                      value={formData[fKey] ?? ""}
+                      value={formData[fKey] != null ? String(formData[fKey]) : ""}
                       onChange={(e) => handleFieldChange(fKey, e.target.value)}
                       required={fDef.required}
                       requiredMarker={t("form.required")}
@@ -275,7 +275,7 @@ export const DynamicForm: React.FC<Props> = ({
 
                     {/* Live Amount in words for financial inputs */}
                     {(isTotalAmount || isAdvanceAmount) && (
-                      <LiveAmountInWords amount={formData[fKey]} language={lang} />
+                      <LiveAmountInWords amount={Number(formData[fKey]) || 0} language={lang === "mr" ? "mr" : "en"} />
                     )}
                   </div>
                 );

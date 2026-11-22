@@ -22,11 +22,11 @@ export const InspectorPanel: React.FC<InspectorProps> = ({
 }) => {
   const { lang, t } = useI18n();
 
-  const total = parseFloat(String(formData["financial.total_consideration"] || 0));
-  const advance = parseFloat(formData["financial.earnest_advance"] || 0);
-  const balance = derivedValues["financial.balance_amount"] || 0;
-  const areaSqm = formData["property.area_sqm"] || 0;
-  const areaSqft = derivedValues["property.area_sqft"] || 0;
+  const total = parseFloat(String(formData["financial.total_consideration"] ?? 0));
+  const advance = parseFloat(String(formData["financial.earnest_advance"] ?? 0));
+  const balance = Number(derivedValues["financial.balance_amount"]) || 0;
+  const areaSqm = Number(formData["property.area_sqm"]) || 0;
+  const areaSqft = String(derivedValues["property.area_sqft"] || 0);
 
   const sellersCount = repeatersData["sellers"]?.length ?? 1;
   const purchasersCount = repeatersData["purchasers"]?.length ?? 1;
@@ -209,7 +209,7 @@ export const InspectorPanel: React.FC<InspectorProps> = ({
             {lang === "mr" ? "क्षेत्रफळ (चौ. मी.)" : "Area (Sq. M.)"}
           </span>
           <span style={{ fontSize: "0.875rem", fontWeight: 600, fontFamily: "var(--font-mono)" }}>
-            {areaSqm || "0"} sq.m.
+            {String(areaSqm || "0")} sq.m.
           </span>
         </div>
 
@@ -227,7 +227,7 @@ export const InspectorPanel: React.FC<InspectorProps> = ({
             {lang === "mr" ? "भूखंड व मौजा" : "Plot & Mouza"}
           </span>
           <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
-            {formData["property.plot_no"] || "—"} / {formData["property.mouza"] || "—"}
+            {String(formData["property.plot_no"] || "—")} / {String(formData["property.mouza"] || "—")}
           </span>
         </div>
       </Card>

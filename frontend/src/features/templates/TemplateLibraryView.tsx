@@ -19,13 +19,14 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-const DEFAULT_WAVE1_TEMPLATES = [
+const DEFAULT_WAVE1_TEMPLATES: TemplateSummaryItem[] = [
   {
     template_id: "sale_deed_plot_mr",
     version: "1.0.0",
     name_mr: "प्लॉट खरेदीखत (नागपूर सुधार प्रन्यास / मनपा लेआउट)",
     name_en: "Sale Deed: Plot in NIT/NMC Layout",
     language: "mr",
+    document_type: "deed",
     property_type: "plot",
     status: "approved",
   },
@@ -35,6 +36,7 @@ const DEFAULT_WAVE1_TEMPLATES = [
     name_mr: "सदनिका खरेदीखत (रेरा नोंदणीकृत इमारत)",
     name_en: "Sale Deed: Apartment / Flat",
     language: "mr",
+    document_type: "deed",
     property_type: "flat",
     status: "approved",
   },
@@ -44,6 +46,7 @@ const DEFAULT_WAVE1_TEMPLATES = [
     name_mr: "कुलमुखत्यारपत्र (General Power of Attorney)",
     name_en: "General Power of Attorney (GPA)",
     language: "mr",
+    document_type: "poa",
     property_type: "general",
     status: "approved",
   },
@@ -53,6 +56,7 @@ const DEFAULT_WAVE1_TEMPLATES = [
     name_mr: "इसारपावती / साठेखत (प्लॉट / सदनिका)",
     name_en: "Agreement to Sell: Plot / Flat",
     language: "mr",
+    document_type: "agreement",
     property_type: "plot",
     status: "approved",
   },

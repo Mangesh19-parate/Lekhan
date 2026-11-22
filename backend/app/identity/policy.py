@@ -165,9 +165,9 @@ def authorize(
         if action == "delete_document" and resource.is_finalized:
             return Decision.deny("Finalised documents cannot be deleted")
 
-        # Rule: Drafters can only view/edit documents they own
-        if actor.role == "drafter" and resource.resource_type == "document":
-            if action in ("view_document", "edit_document", "download_document"):
+        # Rule: Drafters can only view/edit/delete documents and drafts they own
+        if actor.role == "drafter" and resource.resource_type in ("document", "draft"):
+            if action in ("view_document", "edit_document", "download_document", "delete_document"):
                 if resource.owner_id is not None and resource.owner_id != actor.user_id:
                     return Decision.not_found("Resource not found")
 

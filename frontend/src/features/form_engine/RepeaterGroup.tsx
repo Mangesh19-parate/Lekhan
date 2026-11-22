@@ -275,7 +275,7 @@ export const RepeaterGroup: React.FC<Props> = ({
                     id={`${id}-${idx}-${fKey}`}
                     label={lang === "mr" ? fDef.label_mr || fKey : fDef.label_en || fKey}
                     type={fDef.type === "decimal" || fDef.type === "integer" ? "number" : fDef.type === "date" ? "date" : "text"}
-                    value={item[fKey] ?? ""}
+                    value={item[fKey] != null ? String(item[fKey]) : ""}
                     onChange={(e) => handleChange(idx, fKey, e.target.value)}
                     required={fDef.required}
                     requiredMarker={t("form.required")}

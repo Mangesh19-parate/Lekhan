@@ -104,7 +104,7 @@ export const SystemHealthView: React.FC<SystemHealthViewProps> = ({ onNavigate }
                 <Database size={18} color="var(--brand-600)" />
                 <span>PostgreSQL Database</span>
               </div>
-              <Badge variant={healthData.database?.status === "connected" ? "active" : "neutral"} size="sm" label={healthData.database?.status?.toUpperCase()} />
+              <Badge variant={healthData.database?.status === "connected" ? "active" : "neutral"} size="sm" label={healthData.database?.status?.toUpperCase() || "UNKNOWN"} />
             </div>
             <div style={{ backgroundColor: "var(--surface-sunken)", padding: "12px", borderRadius: "var(--radius-input)", fontSize: "0.8125rem", display: "flex", flexDirection: "column", gap: "4px" }}>
               <div><strong>Adapter:</strong> {healthData.database?.adapter}</div>
@@ -155,8 +155,8 @@ export const SystemHealthView: React.FC<SystemHealthViewProps> = ({ onNavigate }
               <Badge variant="active" size="sm" label="Active" />
             </div>
             <div style={{ backgroundColor: "var(--surface-sunken)", padding: "12px", borderRadius: "var(--radius-input)", fontSize: "0.8125rem", display: "flex", flexDirection: "column", gap: "4px" }}>
-              <div><strong>Pipeline:</strong> {healthData.worker_queue?.engine}</div>
-              <div><strong>Queued Jobs:</strong> {healthData.worker_queue?.queued_jobs}</div>
+              <div><strong>Pipeline:</strong> {String(healthData.worker_queue?.engine || "Default")}</div>
+              <div><strong>Queued Jobs:</strong> {String(healthData.worker_queue?.queued_jobs ?? 0)}</div>
               <div><strong>Execution Mode:</strong> Idempotent with Verification Gate</div>
             </div>
           </Card>

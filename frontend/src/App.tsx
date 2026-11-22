@@ -218,7 +218,7 @@ const AppShell: React.FC = () => {
   const handleResumeDraft = useCallback((draft: Record<string, unknown>) => {
     setResumeDraftData(draft);
     if (draft.templateId) {
-      setActiveTemplateId(draft.templateId);
+      setActiveTemplateId(String(draft.templateId));
     }
     setCurrentView("new_draft");
     localStorage.setItem("lekhan_current_view", "new_draft");
@@ -554,7 +554,7 @@ const AppShell: React.FC = () => {
             <DraftingWorkspace
               onNavigate={handleNavigate}
               activeTemplateId={activeTemplateId}
-              initialDraftData={resumeDraftData}
+              initialDraftData={resumeDraftData || undefined}
             />
           )}
 

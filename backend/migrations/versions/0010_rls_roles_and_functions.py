@@ -6,6 +6,7 @@ Create Date: 2026-11-14 13:38:00.000000
 
 """
 
+import os
 from typing import Sequence, Union
 
 from alembic import op
@@ -31,26 +32,29 @@ TENANT_TABLES = [
 
 def upgrade() -> None:
     # 1. Create the non-privileged application role if it doesn't already exist
+    app_password = os.environ.get("LEKHAN_APP_PASSWORD", "lekhan_app_dev_password").replace("'", "''")
     op.execute(
-        """
+        f"""
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'lekhan_app') THEN
-                CREATE ROLE lekhan_app WITH
-                    NOSUPERUSER
-                    NOCREATEDB
-                    NOCREATEROLE
-                    NOBYPASSRLS
-                    LOGIN
-                    PASSWORD 'lekhan_app_dev_password';
+                EXECUTE format('CREATE ROLE lekhan_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS LOGIN PASSWORD %L', '{app_password}');
             END IF;
         END
         $$;
         """
     )
 
-    # 2. Grant connection and schema usage
-    op.execute("GRANT CONNECT ON DATABASE lekhan_db TO lekhan_app;")
+    # 2. Grant connection and schema usage dynamically to current database
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            EXECUTE format('GRANT CONNECT ON DATABASE %I TO lekhan_app;', current_database());
+        END
+        $$;
+        """
+    )
     op.execute("GRANT USAGE ON SCHEMA public TO lekhan_app;")
 
     # 3. Grant DML permissions on existing and future tables

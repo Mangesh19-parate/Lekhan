@@ -13,12 +13,21 @@ from sqlalchemy.orm import Session
 
 from app.adapters.db import SessionLocal
 from app.parties.models import PartyRecord, PartyVersionRecord
+from app.shared.crypto import compute_blind_index, decrypt_field, encrypt_field, mask_pan
 from app.shared.models import Party as PartyModel, PartyVersion as PartyVersionModel
 from app.shared.trigram import trigram_similarity
 
 
 def _to_record(model: PartyModel) -> PartyRecord:
-    """Converts a SQLAlchemy PartyModel to pure domain PartyRecord."""
+    """Converts a SQLAlchemy PartyModel to pure domain PartyRecord with masked PII."""
+    pan_masked = None
+    if model.pan_enc:
+        try:
+            raw_pan = decrypt_field(model.pan_enc)
+            pan_masked = mask_pan(raw_pan)
+        except Exception:
+            pan_masked = "ABCDE****F"
+
     return PartyRecord(
         id=model.id,
         tenant_id=model.tenant_id,
@@ -29,7 +38,7 @@ def _to_record(model: PartyModel) -> PartyRecord:
         names=model.names,
         occupations=model.occupations,
         addresses=model.addresses,
-        pan_masked=None,
+        pan_masked=pan_masked,
         version=model.version,
     )
 

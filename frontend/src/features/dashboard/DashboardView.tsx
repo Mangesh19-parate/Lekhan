@@ -219,7 +219,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => onNavigate(alert.action_url)}
+                  onClick={() => alert.action_url && onNavigate(alert.action_url)}
                   rightIcon={<ArrowRight size={13} />}
                 >
                   {lang === "mr" ? "तपासा" : "Open"}
@@ -380,7 +380,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
       {/* Real-time Chamber Analytics & Metric Distributions */}
       <DashboardCharts
-        languageData={stats?.language_distribution || { mr: 18, en: 10 }}
+        languageData={{
+          mr: stats?.language_distribution?.mr ?? 18,
+          en: stats?.language_distribution?.en ?? 10,
+        }}
         statusData={{
           draft: stats?.drafts_in_progress || 8,
           under_review: stats?.pending_reviews || 6,
