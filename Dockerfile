@@ -33,8 +33,9 @@ FROM python:3.12-slim-bookworm AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
-    libreoffice-writer-nogpu \
-    libreoffice-calc-nogpu \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-nogpu \
     fonts-deva \
     fonts-lohit-deva \
     fonts-noto-core \

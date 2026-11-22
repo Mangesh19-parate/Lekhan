@@ -1136,6 +1136,26 @@ return (
                 {progressState.errorMessage}
               </div>
             )}
+            <div style={{ marginTop: "6px" }}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  const blob = new Blob(
+                    [JSON.stringify({ template_id: activeManifest.template_id, formData, repeatersData }, null, 2)],
+                    { type: "application/json" }
+                  );
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `${activeManifest.template_id}_draft_${new Date().toISOString().split("T")[0]}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                {lang === "mr" ? "मसुदा माहिती जतन करा (Download JSON)" : "Download Draft Data (JSON)"}
+              </Button>
+            </div>
           </div>
         )}
 

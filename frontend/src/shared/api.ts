@@ -471,12 +471,26 @@ export async function apiClient<T = unknown>(
     let extraData: unknown = null;
 
     try {
-      const errJson = (await res.json()) as Record<string, unknown>;
-      errorDetail = (errJson.detail || errJson.message || errorDetail) as string;
-      errorCode = (errJson.code || errorCode) as string;
-      extraData = errJson;
+      const text = await res.text();
+      try {
+        const errJson = JSON.parse(text) as Record<string, unknown>;
+        errorDetail = (errJson.detail || errJson.message || errorDetail) as string;
+        errorCode = (errJson.code || errorCode) as string;
+        extraData = errJson;
+      } catch {
+        // Body wasn't JSON
+        if (res.status === 403 && text.includes("not allowed by policy")) {
+          errorCode = "BACKEND_OFFLINE";
+          errorDetail = "The backend document generation service is not reachable on this host. Document generation requires the active backend worker.";
+        } else if (res.status === 404) {
+          errorCode = "ENDPOINT_NOT_FOUND";
+          errorDetail = `Backend endpoint ${endpoint} was not found (404).`;
+        } else {
+          errorDetail = text.slice(0, 150) || res.statusText;
+        }
+      }
     } catch {
-      // Body wasn't JSON
+      // Failed reading response body
     }
 
     throw new ApiError(errorDetail, res.status, errorCode, correlationId, extraData);
