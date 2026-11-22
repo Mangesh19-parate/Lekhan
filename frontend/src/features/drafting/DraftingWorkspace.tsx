@@ -16,6 +16,7 @@ import { PartySearchModal } from "../parties/PartySearchModal";
 import { PropertySearchModal } from "../properties/PropertySearchModal";
 import { TemplateSelectorModal, TemplateCatalogItem } from "../form_engine/TemplateSelectorModal";
 import { defaultManifest } from "../form_engine/sampleManifest";
+import { BUNDLED_MANIFESTS } from "../templates/bundledManifests";
 import { TemplateManifest } from "../form_engine/types";
 import {
   buildInitialFormData,
@@ -173,10 +174,19 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
   });
 
   const loadTemplateManifest = useCallback(async (templateId: string, resetFields: boolean) => {
+    let raw: (Partial<TemplateManifest> & { template_id: string }) | null = null;
     try {
-      const raw = await apiClient<Partial<TemplateManifest> & { template_id: string }>(
+      raw = await apiClient<Partial<TemplateManifest> & { template_id: string }>(
         `/api/v1/templates/${encodeURIComponent(templateId)}/manifest`
       );
+    } catch {
+      // Offline / static hosting fallback: use bundled schema
+      if (BUNDLED_MANIFESTS[templateId]) {
+        raw = BUNDLED_MANIFESTS[templateId] as Partial<TemplateManifest> & { template_id: string };
+      }
+    }
+
+    if (raw) {
       const normalized = normalizeManifest(raw);
       setActiveManifest(normalized);
       if (resetFields) {
@@ -186,11 +196,11 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
           normalized.sections[0]?.id || Object.keys(normalized.repeaters)[0] || ""
         );
       }
-    } catch (err: unknown) {
+    } else {
       toast({
         type: "error",
         title: lang === "mr" ? "साचा लोड होऊ शकला नाही" : "Failed to load template schema",
-        description: err instanceof Error ? err.message : templateId,
+        description: `Template '${templateId}' schema is unavailable offline.`,
       });
     }
   }, [lang, toast]);
