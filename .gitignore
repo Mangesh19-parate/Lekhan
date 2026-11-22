@@ -2,11 +2,8 @@
 .env
 .env.*
 !.env.example
-
-# Excluded documentation and agent design guides
-docs/
-AGENTS.md
-DESIGN.md
+deploy/secrets/
+*.secret
 
 # Private and confidential client samples (NEVER COMMIT)
 samples-private/
@@ -72,4 +69,13 @@ dist-ssr/
 *~
 .DS_Store
 Thumbs.db
+
+# AI Agent Skills
+.agent/skills/
+.claude/
+
+# Scratch test scripts
+check_page_errors.js
+test_all_views.js
+
 

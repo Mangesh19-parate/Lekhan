@@ -1,0 +1,61 @@
+{
+  "manifest_schema": 1,
+  "template_id": "general_agreement_mr",
+  "name_en": "General Agreement / Memorandum of Understanding",
+  "name_mr": "सर्वसाधारण करारनामा",
+  "version": 1,
+  "status": "draft",
+  "document_type": "general_agreement",
+  "property_type": "general",
+  "language": "mr",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "first_parties": {
+      "role": "first_party",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "First Party",
+      "label_mr": "प्रथम पक्षकार"
+    },
+    "second_parties": {
+      "role": "second_party",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Second Party",
+      "label_mr": "द्वितीय पक्षकार"
+    }
+  },
+  "repeaters": {
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "agreement_terms",
+      "title_en": "Agreement Terms",
+      "title_mr": "कराराच्या अटी व तपशील",
+      "field_names": [
+        "execution_date"
+      ]
+    }
+  ],
+  "fields": {
+    "execution_date": {
+      "name": "execution_date",
+      "type": "string",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त नोंदणी दिनांक",
+      "required": true
+    }
+  },
+  "clauses": [
+    "witness_attestation"
+  ]
+}

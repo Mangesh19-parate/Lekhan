@@ -58,21 +58,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
+
       {/* Toast container (bottom-left per DESIGN.md §4.8) */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          left: "20px",
-          zIndex: 1100,
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-          maxWidth: "420px",
-          width: "calc(100% - 40px)",
-          pointerEvents: "none",
-        }}
-      >
+      <div className="fixed bottom-5 left-5 z-[1100] flex flex-col gap-2 max-w-sm w-[calc(100%-40px)] pointer-events-none">
         {toasts.map((t) => {
           const isError = t.type === "error";
           const isSuccess = t.type === "success";
@@ -82,101 +70,55 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               key={t.id}
               role="status"
               aria-live="polite"
-              style={{
-                pointerEvents: "auto",
-                backgroundColor: "var(--surface-card)",
-                color: "var(--text-primary)",
-                border: `1px solid ${isError ? "var(--danger-border)" : isSuccess ? "var(--success-border)" : "var(--line-medium)"}`,
-                borderRadius: "var(--radius-card)",
-                boxShadow: "var(--shadow-elevated)",
-                padding: "14px 16px",
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "12px",
-                animation: "slideInUp 200ms cubic-bezier(0.16, 1, 0.3, 1)",
-              }}
+              className={`pointer-events-auto bg-card text-text-primary border rounded-card shadow-dialog p-4 flex items-start gap-3 animate-fade-in font-ui ${
+                isError
+                  ? "border-danger-border bg-danger-tint/20 dark:bg-card"
+                  : isSuccess
+                  ? "border-success-border bg-success-tint/20 dark:bg-card"
+                  : "border-line-medium bg-card"
+              }`}
             >
               <div className="shrink-0 mt-0.5">
-                {isSuccess && <CheckCircle2 size={18} color="var(--success-600)" />}
-                {isError && <AlertCircle size={18} color="var(--danger-600)" />}
-                {!isSuccess && !isError && <Info size={18} color="var(--brand-500)" />}
+                {isSuccess && <CheckCircle2 size={18} className="text-success-600 dark:text-success-500" />}
+                {isError && <AlertCircle size={18} className="text-danger-600 dark:text-danger-500" />}
+                {!isSuccess && !isError && <Info size={18} className="text-brand-500" />}
               </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{t.title}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm">{t.title}</div>
                 {t.description && (
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-                    {t.description}
-                  </div>
+                  <div className="text-xs text-text-secondary mt-0.5">{t.description}</div>
                 )}
                 {t.correlationId && (
-                  <div
-                    style={{
-                      marginTop: "6px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      fontSize: "0.75rem",
-                      color: "var(--text-tertiary)",
-                    }}
-                  >
-                    <span>ID: {t.correlationId}</span>
+                  <div className="mt-1.5 flex items-center gap-1.5 text-xs text-text-tertiary">
+                    <span className="font-mono text-[11px]">ID: {t.correlationId}</span>
                     <button
                       type="button"
                       onClick={() => handleCopyCorrelationId(t.correlationId!)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: "2px 4px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "2px",
-                        color: "var(--brand-600)",
-                        fontWeight: 600,
-                      }}
+                      className="p-0.5 hover:text-text-primary rounded"
+                      title="Copy correlation ID"
                     >
                       {copiedId === t.correlationId ? <Check size={12} /> : <Copy size={12} />}
-                      <span>{copiedId === t.correlationId ? "Copied" : "Copy"}</span>
                     </button>
                   </div>
                 )}
+                {t.action && (
+                  <button
+                    type="button"
+                    onClick={t.action.onClick}
+                    className="mt-2 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                  >
+                    {t.action.label}
+                  </button>
+                )}
               </div>
-
-              {t.action && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    t.action!.onClick();
-                    removeToast(t.id);
-                  }}
-                  style={{
-                    backgroundColor: "var(--surface-sunken)",
-                    border: "none",
-                    borderRadius: "var(--radius-pill)",
-                    padding: "4px 10px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    color: "var(--brand-600)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {t.action.label}
-                </button>
-              )}
 
               <button
                 type="button"
                 onClick={() => removeToast(t.id)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text-tertiary)",
-                  cursor: "pointer",
-                  padding: "2px",
-                }}
+                className="shrink-0 p-1 text-text-tertiary hover:text-text-primary rounded-input hover:bg-sunken transition-colors"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
           );
@@ -185,4 +127,3 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     </ToastContext.Provider>
   );
 };
-

@@ -17,8 +17,8 @@ export interface AdvisoryAlertItem {
 
 interface Props {
   templateId?: string;
-  formData: Record<string, any>;
-  repeatersData?: Record<string, any[]>;
+  formData: Record<string, unknown>;
+  repeatersData?: Record<string, Array<Record<string, unknown>>>;
 }
 
 export const AdvisoryBanner: React.FC<Props> = ({

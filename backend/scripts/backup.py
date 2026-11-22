@@ -57,36 +57,146 @@ def create_backup(
         manifest_entries: dict[str, str] = {}
 
         # 1. Snapshot database and in-memory services
+        documents_list: list[dict[str, Any]] = []
+        counters_list: list[dict[str, Any]] = []
+        audit_logs_list: list[dict[str, Any]] = []
+
+        # Check DB first if available
+        db_populated = False
+        try:
+            from app.adapters.db import SessionLocal, ping_db
+            from app.shared.models import (
+                AuditLog as AuditLogModel,
+                Counter as CounterModel,
+                Document as DocumentModel,
+            )
+
+            if ping_db():
+                with SessionLocal() as session:
+                    db_docs = session.query(DocumentModel).all()
+                    for d in db_docs:
+                        documents_list.append(
+                            {
+                                "id": str(d.id),
+                                "tenant_id": str(d.tenant_id),
+                                "template_version_id": str(d.template_version_id),
+                                "doc_no": d.doc_no,
+                                "engine_version": d.engine_version,
+                                "language": d.language,
+                                "data_snapshot": d.data_snapshot,
+                                "input_hash": d.input_hash.hex()
+                                if isinstance(d.input_hash, bytes)
+                                else str(d.input_hash),
+                                "output_hash": d.output_hash.hex()
+                                if isinstance(d.output_hash, bytes)
+                                else str(d.output_hash),
+                                "file_ref": d.file_ref,
+                                "pdf_ref": d.pdf_ref,
+                                "status": d.status,
+                                "created_at": d.created_at.isoformat()
+                                if hasattr(d.created_at, "isoformat")
+                                else str(d.created_at),
+                            }
+                        )
+                    db_counters = session.query(CounterModel).all()
+                    for c in db_counters:
+                        counters_list.append(
+                            {
+                                "tenant_id": str(c.tenant_id),
+                                "series_key": c.key,
+                                "year": c.year,
+                                "value": c.value,
+                            }
+                        )
+                    db_audit = session.query(AuditLogModel).order_by(AuditLogModel.id.asc()).all()
+                    for a in db_audit:
+                        audit_logs_list.append(
+                            {
+                                "id": a.id,
+                                "tenant_id": str(a.tenant_id),
+                                "actor_id": str(a.actor_id) if a.actor_id else None,
+                                "action": a.action,
+                                "entity": a.entity,
+                                "entity_id": a.entity_id,
+                                "at": a.at.isoformat()
+                                if hasattr(a.at, "isoformat")
+                                else str(a.at),
+                                "meta": a.meta,
+                                "prev_hash": a.prev_hash.hex() if a.prev_hash else None,
+                                "hash": a.hash.hex()
+                                if isinstance(a.hash, bytes)
+                                else str(a.hash),
+                            }
+                        )
+                    if db_docs or db_counters or db_audit:
+                        db_populated = True
+        except Exception as exc:
+            logger.debug("Database snapshot fallback to in-memory: %s", exc)
+
+        if not db_populated:
+            repo = getattr(generation_pipeline, "repository", None)
+            repo_docs = getattr(repo, "_documents", {}).values() if repo else []
+            for d in repo_docs:
+                documents_list.append(
+                    {
+                        "id": str(d.id),
+                        "tenant_id": str(d.tenant_id),
+                        "template_version_id": str(d.template_version_id),
+                        "doc_no": d.doc_no,
+                        "engine_version": d.engine_version,
+                        "language": d.language,
+                        "data_snapshot": d.data_snapshot,
+                        "input_hash": d.input_hash.hex()
+                        if isinstance(d.input_hash, bytes)
+                        else str(d.input_hash),
+                        "output_hash": d.output_hash.hex()
+                        if isinstance(d.output_hash, bytes)
+                        else str(d.output_hash),
+                        "file_ref": d.file_ref,
+                        "pdf_ref": d.pdf_ref,
+                        "status": d.status,
+                        "created_at": d.created_at.isoformat()
+                        if hasattr(d.created_at, "isoformat")
+                        else str(d.created_at),
+                    }
+                )
+            for k, v in document_numbering_service._counters.items():
+                counters_list.append(
+                    {
+                        "tenant_id": str(k.tenant_id),
+                        "series_key": k.series_key,
+                        "year": k.year,
+                        "value": v,
+                    }
+                )
+            from app.audit.service import audit_service
+            for tid, records in getattr(audit_service._repository, "_logs", {}).items():
+                for r in records:
+                    audit_logs_list.append(
+                        {
+                            "id": r.id,
+                            "tenant_id": str(r.tenant_id),
+                            "actor_id": str(r.actor_id) if r.actor_id else None,
+                            "action": r.action,
+                            "entity": r.entity,
+                            "entity_id": r.entity_id,
+                            "at": r.at.isoformat()
+                            if hasattr(r.at, "isoformat")
+                            else str(r.at),
+                            "meta": r.meta,
+                            "prev_hash": r.prev_hash.hex() if r.prev_hash else None,
+                            "hash": r.hash.hex()
+                            if isinstance(r.hash, bytes)
+                            else str(r.hash),
+                        }
+                    )
+
         db_snapshot: dict[str, Any] = {
             "version": "1.0.0",
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "documents": [
-                {
-                    "id": str(d.id),
-                    "tenant_id": str(d.tenant_id),
-                    "template_version_id": str(d.template_version_id),
-                    "doc_no": d.doc_no,
-                    "engine_version": d.engine_version,
-                    "language": d.language,
-                    "data_snapshot": d.data_snapshot,
-                    "input_hash": d.input_hash.hex(),
-                    "output_hash": d.output_hash.hex(),
-                    "file_ref": d.file_ref,
-                    "pdf_ref": d.pdf_ref,
-                    "status": d.status,
-                    "created_at": d.created_at,
-                }
-                for d in generation_pipeline._documents.values()
-            ],
-            "counters": [
-                {
-                    "tenant_id": str(k.tenant_id),
-                    "series_key": k.series_key,
-                    "year": k.year,
-                    "value": v,
-                }
-                for k, v in document_numbering_service._counters.items()
-            ],
+            "documents": documents_list,
+            "counters": counters_list,
+            "audit_logs": audit_logs_list,
         }
 
         db_file = data_dir / "db_snapshot.json"

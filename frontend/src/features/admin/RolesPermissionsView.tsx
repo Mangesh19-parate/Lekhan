@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type RolesPermissionsResponse, type SeparationOfDutiesRule } from "../../shared/api";
 import { Button, Badge, Card, Skeleton } from "../../shared/components";
 import {
   ShieldCheck,
@@ -17,7 +17,7 @@ interface RolesPermissionsViewProps {
 export const RolesPermissionsView: React.FC<RolesPermissionsViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [rbacData, setRbacData] = useState<any | null>(null);
+  const [rbacData, setRbacData] = useState<RolesPermissionsResponse | null>(null);
 
   const fetchMatrix = async () => {
     setLoading(true);
@@ -36,12 +36,12 @@ export const RolesPermissionsView: React.FC<RolesPermissionsViewProps> = ({ onNa
   }, []);
 
   const roles = rbacData?.roles || ["admin", "template_admin", "reviewer", "drafter"];
-  const matrix = rbacData?.matrix || {};
+  const matrix: Record<string, string[]> = rbacData?.matrix || {};
   
   // Extract all distinct actions across roles
   const allActions = Array.from(
-    new Set(Object.values(matrix).flatMap((actions: any) => actions))
-  ).sort() as string[];
+    new Set(Object.values(matrix).flatMap((actions: string[]) => actions))
+  ).sort();
 
   return (
     <div style={{ padding: "28px", maxWidth: "1440px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -75,7 +75,7 @@ export const RolesPermissionsView: React.FC<RolesPermissionsViewProps> = ({ onNa
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "14px" }}>
-            {rbacData.separation_of_duties.map((sod: any, idx: number) => (
+            {rbacData.separation_of_duties.map((sod: SeparationOfDutiesRule, idx: number) => (
               <div
                 key={idx}
                 style={{

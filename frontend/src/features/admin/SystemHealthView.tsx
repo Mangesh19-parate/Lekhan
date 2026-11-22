@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type SystemHealthResponse } from "../../shared/api";
 import { Button, Badge, Card, Skeleton } from "../../shared/components";
 import {
   Activity,
@@ -22,7 +22,7 @@ interface SystemHealthViewProps {
 export const SystemHealthView: React.FC<SystemHealthViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [healthData, setHealthData] = useState<any | null>(null);
+  const [healthData, setHealthData] = useState<SystemHealthResponse | null>(null);
 
   const fetchHealth = async () => {
     setLoading(true);

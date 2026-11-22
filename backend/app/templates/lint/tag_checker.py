@@ -90,8 +90,8 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
                                             (info.filename, p_idx)
                                         )
 
-                except Exception:
-                    pass
+                except (ET.ParseError, UnicodeDecodeError, KeyError):
+                    continue
 
     return found_vars, locations
 

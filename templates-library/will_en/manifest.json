@@ -1,0 +1,84 @@
+{
+  "manifest_schema": 1,
+  "template_id": "will_en",
+  "name_en": "Last Will and Testament",
+  "name_mr": "मृत्युपत्र (इच्छापत्र)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "will",
+  "property_type": "residential",
+  "language": "en",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "testators": {
+      "role": "testator",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Testator(s)",
+      "label_mr": "इच्छापत्र / मृत्युपत्र करणारे (चाचणीकार)"
+    },
+    "beneficiaries": {
+      "role": "beneficiary",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Beneficiary(ies)",
+      "label_mr": "वारसदार / लाभार्थी"
+    }
+  },
+  "repeaters": {
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_schedule",
+      "title_en": "Property Schedule",
+      "title_mr": "मिळकतीचे वर्णन",
+      "field_names": [
+        "property.mouza",
+        "property.khasra_no",
+        "property.area_sqm"
+      ]
+    }
+  ],
+  "fields": {
+    "execution_date": {
+      "name": "execution_date",
+      "type": "string",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त नोंदणी दिनांक",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza / Village",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra / Survey No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.area_sqm": {
+      "name": "property.area_sqm",
+      "type": "decimal",
+      "label_en": "Area (Sq. Metres)",
+      "label_mr": "क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    }
+  },
+  "clauses": [
+    "witness_attestation"
+  ]
+}

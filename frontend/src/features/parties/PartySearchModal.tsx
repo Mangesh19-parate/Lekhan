@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal, Input, Button, Badge, EmptyState } from "../../shared/components";
 import { useI18n } from "../../shared/i18n";
+import { apiClient } from "../../shared/api";
 import { Search, UserCheck, Shield, MapPin, Briefcase, Sparkles, Building2, User } from "lucide-react";
 
 export interface PartySearchResult {
@@ -67,19 +68,14 @@ export const PartySearchModal: React.FC<Props> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/parties/search?q=${encodeURIComponent(searchTerm.trim())}&limit=10`, {
-        headers: { "Accept": "application/json" },
-        credentials: "include",
-      });
-      if (!res.ok) {
-        throw new Error(`Search failed: HTTP ${res.status}`);
-      }
-      const data: PartyMatch[] = await res.json();
+      const data = await apiClient<PartyMatch[]>(
+        `/api/v1/parties/search?q=${encodeURIComponent(searchTerm.trim())}&limit=10`
+      );
       setResults(data);
       setSearched(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Party search error:", err);
-      setError(err.message || "Failed to search parties");
+      setError(err instanceof Error ? err.message : "Failed to search parties");
       setResults([]);
     } finally {
       setIsLoading(false);

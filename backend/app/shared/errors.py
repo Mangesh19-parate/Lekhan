@@ -26,6 +26,13 @@ class AppError(Exception):
         self.errors = errors or []
 
 
+class InvalidAmountError(AppError, ValueError):
+    """Raised when monetary or numerical amount is negative, non-finite, or exceeds bounds."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message=message, code="INVALID_AMOUNT", status_code=422)
+
+
 def problem_json_response(
     status_code: int,
     code: str,

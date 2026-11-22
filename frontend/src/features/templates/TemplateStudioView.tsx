@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type TemplateSummaryItem, type LintReport } from "../../shared/api";
 import { Button, Badge, Card, Select, Modal, Skeleton } from "../../shared/components";
 import {
   FileCode,
@@ -13,6 +13,8 @@ import {
   RotateCcw,
   RefreshCw,
   FileText,
+  Send,
+  Archive,
 } from "lucide-react";
 
 interface TemplateStudioViewProps {
@@ -22,12 +24,77 @@ interface TemplateStudioViewProps {
 export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<TemplateSummaryItem[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("sale_deed_plot_mr");
-  const [lintReport, setLintReport] = useState<any | null>(null);
+  const [lintReport, setLintReport] = useState<LintReport | null>(null);
   const [linting, setLinting] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadDocxFile, setUploadDocxFile] = useState<File | null>(null);
+  const [uploadManifestFile, setUploadManifestFile] = useState<File | null>(null);
+  const [uploadTemplateId, setUploadTemplateId] = useState<string>("sale_deed_plot_mr");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadResultReport, setUploadResultReport] = useState<LintReport | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
+  const [lifecycleMessage, setLifecycleMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleSubmitForReview = async (tId: string) => {
+    setLifecycleLoading(true);
+    setLifecycleMessage(null);
+    try {
+      await api.submitTemplate(tId);
+      setLifecycleMessage({
+        type: "success",
+        text: lang === "mr" ? "साचा पुनरावलोकनासाठी यशस्वीरित्या पाठवला." : "Template submitted for review successfully."
+      });
+      await fetchTemplates();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Submission failed";
+      setLifecycleMessage({ type: "error", text: msg });
+    } finally {
+      setLifecycleLoading(false);
+    }
+  };
+
+  const handleApproveTemplate = async (tId: string) => {
+    setLifecycleLoading(true);
+    setLifecycleMessage(null);
+    try {
+      await api.approveTemplate(tId);
+      setLifecycleMessage({
+        type: "success",
+        text: lang === "mr" ? "साचा उत्पादन वापरासाठी मंजूर केला गेला." : "Template approved for production use."
+      });
+      await fetchTemplates();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Approval failed";
+      setLifecycleMessage({ type: "error", text: msg });
+    } finally {
+      setLifecycleLoading(false);
+    }
+  };
+
+  const handleRetireTemplate = async (tId: string) => {
+    if (!window.confirm(lang === "mr" ? "तुम्हाला हा साचा निवृत्त करायचा आहे का?" : "Are you sure you want to retire this template?")) {
+      return;
+    }
+    setLifecycleLoading(true);
+    setLifecycleMessage(null);
+    try {
+      await api.retireTemplate(tId);
+      setLifecycleMessage({
+        type: "success",
+        text: lang === "mr" ? "साचा निवृत्त करण्यात आला." : "Template retired successfully."
+      });
+      await fetchTemplates();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Retirement failed";
+      setLifecycleMessage({ type: "error", text: msg });
+    } finally {
+      setLifecycleLoading(false);
+    }
+  };
 
   const fetchTemplates = async () => {
     setLoading(true);
@@ -56,8 +123,9 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
     try {
       const report = await api.lintTemplate(idToLint);
       setLintReport(report);
-    } catch (err: any) {
-      alert("Linter failed: " + (err?.message || "Check template files"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Check template files";
+      alert("Linter failed: " + msg);
     } finally {
       setLinting(false);
     }
@@ -172,13 +240,81 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "12px", borderTop: "1px solid var(--line-subtle)" }}>
                   <Button
                     size="md"
-                    variant="primary"
+                    variant="secondary"
                     onClick={() => handleRunLinter(selectedTemplateId)}
-                    disabled={linting}
+                    disabled={linting || lifecycleLoading}
                     leftIcon={<Play size={15} />}
                   >
                     {linting ? "Linting Template..." : "Re-Run DocxLinter"}
                   </Button>
+
+                  {/* Template Submission (draft -> under_review) */}
+                  {(!currentTmpl?.status || currentTmpl.status === "draft") && (
+                    <Button
+                      size="md"
+                      variant="primary"
+                      onClick={() => handleSubmitForReview(selectedTemplateId)}
+                      disabled={lifecycleLoading || linting}
+                      leftIcon={<Send size={15} />}
+                    >
+                      {lifecycleLoading ? "Submitting..." : lang === "mr" ? "पुनरावलोकनासाठी पाठवा (Submit)" : "Submit for Review"}
+                    </Button>
+                  )}
+
+                  {/* Template Approval (under_review -> approved) */}
+                  {currentTmpl?.status === "under_review" && (
+                    <Button
+                      size="md"
+                      variant="primary"
+                      onClick={() => handleApproveTemplate(selectedTemplateId)}
+                      disabled={lifecycleLoading || linting || (lintReport && !lintReport.can_approve)}
+                      leftIcon={<CheckCircle2 size={15} />}
+                    >
+                      {lifecycleLoading ? "Approving..." : lang === "mr" ? "साचा मंजूर करा (Approve)" : "Approve Template"}
+                    </Button>
+                  )}
+
+                  {/* Template Retirement (approved -> retired) */}
+                  {currentTmpl?.status === "approved" && (
+                    <Button
+                      size="md"
+                      variant="secondary"
+                      onClick={() => handleRetireTemplate(selectedTemplateId)}
+                      disabled={lifecycleLoading || linting}
+                      leftIcon={<Archive size={15} />}
+                      style={{ color: "var(--danger-600)", borderColor: "var(--danger-border, #FCA5A5)" }}
+                    >
+                      {lifecycleLoading ? "Retiring..." : lang === "mr" ? "साचा निवृत्त करा (Retire)" : "Retire Template"}
+                    </Button>
+                  )}
+
+                  {/* Separation of Duties & Lifecycle Status Alerts */}
+                  {lifecycleMessage && (
+                    <div
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: "var(--radius-input)",
+                        fontSize: "0.8125rem",
+                        marginTop: "8px",
+                        backgroundColor: lifecycleMessage.type === "error" ? "var(--danger-50, #FEF2F2)" : "var(--brand-50, #F0FDF4)",
+                        border: `1px solid ${lifecycleMessage.type === "error" ? "var(--danger-border, #FCA5A5)" : "var(--brand-500, #22C55E)"}`,
+                        color: lifecycleMessage.type === "error" ? "var(--danger-600, #991B1B)" : "var(--brand-900, #14532D)",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "8px",
+                      }}
+                    >
+                      {lifecycleMessage.type === "error" ? (
+                        <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                      ) : (
+                        <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                      )}
+                      <div>
+                        <strong>{lifecycleMessage.type === "error" ? (lifecycleMessage.text.includes("Separation of duties") ? "Separation of Duties Notice: " : "Action Failed: ") : "Success: "}</strong>
+                        <span>{lifecycleMessage.text}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -244,7 +380,7 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
                   <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--danger-600)" }}>
                     Approval-Blocking Findings:
                   </span>
-                  {lintReport.errors.map((err: any, idx: number) => (
+                  {lintReport.errors.map((err, idx: number) => (
                     <div
                       key={idx}
                       style={{
@@ -297,29 +433,224 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
       {/* Upload Modal */}
       <Modal
         isOpen={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
+        onClose={() => {
+          setUploadModalOpen(false);
+          setUploadResultReport(null);
+          setUploadError(null);
+        }}
         title={lang === "mr" ? "नवीन साचा आवृत्ती अपलोड करा" : "Upload Template Version"}
-        maxWidth="550px"
+        maxWidth="600px"
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "14px", fontSize: "0.875rem" }}>
           <p style={{ margin: 0, color: "var(--text-secondary)" }}>
             Upload a prepared legal deed DOCX and its companion <code>manifest.json</code> schema definition.
           </p>
-          <div style={{ border: "2px dashed var(--line-subtle)", borderRadius: "var(--radius-card)", padding: "24px", textAlign: "center" }}>
-            <Upload size={32} color="var(--text-tertiary)" style={{ margin: "0 auto 8px auto" }} />
-            <div style={{ fontWeight: 600 }}>Drag & drop DOCX and manifest.json here</div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: "4px" }}>
-              Must satisfy OpenXML Legal paper size and PAGE fields.
+
+          {uploadError && (
+            <div style={{ padding: "10px 14px", borderRadius: "var(--radius-input)", backgroundColor: "#FEF2F2", border: "1px solid #F87171", color: "#991B1B" }}>
+              <strong>Error:</strong> {uploadError}
             </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-            <Button size="sm" variant="secondary" onClick={() => setUploadModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" variant="primary" onClick={() => { setUploadModalOpen(false); alert("Uploaded template queued for DocxLinter verification."); }}>
-              Submit Version
-            </Button>
-          </div>
+          )}
+
+          {uploadResultReport ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: "var(--radius-input)",
+                  backgroundColor: uploadResultReport.can_approve ? "var(--brand-100)" : "#FEF2F2",
+                  border: `1px solid ${uploadResultReport.can_approve ? "var(--brand-500)" : "#EF4444"}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {uploadResultReport.can_approve ? (
+                    <CheckCircle2 size={20} color="var(--brand-600)" />
+                  ) : (
+                    <XCircle size={20} color="#DC2626" />
+                  )}
+                  <span style={{ fontWeight: 600 }}>
+                    {uploadResultReport.can_approve ? "Lint Passed - Draft Created" : "Lint Failed - Flaws Detected"}
+                  </span>
+                </div>
+                <Badge
+                  variant={uploadResultReport.can_approve ? "approved" : "danger"}
+                  size="sm"
+                  label={uploadResultReport.can_approve ? "Can Approve" : "Approval Blocked"}
+                />
+              </div>
+
+              {/* Errors List */}
+              {Array.isArray(uploadResultReport.errors) && uploadResultReport.errors.length > 0 && (
+                <div style={{ padding: "12px", borderRadius: "var(--radius-input)", backgroundColor: "#FFF1F2", border: "1px solid #FECDD3" }}>
+                  <div style={{ fontWeight: 700, color: "#9F1239", marginBottom: "6px" }}>Errors:</div>
+                  <ul style={{ margin: 0, paddingLeft: "18px" }}>
+                    {uploadResultReport.errors.map((err, i) => (
+                      <li key={i} style={{ fontSize: "0.8125rem" }}><strong>{err.code}:</strong> {err.message}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Leftover Data */}
+              {Array.isArray(uploadResultReport.leftover_data) && uploadResultReport.leftover_data.length > 0 && (
+                <div style={{ padding: "12px", borderRadius: "var(--radius-input)", backgroundColor: "#FFF7ED", border: "1px solid #FED7AA" }}>
+                  <div style={{ fontWeight: 700, color: "#9A3412", marginBottom: "6px" }}>Leftover Client PII:</div>
+                  <ul style={{ margin: 0, paddingLeft: "18px" }}>
+                    {uploadResultReport.leftover_data.map((l, i) => (
+                      <li key={i} style={{ fontSize: "0.8125rem" }}>{l.category || "PII"} (x{l.count || 1}): {l.masked_sample || ""}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    setUploadModalOpen(false);
+                    setUploadResultReport(null);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Target Template ID:</label>
+                <input
+                  type="text"
+                  value={uploadTemplateId}
+                  onChange={(e) => setUploadTemplateId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: "var(--radius-input)",
+                    border: "1px solid var(--line-subtle)",
+                    marginTop: "4px",
+                    fontSize: "0.875rem",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.8125rem", fontWeight: 600 }}>DOCX Template File (.docx):</label>
+                <input
+                  type="file"
+                  accept=".docx"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setUploadDocxFile(e.target.files[0]);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "var(--radius-input)",
+                    border: "1px solid var(--line-subtle)",
+                    marginTop: "4px",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Optional manifest.json (or uses active schema):</label>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setUploadManifestFile(e.target.files[0]);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "var(--radius-input)",
+                    border: "1px solid var(--line-subtle)",
+                    marginTop: "4px",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setUploadModalOpen(false)}
+                  disabled={uploading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={uploading || !uploadDocxFile}
+                  onClick={async () => {
+                    if (!uploadDocxFile) {
+                      setUploadError("Please choose a .docx template file.");
+                      return;
+                    }
+                    setUploading(true);
+                    setUploadError(null);
+                    try {
+                      let manifestContent = "{}";
+                      if (uploadManifestFile) {
+                        manifestContent = await uploadManifestFile.text();
+                      } else {
+                        try {
+                          const existing = await api.getTemplateManifest(uploadTemplateId);
+                          manifestContent = JSON.stringify(existing);
+                        } catch {
+                          manifestContent = JSON.stringify({
+                            manifest_schema: 1,
+                            template_id: uploadTemplateId,
+                            name_en: uploadTemplateId,
+                            name_mr: uploadTemplateId,
+                            version: 1,
+                            status: "draft",
+                            document_type: "sale_deed",
+                            property_type: "general",
+                            language: "mr",
+                            page_size: "legal",
+                            digits_setting: "western",
+                            retention_class: "matter_lifecycle",
+                            parties: {},
+                            repeaters: {},
+                            sections: [],
+                            fields: {},
+                            derived_fields: {},
+                            validations: [],
+                          });
+                        }
+                      }
+
+                      const formData = new FormData();
+                      formData.append("template_id", uploadTemplateId);
+                      formData.append("docx_file", uploadDocxFile);
+                      formData.append("manifest_json", manifestContent);
+
+                      const res = await api.uploadTemplate(formData);
+                      setUploadResultReport(res.lint_report);
+                      fetchTemplates();
+                    } catch (err: unknown) {
+                      const msg = err instanceof Error ? err.message : "Failed to upload template";
+                      setUploadError(msg);
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                >
+                  {uploading ? "Uploading & Linting..." : "Upload & Run Linter"}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

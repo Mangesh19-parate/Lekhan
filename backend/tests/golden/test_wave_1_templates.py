@@ -387,3 +387,44 @@ def test_openxml_compliance(tmpl_rel_path: str) -> None:
         # 3. Check Legal paper dimensions (12240 x 20160 dxa)
         doc_xml = zf.read("word/document.xml").decode("utf-8")
         assert 'w:w="12240"' in doc_xml and 'w:h="20160"' in doc_xml
+
+
+# ---------------------------------------------------------------------------
+# Wave 1 Hindi Templates (hindi.py language pack integration)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "tmpl_id",
+    [
+        "sale_deed_plot_hi",
+        "agreement_to_sell_plot_hi",
+        "sale_deed_flat_hi",
+        "agreement_to_sell_flat_hi",
+        "general_poa_hi",
+        "sale_deed_shop_hi",
+        "sale_deed_agricultural_hi",
+        "release_deed_hi",
+    ],
+)
+def test_wave_1_hindi_templates_lint_and_compiler(tmpl_id: str) -> None:
+    """Verifies that each Wave 1 Hindi template compiles with Schema v1 and passes DocxLinter."""
+    tmpl_dir = TEMPLATES_DIR / tmpl_id
+    manifest_path = tmpl_dir / "manifest.json"
+    docx_path = tmpl_dir / "template.docx"
+
+    assert manifest_path.exists(), f"Missing manifest for {tmpl_id}"
+    assert docx_path.exists(), f"Missing template.docx for {tmpl_id}"
+
+    raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert raw_manifest["language"] == "hi"
+    assert raw_manifest["status"] == "draft"
+
+    compiled = ManifestCompiler().compile(raw_manifest)
+    assert compiled.template_id == tmpl_id
+
+    report = DocxLinter().lint(docx_path.read_bytes(), manifest=raw_manifest)
+    assert report.can_approve is True, f"Lint failed on {tmpl_id}: {report.errors}"
+    assert len(report.leftover_data) == 0, f"Leftover data found in {tmpl_id}: {report.leftover_data}"
+    assert len(report.errors) == 0, f"Errors in {tmpl_id}: {report.errors}"
+

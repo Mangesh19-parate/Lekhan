@@ -12,11 +12,11 @@ export interface ModalProps {
   size?: "sm" | "md" | "lg" | "xl";
 }
 
-const SIZE_MAP: Record<string, string> = {
-  sm: "440px",
-  md: "560px",
-  lg: "720px",
-  xl: "880px",
+const SIZE_CLASSES: Record<string, string> = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
 };
 
 export const Modal: React.FC<ModalProps> = ({
@@ -30,9 +30,7 @@ export const Modal: React.FC<ModalProps> = ({
   size = "md",
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
-  const resolvedMaxWidth = maxWidth || SIZE_MAP[size] || "560px";
 
-  // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -56,122 +54,43 @@ export const Modal: React.FC<ModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-        backgroundColor: "var(--surface-overlay)",
-        backdropFilter: "blur(3px)",
-        animation: "fadeIn 150ms ease-out",
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-900/60 dark:bg-black/75 backdrop-blur-sm animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         ref={modalRef}
-        style={{
-          width: "100%",
-          maxWidth: resolvedMaxWidth,
-          backgroundColor: "var(--surface-card)",
-          borderRadius: "var(--radius-card)",
-          boxShadow: "var(--shadow-dialog)",
-          border: "1px solid var(--line-medium)",
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: "90vh",
-          overflow: "hidden",
-          animation: "scaleUp 180ms cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
+        style={maxWidth ? { maxWidth } : undefined}
+        className={`w-full ${SIZE_CLASSES[size] || "max-w-lg"} bg-card border border-line-subtle rounded-card shadow-dialog flex flex-col max-h-[90vh] overflow-hidden font-ui`}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: "18px 24px",
-            borderBottom: "1px solid var(--line-subtle)",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            backgroundColor: "var(--surface-subtle)",
-          }}
-        >
+        <div className="flex items-center justify-between p-5 border-b border-line-subtle bg-subtle dark:bg-sunken/40">
           <div>
-            <h2
-              id="modal-title"
-              style={{
-                margin: 0,
-                fontSize: "1.125rem",
-                fontWeight: 700,
-                color: "var(--brand-900)",
-                fontFamily: "var(--font-ui)",
-              }}
-            >
+            <h2 id="modal-title" className="text-base font-semibold text-text-primary">
               {title}
             </h2>
             {description && (
-              <p
-                style={{
-                  margin: "4px 0 0 0",
-                  fontSize: "0.8125rem",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                {description}
-              </p>
+              <p className="text-xs text-text-secondary mt-0.5">{description}</p>
             )}
           </div>
           <button
-            type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--text-secondary)",
-              padding: "6px",
-              borderRadius: "var(--radius-input)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "background-color var(--transition-fast), color var(--transition-fast)",
-            }}
-            className="hover:bg-[var(--surface-sunken)] hover:text-[var(--text-primary)]"
+            className="p-1 rounded-input text-text-secondary hover:text-text-primary hover:bg-sunken transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Content Body */}
-        <div
-          style={{
-            padding: "24px",
-            overflowY: "auto",
-            flex: 1,
-            fontSize: "0.875rem",
-            color: "var(--text-primary)",
-          }}
-        >
+        {/* Body */}
+        <div className="p-6 overflow-y-auto flex-1 text-sm text-text-primary space-y-4">
           {children}
         </div>
 
-        {/* Optional Footer */}
+        {/* Footer */}
         {footer && (
-          <div
-            style={{
-              padding: "16px 24px",
-              borderTop: "1px solid var(--line-subtle)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              gap: "12px",
-              backgroundColor: "var(--surface-subtle)",
-            }}
-          >
+          <div className="flex items-center justify-end gap-2.5 p-4 border-t border-line-subtle bg-subtle dark:bg-sunken/40">
             {footer}
           </div>
         )}
@@ -179,4 +98,3 @@ export const Modal: React.FC<ModalProps> = ({
     </div>
   );
 };
-

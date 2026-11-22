@@ -7,6 +7,10 @@ from app.lang_packs.english import (
     number_to_words_en,
     words_to_number_en,
 )
+from app.lang_packs.hindi import (
+    HindiLanguagePack,
+    number_to_words_hi,
+)
 from app.lang_packs.marathi import (
     MarathiLanguagePack,
     format_currency_indian_mr,
@@ -22,6 +26,7 @@ from app.lang_packs.registry import get_language_pack, get_template_filters
 
 __all__ = [
     "EnglishLanguagePack",
+    "HindiLanguagePack",
     "LanguagePack",
     "MarathiLanguagePack",
     "format_currency_indian_en",
@@ -32,6 +37,7 @@ __all__ = [
     "get_template_filters",
     "join_party_names_mr",
     "number_to_words_en",
+    "number_to_words_hi",
     "number_to_words_mr",
     "to_devanagari_digits",
     "to_western_digits",

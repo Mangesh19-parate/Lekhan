@@ -25,6 +25,9 @@ import { RolesPermissionsView } from "./features/admin/RolesPermissionsView";
 import { AuditTrailView } from "./features/admin/AuditTrailView";
 import { SystemSettingsView } from "./features/admin/SystemSettingsView";
 import { SystemHealthView } from "./features/admin/SystemHealthView";
+import { SecuritySettingsView } from "./features/admin/SecuritySettingsView";
+import { PilotStatsView } from "./features/admin/PilotStatsView";
+import { StepperWizard } from "./features/drafting/StepperWizard";
 
 import {
   LayoutDashboard,
@@ -56,10 +59,13 @@ import {
   LogIn,
   Sparkles,
   Check,
+  Menu,
+  X,
 } from "lucide-react";
 
 type ViewId =
   | "overview"
+  | "wizard"
   | "new_draft"
   | "my_documents"
   | "drafts_pending"
@@ -77,13 +83,16 @@ type ViewId =
   | "roles_permissions"
   | "audit_trail"
   | "system_settings"
-  | "system_health";
+  | "system_health"
+  | "security_settings"
+  | "pilot_stats"
+  | "not_found";
 
 interface NavItem {
   id: ViewId;
   labelEn: string;
   labelMr: string;
-  icon: any;
+  icon: React.ComponentType<{ size?: number | string; className?: string; color?: string }>;
   badge?: string;
 }
 
@@ -95,45 +104,48 @@ interface NavSection {
 
 const NAVIGATION_SECTIONS: NavSection[] = [
   {
-    titleEn: "WORKSPACE",
-    titleMr: "कार्यक्षेत्र",
+    titleEn: "DRAFTING & MATTERS",
+    titleMr: "मसुदा व प्रकरणे",
     items: [
-      { id: "overview", labelEn: "Overview", labelMr: "आढावा", icon: LayoutDashboard },
-      { id: "new_draft", labelEn: "New Draft", labelMr: "नवीन मसुदा", icon: FilePlus },
-      { id: "my_documents", labelEn: "My Documents", labelMr: "माझे दस्तऐवज", icon: FileText },
-      { id: "drafts_pending", labelEn: "Drafts & Pending", labelMr: "प्रलंबित मसुदे", icon: Clock },
-      { id: "review_center", labelEn: "Review Center", labelMr: "तपासणी केंद्र", icon: ShieldCheck },
+      { id: "overview", labelEn: "Chamber Overview", labelMr: "दफ्तर आढावा", icon: LayoutDashboard },
+      { id: "wizard", labelEn: "Drafting Wizard", labelMr: "मसुदा सहाय्यक", icon: Sparkles },
+      { id: "new_draft", labelEn: "New Deed Draft", labelMr: "नवीन दस्त मसुदा", icon: FilePlus },
+      { id: "my_documents", labelEn: "Deed Register", labelMr: "दस्तऐवज नोंदवही", icon: FileText },
+      { id: "drafts_pending", labelEn: "Active Drafts", labelMr: "चालू मसुदे", icon: Clock },
+      { id: "review_center", labelEn: "Advocate Review", labelMr: "वकील तपासणी", icon: ShieldCheck },
     ],
   },
   {
-    titleEn: "DOCUMENT OPERATIONS",
-    titleMr: "दस्त कामकाज",
+    titleEn: "CHAMBER REGISTERS",
+    titleMr: "दफ्तर नोंदवह्या",
     items: [
-      { id: "template_library", labelEn: "Template Library", labelMr: "साचा ग्रंथालय", icon: Layers },
+      { id: "template_library", labelEn: "Approved Templates", labelMr: "मान्य साचे", icon: Layers },
       { id: "template_studio", labelEn: "Template Studio", labelMr: "साचा स्टुडिओ", icon: FileCode },
-      { id: "party_directory", labelEn: "Party Directory", labelMr: "पक्षकार सूची", icon: Users },
-      { id: "property_directory", labelEn: "Property Directory", labelMr: "मिळकती सूची", icon: MapPin },
-      { id: "document_archive", labelEn: "Document Archive", labelMr: "अभिलेखागार", icon: Archive },
+      { id: "party_directory", labelEn: "Party Directory", labelMr: "पक्षकार नोंदवही", icon: Users },
+      { id: "property_directory", labelEn: "Property Register", labelMr: "मिळकत नोंदवही", icon: MapPin },
+      { id: "document_archive", labelEn: "Deed Archive", labelMr: "अभिलेखागार", icon: Archive },
     ],
   },
   {
-    titleEn: "INTELLIGENCE",
-    titleMr: "दस्त बुद्धिमत्ता",
+    titleEn: "STATUTORY VERIFICATION",
+    titleMr: "वैधानिक पडताळणी",
     items: [
-      { id: "document_quality", labelEn: "Document Quality", labelMr: "गुणवत्ता तपासणी", icon: CheckCircle2 },
-      { id: "validation_center", labelEn: "Validation Center", labelMr: "नियम पडताळणी", icon: Cpu },
-      { id: "advisory_center", labelEn: "Advisory Center", labelMr: "कायदेशीर सल्ला", icon: HelpCircle },
-      { id: "registration_data", labelEn: "Registration Data", labelMr: "नोंदणी डेटा (PDE)", icon: ExternalLink },
+      { id: "document_quality", labelEn: "Quality & Lint Check", labelMr: "गुणवत्ता व लिंट", icon: CheckCircle2 },
+      { id: "validation_center", labelEn: "Statutory Rules", labelMr: "कायदेशीर नियम", icon: Cpu },
+      { id: "advisory_center", labelEn: "Legal Advisory", labelMr: "कायदेशीर सल्ला", icon: HelpCircle },
+      { id: "registration_data", labelEn: "Sub-Registrar PDE", labelMr: "नोंदणी डेटा (PDE)", icon: ExternalLink },
     ],
   },
   {
-    titleEn: "ADMINISTRATION",
+    titleEn: "CHAMBER ADMIN",
     titleMr: "प्रशासन व नियंत्रण",
     items: [
-      { id: "user_management", labelEn: "User Management", labelMr: "वापरकर्ते", icon: UserCheck },
-      { id: "roles_permissions", labelEn: "Roles & Permissions", labelMr: "भूमिका व अधिकार", icon: Lock },
-      { id: "audit_trail", labelEn: "Audit Trail", labelMr: "ऑडिट ट्रेल", icon: History },
-      { id: "system_settings", labelEn: "System Settings", labelMr: "प्रणाली संरचना", icon: Settings },
+      { id: "user_management", labelEn: "Users & Staff", labelMr: "वापरकर्ते", icon: UserCheck },
+      { id: "roles_permissions", labelEn: "Roles & Sign-off", labelMr: "अधिकार व स्वाक्षरी", icon: Lock },
+      { id: "system_settings", labelEn: "Chamber Settings", labelMr: "दफ्तर संरचना", icon: Settings },
+      { id: "security_settings", labelEn: "Security & MFA", labelMr: "सुरक्षा व MFA", icon: Lock },
+      { id: "audit_trail", labelEn: "Immutable Audit Trail", labelMr: "ऑडिट ट्रेल", icon: History },
+      { id: "pilot_stats", labelEn: "Pilot Statistics", labelMr: "पायलट आकडेवारी", icon: Activity },
       { id: "system_health", labelEn: "System Health", labelMr: "प्रणाली आरोग्य", icon: Activity },
     ],
   },
@@ -146,6 +158,10 @@ const AppShell: React.FC = () => {
 
   // Navigation State
   const [currentView, setCurrentView] = useState<ViewId>(() => {
+    const path = window.location.pathname;
+    if (path !== "/" && path !== "/index.html") {
+      return "not_found";
+    }
     const saved = localStorage.getItem("lekhan_current_view");
     return (saved as ViewId) || "overview";
   });
@@ -153,10 +169,11 @@ const AppShell: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem("lekhan_sidebar_collapsed") === "true";
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // State transferred across views
   const [activeTemplateId, setActiveTemplateId] = useState<string | undefined>(undefined);
-  const [resumeDraftData, setResumeDraftData] = useState<any | null>(null);
+  const [resumeDraftData, setResumeDraftData] = useState<Record<string, unknown> | null>(null);
 
   // Modals & Palette
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -189,12 +206,16 @@ const AppShell: React.FC = () => {
     if (templateId) {
       setActiveTemplateId(templateId);
     }
+    if (window.location.pathname !== "/") {
+      window.history.replaceState(null, "", "/");
+    }
     setCurrentView(viewId as ViewId);
+    setMobileMenuOpen(false);
     localStorage.setItem("lekhan_current_view", viewId);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  const handleResumeDraft = useCallback((draft: any) => {
+  const handleResumeDraft = useCallback((draft: Record<string, unknown>) => {
     setResumeDraftData(draft);
     if (draft.templateId) {
       setActiveTemplateId(draft.templateId);
@@ -220,6 +241,13 @@ const AppShell: React.FC = () => {
 
   // Find active nav metadata for breadcrumbs
   const activeNavMetadata = useMemo(() => {
+    if (currentView === "not_found") {
+      return {
+        sectionTitle: "Lekhan",
+        itemTitle: lang === "mr" ? "पृष्ठ सापडले नाही (404)" : "Page Not Found (404)",
+        icon: HelpCircle,
+      };
+    }
     for (const section of NAVIGATION_SECTIONS) {
       const item = section.items.find((i) => i.id === currentView);
       if (item) {
@@ -237,105 +265,77 @@ const AppShell: React.FC = () => {
     };
   }, [currentView, lang]);
 
+  useEffect(() => {
+    document.title = `${activeNavMetadata.itemTitle} — Lekhan | लेखन`;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        `${activeNavMetadata.itemTitle} — Lekhan (लेखन) multilingual property legal drafting workspace.`
+      );
+    }
+  }, [activeNavMetadata]);
+
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        backgroundColor: "var(--surface-canvas, #F2F0EB)",
-        color: "var(--text-primary, #1A1A1A)",
-        fontFamily: "'Inter', 'Noto Sans Devanagari', -apple-system, sans-serif",
-      }}
-    >
+    <div className="flex min-h-screen bg-canvas text-text-primary font-ui antialiased">
+      {/* Accessible Skip Link for Keyboard Navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-500 focus:text-white focus:rounded-pill focus:shadow-dialog focus:font-semibold focus:text-xs"
+      >
+        Skip to main content
+      </a>
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="lekhan-sidebar-backdrop open"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ------------------------------------------------------------- */}
       {/* SIDEBAR NAVIGATION                                            */}
       {/* ------------------------------------------------------------- */}
       <aside
-        style={{
-          width: sidebarCollapsed ? "72px" : "268px",
-          backgroundColor: "var(--brand-900, #1E3932)",
-          color: "#FFFFFF",
-          display: "flex",
-          flexDirection: "column",
-          transition: "width 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          zIndex: 40,
-          flexShrink: 0,
-          borderRight: "1px solid rgba(255, 255, 255, 0.08)",
-          boxShadow: "2px 0 12px rgba(0, 0, 0, 0.15)",
-        }}
+        className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col bg-brand-900 text-white border-r border-brand-800 transition-all duration-200 shadow-xl lg:shadow-none select-none ${
+          mobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0"
+        } ${sidebarCollapsed ? "lg:w-16" : "lg:w-64"}`}
+        aria-label="Primary Navigation"
       >
-        {/* Brand Header */}
+        {/* Brand Header (Logo links back to home) */}
         <div
-          style={{
-            height: "64px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: sidebarCollapsed ? "center" : "space-between",
-            padding: sidebarCollapsed ? "0" : "0 18px",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-          }}
+          className={`h-16 flex items-center border-b border-white/10 px-4 ${
+            sidebarCollapsed ? "justify-center" : "justify-between"
+          }`}
         >
-          {!sidebarCollapsed ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", overflow: "hidden" }}>
-              <div
-                style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "8px",
-                  backgroundColor: "var(--brand-500, #00754A)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.2)",
-                  color: "#FFFFFF",
-                  fontWeight: 800,
-                  fontSize: "18px",
-                }}
-              >
-                लेख
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "-0.01em", color: "#FFFFFF" }}>
-                  LEKHAN
-                </span>
-                <span style={{ fontSize: "10px", color: "var(--approved-400, #DFB96E)", fontWeight: 500 }}>
-                  Enterprise Drafting v2.0
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "8px",
-                backgroundColor: "var(--brand-500, #00754A)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#FFFFFF",
-                fontWeight: 800,
-                fontSize: "18px",
-              }}
-            >
+          <button
+            type="button"
+            onClick={() => handleNavigate("overview")}
+            aria-label="Lekhan Home"
+            className="flex items-center gap-2.5 overflow-hidden text-left focus:outline-none"
+          >
+            <div className="w-9 h-9 rounded-input bg-brand-500 text-white font-extrabold text-base flex items-center justify-center shrink-0 border border-approved-500/40 shadow-sm">
               लेख
             </div>
-          )}
+            {!sidebarCollapsed && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-bold tracking-tight text-white leading-tight">
+                  LEKHAN · लेखन
+                </span>
+                <span className="text-[10px] text-approved-400 font-medium truncate">
+                  नागपूर व विदर्भ Chambers
+                </span>
+              </div>
+            )}
+          </button>
 
           <button
             onClick={toggleSidebar}
             aria-label="Toggle Navigation Sidebar"
-            style={{
-              background: "none",
-              border: "none",
-              color: "rgba(255, 255, 255, 0.6)",
-              cursor: "pointer",
-              padding: "6px",
-              borderRadius: "6px",
-              display: sidebarCollapsed ? "none" : "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            className={`p-1.5 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors hidden lg:flex ${
+              sidebarCollapsed ? "hidden" : ""
+            }`}
             title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             <ChevronLeft size={18} />
@@ -343,34 +343,16 @@ const AppShell: React.FC = () => {
         </div>
 
         {/* Navigation Sections */}
-        <nav
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "16px 8px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "20px",
-          }}
-        >
+        <nav className="flex-1 overflow-y-auto p-2.5 space-y-5 focus:outline-none">
           {NAVIGATION_SECTIONS.map((section, sIdx) => (
-            <div key={sIdx}>
+            <div key={sIdx} className="space-y-1">
               {!sidebarCollapsed && (
-                <div
-                  style={{
-                    padding: "0 10px 6px 10px",
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    color: "rgba(255, 255, 255, 0.45)",
-                    textTransform: "uppercase",
-                  }}
-                >
+                <div className="px-2.5 pb-1 text-[10px] font-bold tracking-wider text-white/40 uppercase">
                   {lang === "mr" ? section.titleMr : section.titleEn}
                 </div>
               )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const isActive = currentView === item.id;
                   const Icon = item.icon;
@@ -379,57 +361,17 @@ const AppShell: React.FC = () => {
                       key={item.id}
                       onClick={() => handleNavigate(item.id)}
                       title={sidebarCollapsed ? (lang === "mr" ? item.labelMr : item.labelEn) : undefined}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        padding: sidebarCollapsed ? "10px 0" : "9px 12px",
-                        justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                        borderRadius: "8px",
-                        border: "none",
-                        backgroundColor: isActive
-                          ? "var(--brand-600, #006241)"
-                          : "transparent",
-                        color: isActive ? "#FFFFFF" : "rgba(255, 255, 255, 0.78)",
-                        fontWeight: isActive ? 600 : 500,
-                        fontSize: "13.5px",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                        textAlign: "left",
-                        width: "100%",
-                        position: "relative",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.08)";
-                          e.currentTarget.style.color = "#FFFFFF";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = "transparent";
-                          e.currentTarget.style.color = "rgba(255, 255, 255, 0.78)";
-                        }
-                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-input text-xs font-medium transition-colors ${
+                        sidebarCollapsed ? "justify-center px-2" : "justify-start"
+                      } ${
+                        isActive
+                          ? "bg-brand-800 text-white font-semibold border-l-4 border-brand-500 shadow-sm"
+                          : "text-white/75 hover:bg-white/10 hover:text-white"
+                      }`}
                     >
-                      <Icon
-                        size={18}
-                        className={isActive ? "text-approved-400" : "text-white opacity-70"}
-                      />
+                      <Icon size={16} className={`shrink-0 ${isActive ? "text-brand-400" : "text-white/70"}`} />
                       {!sidebarCollapsed && (
-                        <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {lang === "mr" ? item.labelMr : item.labelEn}
-                        </span>
-                      )}
-                      {isActive && !sidebarCollapsed && (
-                        <div
-                          style={{
-                            width: "4px",
-                            height: "18px",
-                            borderRadius: "2px",
-                            backgroundColor: "var(--approved-400, #DFB96E)",
-                          }}
-                        />
+                        <span className="truncate">{lang === "mr" ? item.labelMr : item.labelEn}</span>
                       )}
                     </button>
                   );
@@ -439,29 +381,20 @@ const AppShell: React.FC = () => {
           ))}
         </nav>
 
-        {/* Sidebar Footer / User Profile */}
-        <div
-          style={{
-            padding: "12px 14px",
-            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-            backgroundColor: "rgba(0, 0, 0, 0.15)",
-          }}
-        >
+        {/* User Profile Footer */}
+        <div className="p-3 border-t border-white/10 bg-brand-900/60">
           {isAuthenticated && user ? (
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: sidebarCollapsed ? "center" : "space-between",
-                gap: "8px",
-              }}
+              className={`flex items-center gap-2 ${
+                sidebarCollapsed ? "justify-center" : "justify-between"
+              }`}
             >
               {!sidebarCollapsed && (
-                <div style={{ overflow: "hidden" }}>
-                  <div style={{ fontSize: "12.5px", fontWeight: 600, color: "#FFFFFF", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div className="overflow-hidden">
+                  <div className="text-xs font-semibold text-white truncate">
                     {user.email.split("@")[0]}
                   </div>
-                  <div style={{ fontSize: "11px", color: "var(--approved-400, #DFB96E)" }}>
+                  <div className="text-[11px] text-approved-400 font-medium">
                     {user.role} • {user.tenant_id}
                   </div>
                 </div>
@@ -469,19 +402,7 @@ const AppShell: React.FC = () => {
               <button
                 onClick={logout}
                 title="Sign Out"
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "rgba(255, 255, 255, 0.6)",
-                  cursor: "pointer",
-                  padding: "6px",
-                  borderRadius: "6px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#FF6B6B")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)")}
+                className="p-1.5 rounded text-white/60 hover:text-danger-500 hover:bg-white/10 transition-colors"
               >
                 <LogOut size={16} />
               </button>
@@ -491,14 +412,9 @@ const AppShell: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={() => setLoginModalOpen(true)}
-              style={{
-                width: "100%",
-                color: "#FFFFFF",
-                borderColor: "rgba(255, 255, 255, 0.2)",
-                justifyContent: "center",
-              }}
+              className="w-full justify-center text-xs text-white border-white/20 bg-white/10 hover:bg-white/20"
             >
-              <LogIn size={15} style={{ marginRight: sidebarCollapsed ? 0 : "6px" }} />
+              <LogIn size={14} className={sidebarCollapsed ? "" : "mr-1.5"} />
               {!sidebarCollapsed && (lang === "mr" ? "लॉगिन करा" : "Sign In")}
             </Button>
           )}
@@ -508,175 +424,109 @@ const AppShell: React.FC = () => {
       {/* ------------------------------------------------------------- */}
       {/* MAIN CONTENT AREA                                             */}
       {/* ------------------------------------------------------------- */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflowX: "hidden" }}>
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         {/* Top Navigation Bar */}
-        <header
-          style={{
-            height: "64px",
-            backgroundColor: "var(--surface-card, #FFFFFF)",
-            borderBottom: "1px solid var(--border-subtle, #E6E1D8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 24px",
-            position: "sticky",
-            top: 0,
-            zIndex: 30,
-            boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
-          }}
-        >
-          {/* Left: Breadcrumb */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
-            <span style={{ color: "var(--text-muted, #737373)", fontWeight: 500 }}>
+        <header className="h-16 bg-card border-b border-line-subtle flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-xs">
+          {/* Left: Mobile Menu + Breadcrumb */}
+          <div className="flex items-center gap-2 text-xs sm:text-sm min-w-0">
+            <button
+              type="button"
+              className="lg:hidden p-1.5 rounded-input border border-line-subtle text-text-primary hover:bg-canvas transition-colors cursor-pointer"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+            <span className="hidden md:inline text-text-secondary font-medium">
               {activeNavMetadata.sectionTitle}
             </span>
-            <span style={{ color: "var(--text-muted, #737373)" }}>/</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-primary, #1A1A1A)", fontWeight: 700 }}>
-              <activeNavMetadata.icon size={16} color="var(--brand-600, #006241)" />
-              <span>{activeNavMetadata.itemTitle}</span>
+            <span className="hidden md:inline text-text-muted">/</span>
+            <div className="flex items-center gap-1.5 text-text-primary font-bold min-w-0">
+              <activeNavMetadata.icon size={16} className="text-brand-600" />
+              <span className="truncate">{activeNavMetadata.itemTitle}</span>
             </div>
           </div>
 
           {/* Center: Command Palette Trigger */}
           <button
+            type="button"
+            className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-input bg-canvas border border-line-subtle text-text-secondary hover:border-brand-500 text-xs transition-colors justify-between w-64 md:w-80 cursor-pointer"
+            aria-label="Open quick action or search"
             onClick={() => setCommandPaletteOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "6px 14px",
-              borderRadius: "20px",
-              backgroundColor: "var(--surface-canvas, #F2F0EB)",
-              border: "1px solid var(--border-subtle, #E6E1D8)",
-              color: "var(--text-muted, #737373)",
-              fontSize: "12.5px",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              width: "320px",
-              justifyContent: "space-between",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--brand-500, #00754A)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border-subtle, #E6E1D8)";
-            }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Search size={14} />
-              <span>{lang === "mr" ? "शोध किंवा आज्ञा (Search deeds, actions)..." : "Quick action or search (Ctrl+K)..."}</span>
+            <div className="flex items-center gap-2 truncate">
+              <Search size={14} className="shrink-0 text-text-muted" />
+              <span className="truncate">{lang === "mr" ? "शोध किंवा आज्ञा (Search deeds)..." : "Quick action or search (Ctrl+K)..."}</span>
             </div>
-            <kbd
-              style={{
-                backgroundColor: "var(--surface-card, #FFFFFF)",
-                border: "1px solid var(--border-subtle, #E6E1D8)",
-                borderRadius: "4px",
-                padding: "2px 6px",
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "var(--text-muted, #737373)",
-              }}
-            >
+            <kbd className="bg-card border border-line-medium rounded px-1.5 py-0.5 text-[10px] font-semibold text-text-secondary font-mono shrink-0">
               ⌘K
             </kbd>
           </button>
 
           {/* Right: Controls & Toggles */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Sync Status Badge */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                fontSize: "11.5px",
-                color: "var(--brand-600, #006241)",
-                fontWeight: 600,
-                padding: "4px 10px",
-                borderRadius: "12px",
-                backgroundColor: "rgba(0, 98, 65, 0.08)",
-              }}
-            >
+            <div className="hidden lg:flex items-center gap-1.5 text-xs text-brand-600 font-semibold px-2.5 py-1 rounded-pill bg-brand-500/10">
               <Check size={13} />
-              <span>{lang === "mr" ? "सुरक्षित जोडलेले (Synced)" : "Synced"}</span>
+              <span>{lang === "mr" ? "सुरक्षित जोडलेले" : "Synced"}</span>
             </div>
 
-            {/* Language Switcher */}
-            <div
-              style={{
-                display: "flex",
-                backgroundColor: "var(--surface-canvas, #F2F0EB)",
-                borderRadius: "6px",
-                padding: "2px",
-                border: "1px solid var(--border-subtle, #E6E1D8)",
-              }}
-            >
+            {/* Language Switcher (Trilingual: Marathi, English, Hindi) */}
+            <div className="flex bg-canvas rounded-input p-0.5 border border-line-subtle">
               <button
+                type="button"
                 onClick={() => setLang("mr")}
-                style={{
-                  border: "none",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                  fontWeight: lang === "mr" ? 700 : 500,
-                  backgroundColor: lang === "mr" ? "var(--surface-card, #FFFFFF)" : "transparent",
-                  color: lang === "mr" ? "var(--brand-600, #006241)" : "var(--text-muted, #737373)",
-                  boxShadow: lang === "mr" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                  cursor: "pointer",
-                }}
+                className={`px-2 py-1 rounded text-xs transition-all cursor-pointer ${
+                  lang === "mr"
+                    ? "bg-card text-brand-600 font-bold shadow-xs"
+                    : "text-text-secondary hover:text-text-primary font-medium"
+                }`}
               >
                 मराठी
               </button>
               <button
+                type="button"
                 onClick={() => setLang("en")}
-                style={{
-                  border: "none",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                  fontWeight: lang === "en" ? 700 : 500,
-                  backgroundColor: lang === "en" ? "var(--surface-card, #FFFFFF)" : "transparent",
-                  color: lang === "en" ? "var(--brand-600, #006241)" : "var(--text-muted, #737373)",
-                  boxShadow: lang === "en" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                  cursor: "pointer",
-                }}
+                className={`px-2 py-1 rounded text-xs transition-all cursor-pointer ${
+                  lang === "en"
+                    ? "bg-card text-brand-600 font-bold shadow-xs"
+                    : "text-text-secondary hover:text-text-primary font-medium"
+                }`}
               >
                 EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang("hi")}
+                className={`px-2 py-1 rounded text-xs transition-all cursor-pointer ${
+                  lang === "hi"
+                    ? "bg-card text-brand-600 font-bold shadow-xs"
+                    : "text-text-secondary hover:text-text-primary font-medium"
+                }`}
+              >
+                हिन्दी
               </button>
             </div>
 
             {/* Theme Toggle */}
             <button
+              type="button"
               onClick={toggleTheme}
-              style={{
-                background: "none",
-                border: "1px solid var(--border-subtle, #E6E1D8)",
-                padding: "6px 8px",
-                borderRadius: "6px",
-                color: "var(--text-primary, #1A1A1A)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-              }}
+              className="p-1.5 sm:px-2 rounded-input border border-line-subtle text-text-primary hover:bg-canvas transition-colors cursor-pointer"
               title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+              aria-label="Toggle theme"
             >
               {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
             </button>
 
             {/* Shortcuts Guide */}
             <button
+              type="button"
               onClick={() => setShortcutsOpen(true)}
-              style={{
-                background: "none",
-                border: "1px solid var(--border-subtle, #E6E1D8)",
-                padding: "6px 8px",
-                borderRadius: "6px",
-                color: "var(--text-primary, #1A1A1A)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-              }}
+              className="p-1.5 sm:px-2 rounded-input border border-line-subtle text-text-primary hover:bg-canvas transition-colors cursor-pointer"
               title="Keyboard Shortcuts (?)"
+              aria-label="Keyboard Shortcuts"
             >
               <Keyboard size={16} />
             </button>
@@ -684,10 +534,20 @@ const AppShell: React.FC = () => {
         </header>
 
         {/* View Switcher Container */}
-        <main style={{ flex: 1, padding: "20px 24px", overflowY: "auto" }}>
+        <main id="main-content" className="flex-1 p-4 sm:p-6 overflow-y-auto bg-canvas">
           {/* WORKSPACE */}
           {currentView === "overview" && (
             <DashboardView onNavigate={handleNavigate} />
+          )}
+
+          {currentView === "wizard" && (
+            <StepperWizard
+              onSelectTemplate={(tmplId) => {
+                setActiveTemplateId(tmplId);
+                setCurrentView("new_draft");
+              }}
+              onNavigate={handleNavigate}
+            />
           )}
 
           {currentView === "new_draft" && (
@@ -791,10 +651,56 @@ const AppShell: React.FC = () => {
             <SystemSettingsView onNavigate={handleNavigate} />
           )}
 
+          {currentView === "security_settings" && (
+            <SecuritySettingsView onNavigate={handleNavigate} />
+          )}
+
+          {currentView === "pilot_stats" && (
+            <PilotStatsView onNavigate={handleNavigate} />
+          )}
+
           {currentView === "system_health" && (
             <SystemHealthView onNavigate={handleNavigate} />
           )}
+
+          {currentView === "not_found" && (
+            <div className="max-w-md mx-auto my-16 p-8 text-center bg-card rounded-card border border-line-subtle shadow-card">
+              <div className="text-5xl font-extrabold text-brand-600 mb-2">404</div>
+              <h1 className="text-xl font-bold text-text-primary mb-2">
+                {lang === "mr" ? "पृष्ठ सापडले नाही" : "Page Not Found"}
+              </h1>
+              <p className="text-sm text-text-secondary mb-6">
+                {lang === "mr"
+                  ? "आपण शोधत असलेले पृष्ठ उपलब्ध नाही किंवा हलवले गेले आहे."
+                  : "The page you requested does not exist or has been moved."}
+              </p>
+              <Button variant="primary" onClick={() => handleNavigate("overview")}>
+                {lang === "mr" ? "मुख्यपृष्ठावर जा" : "Back to Overview"}
+              </Button>
+            </div>
+          )}
         </main>
+
+        {/* Compact App Footer */}
+        <footer className="px-6 py-3 border-t border-line-subtle bg-card flex flex-wrap items-center justify-between gap-3 text-xs text-text-secondary">
+          <span>© {new Date().getFullYear()} Lekhan (लेखन) — Property Legal Drafting</span>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => handleNavigate("system_health")}
+              className="text-brand-600 hover:text-brand-700 cursor-pointer font-medium"
+            >
+              {lang === "mr" ? "प्रणाली स्थिती" : "System Health"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen(true)}
+              className="text-brand-600 hover:text-brand-700 cursor-pointer font-medium"
+            >
+              {lang === "mr" ? "शॉर्टकट्स (?)" : "Shortcuts (?)"}
+            </button>
+          </div>
+        </footer>
       </div>
 
       {/* Global Command Palette */}
@@ -818,7 +724,16 @@ const AppShell: React.FC = () => {
         onLoadSample={() => {
           handleNavigate("new_draft");
         }}
-        onClearForm={() => {}}
+        onClearForm={() => {
+          localStorage.removeItem("lekhan_current_form");
+          localStorage.removeItem("lekhan_current_repeaters");
+          setResumeDraftData(null);
+          toast({
+            type: "info",
+            title: lang === "mr" ? "मसुदा रिकामा केला" : "Draft Cleared",
+            description: lang === "mr" ? "जतन केलेला फॉर्म डेटा काढून टाकला." : "Saved form data removed.",
+          });
+        }}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}

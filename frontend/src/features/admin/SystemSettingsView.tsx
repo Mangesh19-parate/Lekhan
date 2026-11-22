@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
+import { api } from "../../shared/api";
 import { Button, Badge, Card, Select, Input } from "../../shared/components";
 import {
   Settings,
@@ -8,6 +9,7 @@ import {
   Clock,
   Save,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 
 interface SystemSettingsViewProps {
@@ -15,15 +17,51 @@ interface SystemSettingsViewProps {
 }
 
 export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ onNavigate }) => {
-  const { lang, setLang } = useI18n();
+  const { lang } = useI18n();
   const [retentionClass, setRetentionClass] = useState("matter_lifecycle");
   const [digitsSetting, setDigitsSetting] = useState("western");
   const [idleMinutes, setIdleMinutes] = useState("30");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    api
+      .getSystemSettings()
+      .then((res) => {
+        if (res.retention_class) setRetentionClass(res.retention_class);
+        if (res.digits_setting) setDigitsSetting(res.digits_setting);
+        if (res.idle_minutes) setIdleMinutes(String(res.idle_minutes));
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Failed to load system settings";
+        setErrorMessage(msg);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setErrorMessage(null);
+    try {
+      const parsedMinutes = parseInt(idleMinutes, 10);
+      if (isNaN(parsedMinutes) || parsedMinutes < 5 || parsedMinutes > 720) {
+        throw new Error("Idle timeout must be between 5 and 720 minutes.");
+      }
+      await api.updateSystemSettings({
+        retention_class: retentionClass,
+        digits_setting: digitsSetting,
+        idle_minutes: parsedMinutes,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save settings";
+      setErrorMessage(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -35,7 +73,7 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ onNaviga
             <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--brand-900)", margin: 0 }}>
               {lang === "mr" ? "सिस्टम प्राधान्ये व सेटिंग्ज (System Settings)" : "System Settings & Statutory Config"}
             </h1>
-            <Badge variant="approved" size="md" label="Tenant Policy" />
+            <Badge variant="approved" size="md" label="Tenant Policy (Audited)" />
           </div>
           <p style={{ color: "var(--text-secondary)", margin: "4px 0 0 0", fontSize: "0.875rem" }}>
             {lang === "mr"
@@ -44,10 +82,35 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ onNaviga
           </p>
         </div>
 
-        <Button size="sm" variant="primary" onClick={handleSave} leftIcon={<Save size={14} />}>
-          {saved ? (lang === "mr" ? "जतन झाले!" : "Settings Saved!") : (lang === "mr" ? "बदल जतन करा" : "Save Changes")}
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={handleSave}
+          disabled={saving || loading}
+          leftIcon={<Save size={14} />}
+        >
+          {saving
+            ? (lang === "mr" ? "जतन होत आहे..." : "Saving...")
+            : saved
+            ? (lang === "mr" ? "जतन झाले!" : "Settings Saved!")
+            : (lang === "mr" ? "बदल जतन करा" : "Save Changes")}
         </Button>
       </div>
+
+      {/* Alert Banners */}
+      {saved && (
+        <div style={{ padding: "12px 16px", borderRadius: "var(--radius-input)", backgroundColor: "var(--brand-100)", border: "1px solid var(--brand-500)", color: "var(--brand-900)", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "8px" }}>
+          <CheckCircle2 size={16} color="var(--brand-600)" />
+          <span>{lang === "mr" ? "सिस्टम सेटिंग्ज यशस्वीरित्या जतन केल्या गेल्या आहेत आणि ऑडिट लॉगमध्ये नोंद झाली आहे." : "System settings persisted to backend and recorded in immutable audit log."}</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div style={{ padding: "12px 16px", borderRadius: "var(--radius-input)", backgroundColor: "var(--danger-100, #FEE2E2)", border: "1px solid var(--danger-500, #EF4444)", color: "var(--danger-900, #7F1D1D)", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "8px" }}>
+          <AlertTriangle size={16} color="#DC2626" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* 2. Settings Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px" }}>
@@ -121,4 +184,3 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ onNaviga
     </div>
   );
 };
-

@@ -103,7 +103,12 @@ def restore_backup(
                     status=doc["status"],
                     created_at=doc["created_at"],
                 )
-                generation_pipeline._documents[doc_record.id] = doc_record
+                if hasattr(generation_pipeline, "repository") and hasattr(generation_pipeline.repository, "save"):
+                    generation_pipeline.repository.save(doc_record.tenant_id, doc_record)
+                elif hasattr(generation_pipeline, "repository") and hasattr(generation_pipeline.repository, "_documents"):
+                    generation_pipeline.repository._documents[doc_record.id] = doc_record
+                elif hasattr(generation_pipeline, "_documents"):
+                    generation_pipeline._documents[doc_record.id] = doc_record
                 restored_docs_count += 1
 
             # Restore counters
@@ -116,6 +121,92 @@ def restore_backup(
                 )
                 document_numbering_service._counters[key] = int(c["value"])
                 restored_counters_count += 1
+
+            # Restore into relational DB if connected
+            try:
+                from app.adapters.db import SessionLocal, ping_db
+                from app.shared.models import Counter as CounterModel, Document as DocumentModel
+
+                if ping_db():
+                    with SessionLocal() as session:
+                        for c in db_data.get("counters", []):
+                            t_id = uuid.UUID(c["tenant_id"])
+                            key_val = c["series_key"]
+                            yr_val = int(c["year"])
+                            existing_counter = session.query(CounterModel).filter(
+                                CounterModel.tenant_id == t_id,
+                                CounterModel.key == key_val,
+                                CounterModel.year == yr_val,
+                            ).first()
+                            if existing_counter:
+                                existing_counter.value = int(c["value"])
+                            else:
+                                session.add(
+                                    CounterModel(
+                                        tenant_id=t_id,
+                                        key=key_val,
+                                        year=yr_val,
+                                        value=int(c["value"]),
+                                    )
+                                )
+                        session.commit()
+            except Exception as exc:
+                logger.debug("Database restore sync skipped: %s", exc)
+
+            # Restore audit logs
+            from app.audit.repository import AuditRecord
+            from app.audit.service import audit_service
+            import datetime
+
+            restored_audit_count = 0
+            raw_audit_logs = db_data.get("audit_logs", [])
+            if raw_audit_logs:
+                audit_service.clear()
+                for al in raw_audit_logs:
+                    rec = AuditRecord(
+                        id=int(al["id"]),
+                        tenant_id=uuid.UUID(al["tenant_id"]),
+                        actor_id=uuid.UUID(al["actor_id"]) if al.get("actor_id") else None,
+                        action=al["action"],
+                        entity=al["entity"],
+                        entity_id=al.get("entity_id"),
+                        at=datetime.datetime.fromisoformat(al["at"]),
+                        meta=al.get("meta", {}),
+                        prev_hash=bytes.fromhex(al["prev_hash"]) if al.get("prev_hash") else None,
+                        hash=bytes.fromhex(al["hash"]),
+                    )
+                    if hasattr(audit_service._repository, "_logs"):
+                        audit_service._repository._logs.setdefault(rec.tenant_id, []).append(rec)
+                    restored_audit_count += 1
+
+                # Database restore for audit logs
+                try:
+                    from app.adapters.db import SessionLocal, ping_db
+                    from app.shared.models import AuditLog as AuditLogModel
+
+                    if ping_db():
+                        with SessionLocal() as session:
+                            for al in raw_audit_logs:
+                                al_id = int(al["id"])
+                                exists = session.query(AuditLogModel).filter(AuditLogModel.id == al_id).first()
+                                if not exists:
+                                    session.add(
+                                        AuditLogModel(
+                                            id=al_id,
+                                            tenant_id=uuid.UUID(al["tenant_id"]),
+                                            actor_id=uuid.UUID(al["actor_id"]) if al.get("actor_id") else None,
+                                            action=al["action"],
+                                            entity=al["entity"],
+                                            entity_id=al.get("entity_id"),
+                                            at=datetime.datetime.fromisoformat(al["at"]),
+                                            meta=al.get("meta", {}),
+                                            prev_hash=bytes.fromhex(al["prev_hash"]) if al.get("prev_hash") else None,
+                                            hash=bytes.fromhex(al["hash"]),
+                                        )
+                                    )
+                            session.commit()
+                except Exception as exc:
+                    logger.debug("Database audit restore skipped: %s", exc)
 
         # 4. Restore Object Store files
         storage_src = temp_extract / "storage"
@@ -130,14 +221,26 @@ def restore_backup(
                     shutil.copy2(src_f, dst_f)
                     restored_files_count += 1
 
+        # 5. Check restored audit chain integrity
+        from app.audit.jobs import verify_all_audit_chains
+        audit_report = verify_all_audit_chains()
+
         report = {
             "status": "success",
             "backup_version": manifest.get("backup_version", "1.0.0"),
             "verified_files_count": len(files_manifest),
+            "verified_files": len(files_manifest),
             "restored_documents_count": restored_docs_count,
             "restored_counters_count": restored_counters_count,
+            "restored_audit_count": restored_audit_count,
             "restored_storage_files_count": restored_files_count,
+            "audit_chain_verified": audit_report.status == "healthy",
+            "audit_chain_report": audit_report.to_dict(),
         }
+        if audit_report.status != "healthy":
+            logger.critical("Restored audit chain failed integrity verification: %s", audit_report.broken_tenants)
+        else:
+            logger.info("Restored audit chain verified: 100%% authentic")
         logger.info("Restore successfully completed: %s", report)
         return report
 

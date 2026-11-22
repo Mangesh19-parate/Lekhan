@@ -6,55 +6,25 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ children, variant = "default", padding = "md", className = "", style, ...props }, ref) => {
-    const paddingStyle = {
-      none: "0",
-      sm: "12px",
-      md: "20px",
-      lg: "28px",
+  ({ children, variant = "default", padding = "md", className = "", ...props }, ref) => {
+    const paddingClasses = {
+      none: "p-0",
+      sm: "p-3",
+      md: "p-5",
+      lg: "p-7",
     }[padding];
 
-    const getVariantStyles = () => {
-      switch (variant) {
-        case "sunken":
-          return {
-            backgroundColor: "var(--surface-sunken)",
-            border: "1px solid var(--line-subtle)",
-            boxShadow: "none",
-          };
-        case "subtle":
-          return {
-            backgroundColor: "var(--surface-subtle)",
-            border: "1px solid var(--line-subtle)",
-            boxShadow: "none",
-          };
-        case "highlight":
-          return {
-            backgroundColor: "var(--surface-card)",
-            border: "1.5px solid var(--brand-500)",
-            boxShadow: "var(--shadow-elevated)",
-          };
-        case "default":
-        default:
-          return {
-            backgroundColor: "var(--surface-card)",
-            border: "1px solid var(--line-subtle)",
-            boxShadow: "var(--shadow-card)",
-          };
-      }
-    };
+    const variantClasses = {
+      default: "bg-card border border-line-subtle shadow-card text-text-primary",
+      sunken: "bg-sunken border border-line-subtle text-text-primary",
+      subtle: "bg-subtle border border-line-subtle text-text-primary",
+      highlight: "bg-card border-2 border-brand-500 shadow-elevated text-text-primary",
+    }[variant];
 
     return (
       <div
         ref={ref}
-        className={`lekhan-card ${className}`}
-        style={{
-          borderRadius: "var(--radius-card)",
-          padding: paddingStyle,
-          transition: "border-color var(--transition-fast), box-shadow var(--transition-fast)",
-          ...getVariantStyles(),
-          ...style,
-        }}
+        className={`rounded-card transition-colors duration-150 ${paddingClasses} ${variantClasses} ${className}`}
         {...props}
       >
         {children}
@@ -64,4 +34,3 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
 );
 
 Card.displayName = "Card";
-

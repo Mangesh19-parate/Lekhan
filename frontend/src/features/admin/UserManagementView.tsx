@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type UserItem } from "../../shared/api";
 import { Button, Badge, Card, Select, Skeleton } from "../../shared/components";
 import {
   Users,
@@ -18,7 +18,7 @@ interface UserManagementViewProps {
 export const UserManagementView: React.FC<UserManagementViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserItem[]>([]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -36,21 +36,23 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onNaviga
     fetchUsers();
   }, []);
 
-  const handleToggleStatus = async (user: any) => {
+  const handleToggleStatus = async (user: UserItem) => {
     try {
       await api.toggleUserStatus(user.id, !user.active);
       fetchUsers();
-    } catch (err: any) {
-      alert("Failed to update status: " + (err?.message || "Unauthorized"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unauthorized";
+      alert("Failed to update status: " + msg);
     }
   };
 
-  const handleRoleChange = async (user: any, newRole: string) => {
+  const handleRoleChange = async (user: UserItem, newRole: string) => {
     try {
       await api.toggleUserStatus(user.id, user.active, newRole);
       fetchUsers();
-    } catch (err: any) {
-      alert("Failed to update role: " + (err?.message || "Unauthorized"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unauthorized";
+      alert("Failed to update role: " + msg);
     }
   };
 

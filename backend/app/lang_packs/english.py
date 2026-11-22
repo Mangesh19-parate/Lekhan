@@ -13,6 +13,9 @@ import datetime
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
+from app.lang_packs.base import validate_and_quantize_amount
+from app.shared.errors import InvalidAmountError
+
 EN_ONES: dict[int, str] = {
     0: "Zero",
     1: "One",
@@ -70,9 +73,7 @@ def number_to_words_en(amount: int | Decimal, *, currency: bool = True) -> str:
     Example: 1550000 -> 'Rupees Fifteen Lakh Fifty Thousand Only'
     Example: 1250000.50 -> 'Rupees Twelve Lakh Fifty Thousand and Fifty Paise Only'
     """
-    d_amount = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    integer_part = int(d_amount)
-    paise_part = int((d_amount - integer_part) * 100)
+    integer_part, paise_part = validate_and_quantize_amount(amount)
 
     if integer_part == 0 and paise_part == 0:
         return "Rupees Zero Only" if currency else "Zero"

@@ -22,74 +22,31 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       leftIcon,
       rightIcon,
       className = "",
-      style,
       ...props
     },
     ref
   ) => {
-    // Determine sizing
-    const sizeStyles = {
-      sm: { height: "32px", padding: "0 12px", fontSize: "0.8125rem", gap: "6px" },
-      md: { height: "40px", padding: "0 18px", fontSize: "0.875rem", gap: "8px" },
-      lg: { height: "46px", padding: "0 24px", fontSize: "0.9375rem", gap: "10px" },
+    const sizeClasses = {
+      sm: "h-8 px-3 text-xs gap-1.5",
+      md: "h-10 px-4 text-sm gap-2",
+      lg: "h-11 px-6 text-base gap-2.5",
     }[size];
 
-    // Determine variant colors based on design tokens
-    const getVariantStyles = () => {
-      switch (variant) {
-        case "primary":
-          return {
-            backgroundColor: "var(--brand-500)",
-            color: "var(--text-on-dark)",
-            border: "1px solid transparent",
-          };
-        case "secondary":
-          return {
-            backgroundColor: "var(--surface-card)",
-            color: "var(--brand-600)",
-            border: "1px solid var(--line-medium)",
-          };
-        case "ghost":
-          return {
-            backgroundColor: "transparent",
-            color: "var(--text-primary)",
-            border: "1px solid transparent",
-          };
-        case "danger":
-          return {
-            backgroundColor: "var(--danger-600)",
-            color: "var(--text-on-dark)",
-            border: "1px solid transparent",
-          };
-      }
-    };
+    const variantClasses = {
+      primary: "bg-brand-500 text-white hover:bg-brand-600 border border-transparent shadow-sm focus:ring-brand-500",
+      secondary: "bg-card text-brand-600 hover:bg-brand-50 border border-brand-500/30 focus:ring-brand-500 dark:bg-card dark:text-brand-400 dark:border-brand-500/40 dark:hover:bg-brand-900/40",
+      ghost: "bg-transparent text-text-primary hover:bg-sunken border border-transparent focus:ring-brand-500",
+      danger: "bg-danger-600 text-white hover:bg-danger-500 border border-transparent shadow-sm focus:ring-danger-500",
+    }[variant];
 
-    const variantStyle = getVariantStyles();
+    const radiusClass = pill ? "rounded-pill" : "rounded-input";
     const isDisabled = disabled || isLoading;
 
     return (
       <button
         ref={ref}
         disabled={isDisabled}
-        className={`lekhan-button variant-${variant} ${className}`}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontWeight: 600,
-          fontFamily: "var(--font-ui)",
-          letterSpacing: 0,
-          borderRadius: pill ? "var(--radius-pill)" : "var(--radius-input)",
-          cursor: isDisabled ? "not-allowed" : "pointer",
-          opacity: isDisabled ? 0.5 : 1,
-          transition: "background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-press)",
-          userSelect: "none",
-          whiteSpace: "nowrap",
-          position: "relative",
-          ...sizeStyles,
-          ...variantStyle,
-          ...style,
-        }}
+        className={`inline-flex items-center justify-center font-semibold font-ui select-none whitespace-nowrap transition-all duration-150 active:scale-95 disabled:pointer-events-none disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-sunken ${sizeClasses} ${variantClasses} ${radiusClass} ${className}`}
         {...props}
       >
         {isLoading && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
@@ -102,4 +59,3 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = "Button";
-

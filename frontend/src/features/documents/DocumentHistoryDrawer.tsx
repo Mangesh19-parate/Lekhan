@@ -47,8 +47,9 @@ export const DocumentHistoryDrawer: React.FC<Props> = ({ isOpen, onClose }) => {
       } else {
         setErrorMsg("Failed to load history. Please ensure you are logged in.");
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Network error loading history.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Network error loading history.";
+      setErrorMsg(msg);
     } finally {
       setIsLoading(false);
     }
@@ -78,11 +79,12 @@ export const DocumentHistoryDrawer: React.FC<Props> = ({ isOpen, onClose }) => {
         title: "पोर्टल डेटा शीट कॉपी झाली! (PDE Copied)",
         description: `Sub-Registrar entry data for ${docNo} copied to clipboard.`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error copying";
       toast({
         type: "error",
         title: "कॉपी अयशस्वी",
-        description: err.message,
+        description: msg,
       });
     }
   };

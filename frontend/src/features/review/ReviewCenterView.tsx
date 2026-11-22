@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type DocumentSummaryItem } from "../../shared/api";
 import { Button, Badge, Card, Skeleton } from "../../shared/components";
 import { DocumentReviewModal } from "./DocumentReviewModal";
 import {
@@ -23,8 +23,8 @@ interface ReviewCenterViewProps {
 export const ReviewCenterView: React.FC<ReviewCenterViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [documents, setDocuments] = useState<DocumentSummaryItem[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState<DocumentSummaryItem | null>(null);
 
   const fetchQueue = async () => {
     setLoading(true);
@@ -52,7 +52,7 @@ export const ReviewCenterView: React.FC<ReviewCenterViewProps> = ({ onNavigate }
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--brand-900)", margin: 0 }}>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--brand-900)", margin: 0, fontFamily: "var(--font-heading)" }}>
               {lang === "mr" ? "दस्त तपासणी व मंजुरी केंद्र (Review & Approval Center)" : "Review & Approval Center"}
             </h1>
             <Badge variant="approved" size="md" label="Advocate Sign-off" />

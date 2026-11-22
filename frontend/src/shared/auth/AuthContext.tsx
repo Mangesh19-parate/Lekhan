@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { apiClient, setMemoryCsrfToken } from "../api";
 
 export interface UserProfile {
   id: string;
@@ -14,7 +15,8 @@ interface AuthContextType {
   csrfToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ mfaRequired: boolean }>;
+  verifyMfaLogin: (code?: string, recoveryCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -24,7 +26,8 @@ const AuthContext = createContext<AuthContextType>({
   csrfToken: null,
   isAuthenticated: false,
   isLoading: true,
-  login: async () => {},
+  login: async () => ({ mfaRequired: false }),
+  verifyMfaLogin: async () => {},
   logout: async () => {},
   refreshUser: async () => {},
 });
@@ -39,24 +42,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check current session on mount via GET /api/v1/auth/me
   const refreshUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/v1/auth/me", {
-        method: "GET",
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setCsrfToken(data.csrf_token);
-        if (data.csrf_token) {
-          localStorage.setItem("lekhan_csrf_token", data.csrf_token);
-        }
-      } else {
-        setUser(null);
-        setCsrfToken(null);
-      }
+      const data = await apiClient<{ user: UserProfile; csrf_token: string }>("/api/v1/auth/me");
+      setUser(data.user);
+      setCsrfToken(data.csrf_token);
+      setMemoryCsrfToken(data.csrf_token);
     } catch {
       setUser(null);
       setCsrfToken(null);
+      setMemoryCsrfToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -66,38 +59,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
   }, [refreshUser]);
 
-  const login = async (email: string, password: string) => {
-    const res = await fetch("/api/v1/auth/login", {
+  const login = async (email: string, password: string): Promise<{ mfaRequired: boolean }> => {
+    const data = await apiClient<{ user: UserProfile; csrf_token: string; mfa_required?: boolean }>("/api/v1/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "Authentication failed.");
-    }
-
-    const data = await res.json();
-    setUser(data.user);
     setCsrfToken(data.csrf_token);
-    if (data.csrf_token) {
-      localStorage.setItem("lekhan_csrf_token", data.csrf_token);
+    setMemoryCsrfToken(data.csrf_token);
+    if (!data.mfa_required) {
+      setUser(data.user);
+      return { mfaRequired: false };
+    }
+    return { mfaRequired: true };
+  };
+
+  const verifyMfaLogin = async (code?: string, recoveryCode?: string): Promise<void> => {
+    const res = await apiClient<{ status: string; verified: boolean; message?: string }>("/api/v1/auth/mfa/verify", {
+      method: "POST",
+      body: JSON.stringify({ code: code || undefined, recovery_code: recoveryCode || undefined }),
+    });
+    if (res.verified) {
+      await refreshUser();
     }
   };
 
   const logout = async () => {
     try {
-      await fetch("/api/v1/auth/logout", {
+      await apiClient("/api/v1/auth/logout", {
         method: "POST",
-        credentials: "include",
-        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
       });
     } finally {
       setUser(null);
       setCsrfToken(null);
-      localStorage.removeItem("lekhan_csrf_token");
+      setMemoryCsrfToken(null);
     }
   };
 
@@ -109,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
+        verifyMfaLogin,
         logout,
         refreshUser,
       }}

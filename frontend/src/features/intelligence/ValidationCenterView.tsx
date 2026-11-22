@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type ValidationResponse, type ValidationViolation } from "../../shared/api";
 import { Button, Badge, Card, Input, Select } from "../../shared/components";
 import {
   ShieldAlert,
@@ -23,7 +23,7 @@ export const ValidationCenterView: React.FC<ValidationCenterViewProps> = ({ onNa
   const [earnestAdvance, setEarnestAdvance] = useState("500000");
   const [areaSqm, setAreaSqm] = useState("150");
   const [evaluating, setEvaluating] = useState(false);
-  const [validationResult, setValidationResult] = useState<any | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResponse | null>(null);
 
   const handleTestValidation = async () => {
     setEvaluating(true);
@@ -45,11 +45,13 @@ export const ValidationCenterView: React.FC<ValidationCenterViewProps> = ({ onNa
     try {
       const res = await api.validateDraftData(templateId, testPayload);
       setValidationResult(res);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Validation failed";
       setValidationResult({
         valid: false,
-        violations: [{ message_en: err?.message || "Validation failed", message_mr: "तपासणी अयशस्वी" }],
+        violations: [{ message_en: msg, message_mr: "तपासणी अयशस्वी" }],
         derived_fields: {},
+        visibility: {},
       });
     } finally {
       setEvaluating(false);
@@ -200,7 +202,7 @@ export const ValidationCenterView: React.FC<ValidationCenterViewProps> = ({ onNa
                   <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--danger-600)" }}>
                     Violations:
                   </span>
-                  {validationResult.violations.map((v: any, idx: number) => (
+                  {validationResult.violations.map((v: ValidationViolation, idx: number) => (
                     <div
                       key={idx}
                       style={{
@@ -225,7 +227,7 @@ export const ValidationCenterView: React.FC<ValidationCenterViewProps> = ({ onNa
                     Authoritative Backend Derived Values:
                   </span>
                   <div style={{ backgroundColor: "var(--surface-sunken)", padding: "10px", borderRadius: "var(--radius-input)", marginTop: "6px", fontSize: "0.8125rem" }}>
-                    {Object.entries(validationResult.derived_fields).map(([k, val]: [string, any]) => (
+                    {Object.entries(validationResult.derived_fields).map(([k, val]: [string, unknown]) => (
                       <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
                         <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>{k}:</span>
                         <strong style={{ color: "var(--brand-900)" }}>{String(val)}</strong>

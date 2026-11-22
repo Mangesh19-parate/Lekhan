@@ -14,12 +14,18 @@ import uuid
 
 from fastapi.testclient import TestClient
 
+from app.api.auth import get_session_repo, get_user_repo
 from app.identity.policy import Actor, Resource, authorize
+from app.identity.repository import create_dev_user_repository
+from app.identity.session_repository import InMemorySessionRepository
 from app.identity.service import session_store
 from app.identity.throttling import login_throttler
 from app.main import app
 from app.shared.security import hash_password, verify_password
 
+test_session_repo = InMemorySessionRepository()
+app.dependency_overrides[get_user_repo] = create_dev_user_repository
+app.dependency_overrides[get_session_repo] = lambda: test_session_repo
 client = TestClient(app)
 
 TENANT_A = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
@@ -200,6 +206,7 @@ def test_login_brute_force_throttling_and_lockout() -> None:
 def test_csrf_protection_on_password_change() -> None:
     """State-changing requests without valid CSRF token are blocked with 403."""
     session_store.clear()
+    test_session_repo.clear()
     # 1. Login to obtain session
     login_res = client.post(
         "/api/v1/auth/login",

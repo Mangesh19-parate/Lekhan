@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type AuditTrailResponse, type AuditRecord } from "../../shared/api";
 import { Button, Badge, Card, Skeleton } from "../../shared/components";
 import {
   ShieldCheck,
@@ -9,6 +9,7 @@ import {
   Hash,
   RefreshCw,
   Lock,
+  Download,
 } from "lucide-react";
 
 interface AuditTrailViewProps {
@@ -18,7 +19,10 @@ interface AuditTrailViewProps {
 export const AuditTrailView: React.FC<AuditTrailViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [auditData, setAuditData] = useState<any | null>(null);
+  const [auditData, setAuditData] = useState<AuditTrailResponse | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{ chain_valid: boolean; tamper_detected: boolean } | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const fetchAudit = async () => {
     setLoading(true);
@@ -35,6 +39,39 @@ export const AuditTrailView: React.FC<AuditTrailViewProps> = ({ onNavigate }) =>
   useEffect(() => {
     fetchAudit();
   }, []);
+
+  const handleVerifyChain = async () => {
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      const res = await api.verifyAuditTrail();
+      setVerifyResult(res);
+    } catch (err: unknown) {
+      alert("Verification failed: " + (err instanceof Error ? err.message : "Network error"));
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleExportAudit = async () => {
+    setExporting(true);
+    try {
+      const exportEnvelope = await api.exportAuditTrail();
+      const blob = new Blob([JSON.stringify(exportEnvelope, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `lekhan_audit_export_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      alert("Export failed: " + (err instanceof Error ? err.message : "Error"));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div style={{ padding: "28px", maxWidth: "1440px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -54,10 +91,56 @@ export const AuditTrailView: React.FC<AuditTrailViewProps> = ({ onNavigate }) =>
           </p>
         </div>
 
-        <Button size="sm" variant="secondary" onClick={fetchAudit} leftIcon={<RefreshCw size={14} />}>
-          {lang === "mr" ? "रिफ्रेश" : "Refresh"}
-        </Button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleVerifyChain}
+            isLoading={verifying}
+            leftIcon={<ShieldCheck size={14} />}
+          >
+            {lang === "mr" ? "साखळी पडताळा (Verify)" : "Verify Integrity"}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleExportAudit}
+            isLoading={exporting}
+            leftIcon={<Download size={14} />}
+          >
+            {lang === "mr" ? "ऑडिट निर्यात करा (Export)" : "Export Signed JSON"}
+          </Button>
+
+          <Button size="sm" variant="secondary" onClick={fetchAudit} leftIcon={<RefreshCw size={14} />}>
+            {lang === "mr" ? "रिफ्रेश" : "Refresh"}
+          </Button>
+        </div>
       </div>
+
+      {/* Verification Result Banner if clicked */}
+      {verifyResult && (
+        <div
+          style={{
+            padding: "12px 16px",
+            borderRadius: "var(--radius-card)",
+            backgroundColor: verifyResult.chain_valid ? "var(--brand-50, #F0FDF4)" : "#FEE2E2",
+            border: `1px solid ${verifyResult.chain_valid ? "var(--brand-500, #22C55E)" : "#FCA5A5"}`,
+            color: verifyResult.chain_valid ? "var(--brand-900, #14532D)" : "#991B1B",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            fontSize: "0.875rem",
+          }}
+        >
+          {verifyResult.chain_valid ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+          <span>
+            {verifyResult.chain_valid
+              ? "Cryptographic Verification Passed: All SHA-256 chain blocks valid, continuous, and tamper-free."
+              : "Alert: Audit chain integrity verification failed! Discrepancy detected in hash chain."}
+          </span>
+        </div>
+      )}
 
       {/* 2. Chain Integrity Banner */}
       <div
@@ -120,7 +203,7 @@ export const AuditTrailView: React.FC<AuditTrailViewProps> = ({ onNavigate }) =>
                 </tr>
               </thead>
               <tbody>
-                {auditData.records.map((rec: any) => (
+                {auditData.records.map((rec: AuditRecord) => (
                   <tr key={rec.id} style={{ borderBottom: "1px solid var(--line-subtle)" }}>
                     <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
                       #{rec.id}

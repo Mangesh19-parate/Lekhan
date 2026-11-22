@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type DocumentSummaryItem, type PortalSheetResponse } from "../../shared/api";
 import { Button, Badge, Card, Select, Skeleton } from "../../shared/components";
 import {
   FileText,
@@ -20,9 +20,9 @@ interface RegistrationDataViewProps {
 export const RegistrationDataView: React.FC<RegistrationDataViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<DocumentSummaryItem[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
-  const [portalSheet, setPortalSheet] = useState<any | null>(null);
+  const [portalSheet, setPortalSheet] = useState<PortalSheetResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
   const fetchDocsAndSheet = async () => {
@@ -48,7 +48,7 @@ export const RegistrationDataView: React.FC<RegistrationDataViewProps> = ({ onNa
     try {
       const sheet = await api.getPortalSheet(docId);
       setPortalSheet(sheet);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setPortalSheet(null);
     }
   };

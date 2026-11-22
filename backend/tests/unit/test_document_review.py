@@ -15,6 +15,7 @@ import pytest
 
 from app.generation.jobs import JobRecord
 from app.generation.pipeline import generation_pipeline
+from app.generation.repository import InMemoryDocumentRepository
 from app.review.fsm import (
     DISCLAIMER_EN,
     DISCLAIMER_MR,
@@ -31,8 +32,9 @@ from app.review.fsm import (
 from app.review.service import DocumentReviewService
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def clean_pipeline() -> None:
+    generation_pipeline.repository = InMemoryDocumentRepository()
     generation_pipeline.clear()
     yield
     generation_pipeline.clear()

@@ -1,0 +1,124 @@
+{
+  "manifest_schema": 1,
+  "template_id": "transfer_deed_en",
+  "name_en": "Deed of Transfer (Ownership and Rights Conveyance)",
+  "name_mr": "हस्तांतरण पत्र (मालकी हक्क व ताबा हस्तांतरण)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "transfer_deed",
+  "property_type": "plot",
+  "language": "en",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "transferors": {
+      "role": "transferor",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Transferor(s)",
+      "label_mr": "हस्तांतरक"
+    },
+    "transferees": {
+      "role": "transferee",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Transferee(s)",
+      "label_mr": "हस्तांतरिती"
+    }
+  },
+  "repeaters": {
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_schedule",
+      "title_en": "Property Schedule",
+      "title_mr": "मिळकतीचे वर्णन",
+      "field_names": [
+        "property.mouza",
+        "property.khasra_no",
+        "property.area_sqm"
+      ]
+    },
+    {
+      "id": "boundaries",
+      "title_en": "Boundaries",
+      "title_mr": "चतुःसीमा",
+      "field_names": [
+        "boundaries.east",
+        "boundaries.west",
+        "boundaries.north",
+        "boundaries.south"
+      ]
+    }
+  ],
+  "fields": {
+    "execution_date": {
+      "name": "execution_date",
+      "type": "string",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त नोंदणी दिनांक",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza / Village",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra / Survey No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.area_sqm": {
+      "name": "property.area_sqm",
+      "type": "decimal",
+      "label_en": "Area (Sq. Metres)",
+      "label_mr": "क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    },
+    "boundaries.east": {
+      "name": "boundaries.east",
+      "type": "string",
+      "label_en": "East Boundary",
+      "label_mr": "पूर्व",
+      "required": true
+    },
+    "boundaries.west": {
+      "name": "boundaries.west",
+      "type": "string",
+      "label_en": "West Boundary",
+      "label_mr": "पश्चिम",
+      "required": true
+    },
+    "boundaries.north": {
+      "name": "boundaries.north",
+      "type": "string",
+      "label_en": "North Boundary",
+      "label_mr": "उत्तर",
+      "required": true
+    },
+    "boundaries.south": {
+      "name": "boundaries.south",
+      "type": "string",
+      "label_en": "South Boundary",
+      "label_mr": "दक्षिण",
+      "required": true
+    }
+  },
+  "clauses": [
+    "title_warranty",
+    "witness_attestation"
+  ]
+}

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal, Input, Button, Badge, EmptyState } from "../../shared/components";
 import { useI18n } from "../../shared/i18n";
+import { apiClient } from "../../shared/api";
 import { Search, Landmark, MapPin, Compass, CheckCircle2, Sparkles, Home } from "lucide-react";
 
 export interface PropertySearchResult {
   id: string;
   category: string;
-  attrs: Record<string, any>;
+  attrs: Record<string, unknown>;
   area_value?: number | string;
   area_unit?: string;
   boundaries?: Record<string, string>;
@@ -21,7 +22,7 @@ export interface PropertyMatch {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSelectProperty: (data: Record<string, any>) => void;
+  onSelectProperty: (data: Record<string, unknown>) => void;
 }
 
 export const PropertySearchModal: React.FC<Props> = ({
@@ -56,19 +57,14 @@ export const PropertySearchModal: React.FC<Props> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/properties/search?q=${encodeURIComponent(searchTerm.trim())}&limit=10`, {
-        headers: { "Accept": "application/json" },
-        credentials: "include",
-      });
-      if (!res.ok) {
-        throw new Error(`Search failed: HTTP ${res.status}`);
-      }
-      const data: PropertyMatch[] = await res.json();
+      const data = await apiClient<PropertyMatch[]>(
+        `/api/v1/properties/search?q=${encodeURIComponent(searchTerm.trim())}&limit=10`
+      );
       setResults(data);
       setSearched(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Property search error:", err);
-      setError(err.message || "Failed to search properties");
+      setError(err instanceof Error ? err.message : "Failed to search properties");
       setResults([]);
     } finally {
       setIsLoading(false);
@@ -90,7 +86,7 @@ export const PropertySearchModal: React.FC<Props> = ({
     const attrs = p.attrs || {};
     const boundaries = p.boundaries || {};
 
-    const extracted: Record<string, any> = {
+    const extracted: Record<string, unknown> = {
       "property.mouza": attrs.mouza || "",
       "property.khasra_no": attrs.khasra_no || "",
       "property.plot_no": attrs.plot_no || attrs.flat_no || "",

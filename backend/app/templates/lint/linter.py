@@ -14,7 +14,7 @@ from typing import Any
 
 from app.templates.lint.fonts import audit_docx_fonts
 from app.templates.lint.leftover_scanner import scan_docx_for_leftover_data
-from app.templates.lint.models import LintReport
+from app.templates.lint.models import LintFinding, LintReport
 from app.templates.lint.split_runs import repair_and_check_split_runs
 from app.templates.lint.structural import check_structural_safety
 from app.templates.lint.tag_checker import check_tag_alignment
@@ -67,8 +67,11 @@ class DocxLinter:
 
         # 4. Leftover client data / PII scanning
         leftover_findings = scan_docx_for_leftover_data(inspected_bytes)
-        for leftover in leftover_findings:
-            report.add_leftover(leftover)
+        for item in leftover_findings:
+            if isinstance(item, LintFinding):
+                report.add_finding(item)
+            else:
+                report.add_leftover(item)
 
         # 5. Font auditing
         fonts, font_findings = audit_docx_fonts(inspected_bytes)

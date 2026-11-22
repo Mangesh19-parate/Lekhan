@@ -21,6 +21,7 @@ except ImportError:
 
 from app.generation.jobs import JobQueue, JobRecord
 from app.generation.pipeline import GenerationPipelineFSM, generation_pipeline
+from app.generation.repository import InMemoryDocumentRepository
 
 
 @pytest.fixture
@@ -42,10 +43,11 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
 
     # 1. Populate test documents and counters
     pipeline = generation_pipeline
+    pipeline.repository = InMemoryDocumentRepository()
     tenant_id = uuid.uuid4()
     job = JobQueue().enqueue(
         tenant_id=tenant_id,
-        job_type="generate_docx",
+        type="generate_docx",
         payload={
             "execution_date": "2026-11-09",
             "sellers": [
@@ -91,7 +93,7 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
 
     # 3. Simulate disaster: clear in-memory state
     pipeline.clear()
-    assert len(pipeline._documents) == 0
+    assert pipeline.get_document(doc_record.id, tenant_id) is None
 
     # 4. Run restore drill
     report = restore_backup(archive_path=archive_file, target_storage_dir=restore_storage_dir)
@@ -118,3 +120,43 @@ def test_restore_tampered_archive_fails(temp_backup_env) -> None:
 
     with pytest.raises(Exception):
         restore_backup(archive_path=archive_file)
+
+
+def test_restore_drill_verifies_audit_chain(temp_backup_env) -> None:
+    """Verifies that backup and restore preserves and cryptographically verifies audit log chain."""
+    from app.audit.service import audit_service
+    from app.audit.jobs import verify_all_audit_chains
+    from scripts.restore_drill import run_restore_drill
+
+    backups_dir = temp_backup_env["backups"]
+    restore_storage_dir = temp_backup_env["storage"]
+
+    tenant_id = uuid.uuid4()
+    audit_service.log_event(tenant_id=tenant_id, action="create_document", entity="document", entity_id="101")
+    audit_service.log_event(tenant_id=tenant_id, action="finalise_document", entity="document", entity_id="101")
+
+    # Initial check
+    initial_check = verify_all_audit_chains()
+    assert initial_check.status == "healthy"
+
+    # Backup
+    archive_file = create_backup(destination_dir=backups_dir, include_storage=True)
+
+    # Wipe audit log
+    audit_service.clear()
+    assert len(audit_service.get_chain(tenant_id)) == 0
+
+    # Restore
+    report = restore_backup(archive_path=archive_file, target_storage_dir=restore_storage_dir)
+    assert report["status"] == "success"
+    assert report.get("audit_chain_verified") is True
+
+    # Audit chain must be intact
+    restored_events = audit_service.get_chain(tenant_id)
+    assert len(restored_events) == 2
+    assert restored_events[0].action == "create_document"
+    assert restored_events[1].action == "finalise_document"
+
+    # Full drill script run
+    assert run_restore_drill() is True
+

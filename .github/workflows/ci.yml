@@ -5,11 +5,35 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily automated run at 02:00 UTC
 
 jobs:
   backend-check:
     name: Backend Lint, Type Check & Unit Tests
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lekhan_user
+          POSTGRES_PASSWORD: lekhan_test_password
+          POSTGRES_DB: lekhan_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://lekhan_user:lekhan_test_password@localhost:5432/lekhan_db
+      TEST_DATABASE_URL: postgresql+psycopg://lekhan_user:lekhan_test_password@localhost:5432/lekhan_db
+      STORAGE_PATH: ./var/storage
+      JWT_SECRET: test_secret_key_minimum_32_characters_long_12345
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,13 +60,38 @@ jobs:
           cd backend
           mypy --strict app
 
-      - name: Run Tests (Synthetic Data Only)
+      - name: Import Linter
         run: |
           cd backend
-          pytest -q -m "not slow"
+          lint-imports
+
+      - name: Run Tests with Coverage Gate (Floor: 85%)
+        run: |
+          cd backend
+          pytest -q --cov=app --cov-report=term-missing --cov-fail-under=85
+
+      - name: Run Golden Template Tests over EVERY Template (PR Gate)
+        run: |
+          cd backend
+          pytest -q tests/golden -m "golden"
+
+      - name: Schemathesis OpenAPI Schema Fuzzing & Conformance
+        run: |
+          cd backend
+          pytest -q tests/unit/test_openapi_schemathesis.py
+
+      - name: Mutation Testing Gate (lang_packs & units)
+        run: |
+          cd backend
+          python scripts/run_mutation_gate.py --min-score 80.0
+
+      - name: Run PostgreSQL Integration Tests
+        run: |
+          cd backend
+          pytest -q tests/integration
 
   frontend-check:
-    name: Frontend Lint & TypeScript Check
+    name: Frontend Lint, TypeScript & Playwright E2E
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +107,12 @@ jobs:
           cd frontend
           npm install
 
+      - name: npm audit Vulnerability Scan (Blocking Gate)
+        if: hashFiles('frontend/package.json') != ''
+        run: |
+          cd frontend
+          npm audit --audit-level=high
+
       - name: ESLint
         if: hashFiles('frontend/package.json') != ''
         run: |
@@ -70,8 +125,20 @@ jobs:
           cd frontend
           npx tsc --noEmit
 
+      - name: Install Playwright Browsers
+        if: hashFiles('frontend/package.json') != ''
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E Full Lifecycle Tests
+        if: hashFiles('frontend/package.json') != ''
+        run: |
+          cd frontend
+          npx playwright test
+
   security-scan:
-    name: Security & Secret Scan
+    name: Security Scan, pip-audit & SBOM Generation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -86,3 +153,100 @@ jobs:
             exit 1
           fi
 
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "backend/pyproject.toml"
+
+      - name: Install Security Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bandit>=1.7.10" "pip-audit>=2.7.3" "cyclonedx-bom>=4.1.0" -e "backend"
+
+      - name: Bandit Security Scan
+        run: |
+          cd backend
+          bandit -r app -ll
+
+      - name: Pip-Audit Vulnerability Scan (Blocking Gate)
+        run: |
+          cd backend
+          pip-audit --desc --strict
+
+      - name: Generate CycloneDX Software Bill of Materials (SBOM)
+        run: |
+          cd backend
+          cyclonedx-py environment --outfile ../backend-sbom.json
+
+      - name: Upload SBOM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: backend-sbom.json
+
+  container-scan:
+    name: Docker Image Build & Trivy Image Scan (Blocking Gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Production Image
+        run: |
+          docker build -t lekhan-api:${{ github.sha }} -f Dockerfile .
+
+      - name: Trivy Container Image Scan (Blocking Gate)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: lekhan-api:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+  backup-restore-drill:
+    name: Daily Automated Backup & Scratch DB Restore Drill
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lekhan_user
+          POSTGRES_PASSWORD: lekhan_test_password
+          POSTGRES_DB: lekhan_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://lekhan_user:lekhan_test_password@localhost:5432/lekhan_db
+      TEST_DATABASE_URL: postgresql+psycopg://lekhan_user:lekhan_test_password@localhost:5432/lekhan_db
+      STORAGE_PATH: ./var/storage
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "backend/pyproject.toml"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "backend[dev]"
+
+      - name: Execute Backup & Restore Drill with Cryptographic Audit Chain Verification
+        run: |
+          cd backend
+          python scripts/restore_drill.py
+          pytest -v tests/integration/test_postgres_backup_restore.py

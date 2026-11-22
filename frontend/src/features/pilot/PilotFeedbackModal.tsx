@@ -75,9 +75,10 @@ export const PilotFeedbackModal: React.FC<Props> = ({
       setOriginalText("");
       setCorrectedText("");
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to submit correction";
       console.error("Pilot correction error:", err);
-      setError(err.message || "Failed to submit correction");
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }

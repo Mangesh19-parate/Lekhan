@@ -1,6 +1,11 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import {
+  api,
+  type TemplateSummaryItem,
+  type TemplateManifest,
+  type TemplateSection,
+} from "../../shared/api";
 import { Button, Badge, Card, Input, Select, Modal, Skeleton } from "../../shared/components";
 import {
   Layers,
@@ -16,7 +21,7 @@ import {
 
 interface TemplateLibraryViewProps {
   onNavigate: (viewId: string, templateId?: string) => void;
-  onSelectTemplateForDrafting?: (templateItem: any) => void;
+  onSelectTemplateForDrafting?: (templateItem: TemplateSummaryItem) => void;
 }
 
 export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
@@ -25,11 +30,11 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
 }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<TemplateSummaryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [langFilter, setLangFilter] = useState("all");
   const [propertyFilter, setPropertyFilter] = useState("all");
-  const [selectedManifest, setSelectedManifest] = useState<any | null>(null);
+  const [selectedManifest, setSelectedManifest] = useState<TemplateManifest | null>(null);
   const [manifestModalOpen, setManifestModalOpen] = useState(false);
 
   const fetchTemplates = async () => {
@@ -67,12 +72,13 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
       const manifest = await api.getTemplateManifest(tId);
       setSelectedManifest(manifest);
       setManifestModalOpen(true);
-    } catch (e: any) {
-      alert("Failed to load manifest schema: " + e?.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error loading manifest";
+      alert("Failed to load manifest schema: " + msg);
     }
   };
 
-  const handleStartDraft = (tmpl: any) => {
+  const handleStartDraft = (tmpl: TemplateSummaryItem) => {
     if (onSelectTemplateForDrafting) {
       onSelectTemplateForDrafting(tmpl);
     }
@@ -85,7 +91,7 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--brand-900)", margin: 0 }}>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--brand-900)", margin: 0, fontFamily: "var(--font-heading)" }}>
               {lang === "mr" ? "साचे ग्रंथालय (Approved Template Library)" : "Approved Template Library"}
             </h1>
             <Badge variant="approved" size="md" label="Wave 1 Legal Suite" />
@@ -251,7 +257,7 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
               <div>
                 <h4 style={{ fontSize: "0.875rem", fontWeight: 600, margin: "0 0 6px 0" }}>Sections & Required Fields</h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {selectedManifest.sections.map((s: any) => (
+                  {selectedManifest.sections.map((s: TemplateSection) => (
                     <div key={s.id} style={{ backgroundColor: "var(--surface-sunken)", padding: "8px 12px", borderRadius: "var(--radius-input)", fontSize: "0.8125rem" }}>
                       <strong>{s.title_en}</strong> ({s.title_mr})
                       <div style={{ color: "var(--text-tertiary)", fontSize: "0.75rem", marginTop: "2px" }}>

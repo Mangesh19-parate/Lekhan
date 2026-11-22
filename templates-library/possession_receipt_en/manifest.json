@@ -1,0 +1,84 @@
+{
+  "manifest_schema": 1,
+  "template_id": "possession_receipt_en",
+  "name_en": "Possession Receipt (Acknowledgment of Delivery)",
+  "name_mr": "ताबा पावती (कब्जा पोचपावती)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "possession_receipt",
+  "property_type": "flat",
+  "language": "en",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "recipients": {
+      "role": "recipient",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Possession Acknowledger(s)",
+      "label_mr": "ताबा स्वीकारणारे"
+    },
+    "deliverers": {
+      "role": "deliverer",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Possession Handover Party",
+      "label_mr": "ताबा देणारे"
+    }
+  },
+  "repeaters": {
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_schedule",
+      "title_en": "Property Schedule",
+      "title_mr": "मिळकतीचे वर्णन",
+      "field_names": [
+        "property.mouza",
+        "property.khasra_no",
+        "property.area_sqm"
+      ]
+    }
+  ],
+  "fields": {
+    "execution_date": {
+      "name": "execution_date",
+      "type": "string",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त नोंदणी दिनांक",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza / Village",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra / Survey No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.area_sqm": {
+      "name": "property.area_sqm",
+      "type": "decimal",
+      "label_en": "Area (Sq. Metres)",
+      "label_mr": "क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    }
+  },
+  "clauses": [
+    "witness_attestation"
+  ]
+}

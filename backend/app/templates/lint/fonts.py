@@ -72,11 +72,17 @@ def audit_docx_fonts(docx_bytes: bytes) -> tuple[list[str], list[LintFinding]]:
                                             )
                                         )
 
-                    except Exception:
-                        pass
+                    except (ET.ParseError, UnicodeDecodeError, KeyError):
+                        continue
 
-    except Exception:
-        pass
+    except (zipfile.BadZipFile, OSError, KeyError):
+        findings.append(
+            LintFinding(
+                code="MALFORMED_DOCX",
+                severity=LintSeverity.ERROR,
+                message="Template DOCX archive could not be read for font inspection.",
+            )
+        )
 
     # Check for recommended Devanagari font presence if Devanagari text is expected
     sorted_fonts = sorted(found_fonts)

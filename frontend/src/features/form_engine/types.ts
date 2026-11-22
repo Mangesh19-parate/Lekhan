@@ -6,7 +6,7 @@ export interface FieldDefinition {
   label_en: string;
   label_mr: string;
   required?: boolean;
-  default?: any;
+  default?: unknown;
   enum_values?: string[];
   visible_when?: string;
   help_text_en?: string;

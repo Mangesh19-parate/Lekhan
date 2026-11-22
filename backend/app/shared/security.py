@@ -47,7 +47,7 @@ def verify_password(hash_str: str, password: str) -> bool:
             return bool(_hasher.verify(hash_str, password))
         except VerifyMismatchError:
             return False
-        except Exception:
+        except (ValueError, TypeError) as err:
             return False
 
     if hash_str.startswith("pbkdf2:sha256:"):
@@ -65,7 +65,7 @@ def verify_password(hash_str: str, password: str) -> bool:
             expected = bytes.fromhex(hash_hex)
             computed = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
             return hmac.compare_digest(computed, expected)
-        except Exception:
+        except (ValueError, TypeError, IndexError):
             return False
 
     return False
@@ -79,6 +79,13 @@ def generate_opaque_token(nbytes: int = 32) -> str:
 def hash_token(token: str) -> bytes:
     """Computes SHA-256 digest of a session or CSRF token for safe database storage."""
     return hashlib.sha256(token.encode("utf-8")).digest()
+
+
+def derive_csrf_token(secret_key: str, session_id: str) -> str:
+    """Derives a deterministic, cryptographically secure CSRF token as HMAC-SHA256(secret_key, session_id)."""
+    return hmac.new(
+        secret_key.encode("utf-8"), session_id.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
 
 
 def verify_csrf_token(stored_hash: bytes, supplied_token: str) -> bool:

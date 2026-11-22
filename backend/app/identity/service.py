@@ -12,9 +12,13 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from dataclasses import dataclass
 
 from app.config import get_settings
+from app.identity.session_repository import (
+    InMemorySessionRepository,
+    SessionData,
+    SessionRepository,
+)
 from app.shared.security import (
     generate_opaque_token,
     hash_token,
@@ -28,30 +32,19 @@ IDLE_TIMEOUT_MINUTES = settings.SESSION_IDLE_MINUTES
 ABSOLUTE_TIMEOUT_HOURS = settings.SESSION_ABSOLUTE_HOURS
 
 
-@dataclass
-class SessionData:
-    """Active session metadata."""
-
-    id_hash: bytes
-    user_id: uuid.UUID
-    tenant_id: uuid.UUID
-    csrf_token_hash: bytes
-    created_at: datetime.datetime
-    last_seen_at: datetime.datetime
-    expires_at: datetime.datetime
-    user_agent: str | None = None
-    ip: str | None = None
-
-
 class SessionStore:
-    """Session management store.
+    """Session management store delegating to SessionRepository."""
 
-    Maintains active sessions with sliding and absolute timeouts.
-    """
+    def __init__(self, repo: SessionRepository | None = None) -> None:
+        self._repo = repo or InMemorySessionRepository()
 
-    def __init__(self) -> None:
-        # In-memory session registry (backed by PostgreSQL in DB adapter)
-        self._sessions: dict[bytes, SessionData] = {}
+    @property
+    def repo(self) -> SessionRepository:
+        return self._repo
+
+    @repo.setter
+    def repo(self, new_repo: SessionRepository) -> None:
+        self._repo = new_repo
 
     def create_session(
         self,
@@ -81,13 +74,13 @@ class SessionStore:
             user_agent=user_agent,
             ip=ip,
         )
-        self._sessions[id_hash] = session_data
+        self._repo.save(tenant_id, session_data)
         return session_token, csrf_token
 
     def get_session(self, session_token: str) -> SessionData | None:
         """Validates and refreshes session sliding idle window."""
         id_hash = hash_token(session_token)
-        session = self._sessions.get(id_hash)
+        session = self._repo.find_by_hash(None, id_hash)
         if not session:
             return None
 
@@ -95,16 +88,17 @@ class SessionStore:
 
         # Check absolute timeout
         if now > session.expires_at:
-            self.delete_session(session_token)
+            self._repo.delete(session.tenant_id, id_hash)
             return None
 
         # Check sliding idle timeout (30 minutes)
         idle_limit = session.last_seen_at + datetime.timedelta(minutes=IDLE_TIMEOUT_MINUTES)
         if now > idle_limit:
-            self.delete_session(session_token)
+            self._repo.delete(session.tenant_id, id_hash)
             return None
 
         # Refresh last seen sliding window
+        self._repo.touch(session.tenant_id, id_hash, now)
         session.last_seen_at = now
         return session
 
@@ -118,18 +112,28 @@ class SessionStore:
     def delete_session(self, session_token: str) -> None:
         """Revokes a specific session (logout)."""
         id_hash = hash_token(session_token)
-        self._sessions.pop(id_hash, None)
+        session = self._repo.find_by_hash(None, id_hash)
+        if session:
+            self._repo.delete(session.tenant_id, id_hash)
 
-    def delete_all_for_user(self, user_id: uuid.UUID) -> None:
+    def delete_all_for_user(self, user_id: uuid.UUID, tenant_id: uuid.UUID | None = None) -> None:
         """Revokes all active sessions for a user (password change / lockout)."""
-        to_delete = [id_hash for id_hash, s in self._sessions.items() if s.user_id == user_id]
-        for h in to_delete:
-            self._sessions.pop(h, None)
+        if tenant_id is not None:
+            self._repo.delete_all_for_user(tenant_id, user_id)
+        elif isinstance(self._repo, InMemorySessionRepository):
+            to_del = [
+                (s.tenant_id, s.id_hash)
+                for s in self._repo._sessions.values()
+                if s.user_id == user_id
+            ]
+            for tid, h in to_del:
+                self._repo.delete(tid, h)
 
     def clear(self) -> None:
         """Clears all sessions (test cleanup)."""
-        self._sessions.clear()
+        if isinstance(self._repo, InMemorySessionRepository):
+            self._repo.clear()
 
 
-# Global singleton instance
+# Global singleton instance for backwards-compatible test helpers
 session_store = SessionStore()

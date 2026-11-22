@@ -25,19 +25,11 @@ export const Tabs: React.FC<TabsProps> = ({
   return (
     <div
       role="tablist"
-      className={`lekhan-tabs ${className}`}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "4px",
-        padding: "4px",
-        backgroundColor: "var(--surface-sunken)",
-        borderRadius: "var(--radius-pill)",
-        width: "fit-content",
-      }}
+      className={`inline-flex items-center gap-1 p-1 bg-sunken rounded-pill font-ui select-none ${className}`}
     >
       {items.map((tab) => {
         const isActive = tab.id === activeId;
+        const sizeClasses = size === "sm" ? "px-3 py-1 text-xs gap-1.5" : "px-4 py-1.5 text-sm gap-2";
         return (
           <button
             key={tab.id}
@@ -45,34 +37,19 @@ export const Tabs: React.FC<TabsProps> = ({
             aria-selected={isActive}
             type="button"
             onClick={() => onChange(tab.id)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: size === "sm" ? "4px 12px" : "6px 16px",
-              fontSize: size === "sm" ? "0.8125rem" : "0.875rem",
-              fontWeight: isActive ? 600 : 500,
-              color: isActive ? "var(--text-on-dark)" : "var(--text-secondary)",
-              backgroundColor: isActive ? "var(--brand-500)" : "transparent",
-              borderRadius: "var(--radius-pill)",
-              border: "none",
-              cursor: "pointer",
-              transition: "all var(--transition-fast)",
-              userSelect: "none",
-              whiteSpace: "nowrap",
-            }}
+            className={`inline-flex items-center rounded-pill font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/30 ${sizeClasses} ${
+              isActive
+                ? "bg-brand-500 text-white shadow-sm"
+                : "text-text-secondary hover:text-text-primary hover:bg-card/50"
+            }`}
           >
             {tab.icon && <span className="shrink-0">{tab.icon}</span>}
             <span>{tab.label}</span>
-            {tab.badge !== undefined && (
+            {tab.badge != null && (
               <span
-                style={{
-                  fontSize: "0.6875rem",
-                  padding: "1px 6px",
-                  borderRadius: "var(--radius-pill)",
-                  backgroundColor: isActive ? "rgba(255,255,255,0.25)" : "var(--line-medium)",
-                  color: isActive ? "#fff" : "var(--text-primary)",
-                }}
+                className={`ml-1 text-[11px] px-1.5 py-0.2 rounded-pill font-bold ${
+                  isActive ? "bg-white/20 text-white" : "bg-card text-text-secondary"
+                }`}
               >
                 {tab.badge}
               </span>
@@ -83,4 +60,3 @@ export const Tabs: React.FC<TabsProps> = ({
     </div>
   );
 };
-

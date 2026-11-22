@@ -18,58 +18,18 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <div
-      className={`lekhan-empty-state ${className}`}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        padding: "48px 24px",
-        borderRadius: "var(--radius-card)",
-        backgroundColor: "var(--surface-subtle)",
-        border: "1px dashed var(--line-medium)",
-      }}
+      className={`flex flex-col items-center justify-center text-center p-8 md:p-12 rounded-card bg-subtle dark:bg-sunken/40 border border-dashed border-line-medium ${className}`}
     >
-      <div
-        style={{
-          width: "48px",
-          height: "48px",
-          borderRadius: "var(--radius-pill)",
-          backgroundColor: "var(--surface-sunken)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--brand-600)",
-          marginBottom: "16px",
-        }}
-      >
+      <div className="w-12 h-12 rounded-pill bg-sunken dark:bg-card flex items-center justify-center text-brand-600 dark:text-brand-400 mb-4 shadow-sm">
         {icon || <FolderOpen size={24} />}
       </div>
-      <h3
-        style={{
-          margin: 0,
-          fontSize: "1rem",
-          fontWeight: 600,
-          color: "var(--text-primary)",
-          fontFamily: "var(--font-ui)",
-        }}
-      >
+      <h3 className="text-base font-semibold text-text-primary mb-1 font-ui">
         {title}
       </h3>
-      <p
-        style={{
-          margin: "6px 0 20px 0",
-          fontSize: "0.8125rem",
-          color: "var(--text-secondary)",
-          maxWidth: "360px",
-          lineHeight: 1.5,
-        }}
-      >
+      <p className="text-sm text-text-secondary max-w-sm mb-5 font-ui">
         {description}
       </p>
-      {action}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 };
-

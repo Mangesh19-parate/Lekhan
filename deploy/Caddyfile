@@ -1,0 +1,63 @@
+# ==============================================================================
+# Caddy Production Reverse Proxy Configuration
+# Adheres to:
+# - Automatic TLS & HTTP/2 / HTTP/3
+# - Strict Security Headers (CSP, HSTS, X-Frame-Options)
+# - Proxy pass to FastAPI API & Health probes
+# ==============================================================================
+
+{
+    admin off
+    auto_https disable_redirects
+}
+
+:80 {
+    log {
+        output stdout
+        format json
+    }
+
+    # Hardened Security Headers
+    header {
+        # Prevent clickjacking
+        X-Frame-Options "DENY"
+        # Prevent MIME-type sniffing
+        X-Content-Type-Options "nosniff"
+        # Strict Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Content Security Policy (strict default-src 'self')
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+        # Restrict browser feature access
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        # Enforce HTTPS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Drop server identification banner
+        -Server
+    }
+
+    # Reverse proxy API requests to FastAPI
+    handle /api/* {
+        reverse_proxy api:8000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Reverse proxy health check probes
+    handle /health/* {
+        reverse_proxy api:8000
+    }
+
+    # Reverse proxy prometheus metrics
+    handle /metrics {
+        reverse_proxy api:8000
+    }
+
+    # Static frontend / SPA fallback
+    handle {
+        root * /srv/frontend/dist
+        try_files {path} {path}/ /index.html
+        file_server
+    }
+}

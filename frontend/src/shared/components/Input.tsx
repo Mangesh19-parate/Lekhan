@@ -22,7 +22,6 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       leftAddon,
       rightAddon,
       className = "",
-      style,
       disabled,
       ...props
     },
@@ -33,31 +32,16 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const errorId = error ? `${inputId}-error` : undefined;
 
     return (
-      <div className={`lekhan-input-group ${className}`} style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%" }}>
+      <div className={`flex flex-col gap-1.5 w-full ${className}`}>
         {label && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div className="flex items-center justify-between">
             <label
               htmlFor={inputId}
-              style={{
-                fontSize: "0.8125rem",
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                userSelect: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
+              className="text-xs font-semibold text-text-primary select-none inline-flex items-center gap-1 font-ui"
             >
-              {label}
+              <span>{label}</span>
               {required && (
-                <span
-                  style={{
-                    fontSize: "0.6875rem",
-                    fontWeight: 700,
-                    color: "var(--danger-600)",
-                    textTransform: "uppercase",
-                  }}
-                >
+                <span className="text-[11px] font-bold text-danger uppercase">
                   {requiredMarker ? `(${requiredMarker})` : "*"}
                 </span>
               )}
@@ -65,25 +49,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           </div>
         )}
 
-        <div
-          style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
+        <div className="relative flex items-center w-full">
           {leftAddon && (
-            <div
-              style={{
-                position: "absolute",
-                left: "12px",
-                display: "flex",
-                alignItems: "center",
-                pointerEvents: "none",
-                color: "var(--text-tertiary)",
-              }}
-            >
+            <div className="absolute left-3 flex items-center pointer-events-none text-text-secondary z-10">
               {leftAddon}
             </div>
           )}
@@ -92,39 +60,20 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             disabled={disabled}
+            aria-describedby={[helperId, errorId].filter(Boolean).join(" ") || undefined}
             aria-invalid={!!error}
-            aria-describedby={[errorId, helperId].filter(Boolean).join(" ") || undefined}
-            required={required}
-            className={`lekhan-input-field ${error ? "has-error" : ""}`}
-            style={{
-              width: "100%",
-              height: "40px",
-              padding: `0 ${rightAddon ? "40px" : "12px"} 0 ${leftAddon ? "38px" : "12px"}`,
-              fontSize: "0.875rem",
-              fontFamily: "var(--font-ui)",
-              color: "var(--text-primary)",
-              backgroundColor: disabled ? "var(--surface-sunken)" : "var(--surface-card)",
-              border: `1px solid ${error ? "var(--danger-600)" : "var(--line-medium)"}`,
-              borderRadius: "var(--radius-input)",
-              transition: "border-color var(--transition-fast), box-shadow var(--transition-fast)",
-              boxSizing: "border-box",
-              cursor: disabled ? "not-allowed" : "text",
-              opacity: disabled ? 0.6 : 1,
-              ...style,
-            }}
+            className={`w-full h-10 rounded-input border text-sm font-ui transition-all duration-150 focus:outline-none focus:ring-2 disabled:bg-sunken disabled:cursor-not-allowed disabled:opacity-60 bg-subtle dark:bg-sunken/40 text-text-primary placeholder:text-text-tertiary ${
+              leftAddon ? "pl-9" : "pl-3"
+            } ${rightAddon ? "pr-9" : "pr-3"} ${
+              error
+                ? "border-danger bg-danger-tint/30 text-danger-600 focus:ring-danger-500 focus:border-danger"
+                : "border-line-subtle hover:border-line-medium focus:border-brand-500 focus:ring-brand-500/25"
+            }`}
             {...props}
           />
 
           {rightAddon && (
-            <div
-              style={{
-                position: "absolute",
-                right: "12px",
-                display: "flex",
-                alignItems: "center",
-                color: "var(--text-tertiary)",
-              }}
-            >
+            <div className="absolute right-3 flex items-center text-text-secondary z-10">
               {rightAddon}
             </div>
           )}
@@ -134,31 +83,17 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <div
             id={errorId}
             role="alert"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-              fontSize: "0.75rem",
-              color: "var(--danger-600)",
-              fontWeight: 500,
-            }}
+            className="flex items-center gap-1.5 text-xs font-medium text-danger mt-0.5"
           >
-            <AlertCircle size={14} className="shrink-0" />
+            <AlertCircle size={13} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {!error && helperText && (
-          <div
-            id={helperId}
-            style={{
-              fontSize: "0.75rem",
-              color: "var(--text-secondary)",
-              lineHeight: 1.4,
-            }}
-          >
+          <p id={helperId} className="text-xs text-text-secondary font-ui mt-0.5">
             {helperText}
-          </div>
+          </p>
         )}
       </div>
     );
@@ -166,4 +101,3 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 
 Input.displayName = "Input";
-

@@ -5,51 +5,48 @@ export interface SkeletonProps {
   height?: string | number;
   borderRadius?: string;
   className?: string;
-  style?: React.CSSProperties;
 }
 
 export const Skeleton: React.FC<SkeletonProps> = ({
   width = "100%",
   height = "20px",
-  borderRadius = "var(--radius-input)",
+  borderRadius,
   className = "",
-  style,
 }) => {
   return (
     <div
-      className={`lekhan-skeleton ${className}`}
       style={{
         width,
         height,
-        borderRadius,
-        backgroundColor: "var(--surface-sunken)",
-        position: "relative",
-        overflow: "hidden",
-        ...style,
+        borderRadius: borderRadius || "var(--radius-input)",
       }}
+      className={`relative overflow-hidden bg-sunken dark:bg-card/60 animate-pulse ${className}`}
     />
   );
 };
 
 export const FormSkeleton: React.FC = () => {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px", width: "100%" }}>
+    <div className="flex flex-col gap-6 w-full">
       <Skeleton height="36px" width="40%" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-2">
           <Skeleton height="14px" width="30%" />
           <Skeleton height="40px" />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div className="flex flex-col gap-2">
           <Skeleton height="14px" width="30%" />
           <Skeleton height="40px" />
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div className="flex flex-col gap-2">
         <Skeleton height="14px" width="25%" />
         <Skeleton height="80px" />
+      </div>
+      <div className="flex justify-end gap-3 pt-4">
+        <Skeleton height="40px" width="100px" borderRadius="var(--radius-pill)" />
+        <Skeleton height="40px" width="120px" borderRadius="var(--radius-pill)" />
       </div>
     </div>
   );
 };
-

@@ -1,0 +1,110 @@
+[
+  {
+    "amount": "0",
+    "words": "शून्य रुपये फक्त",
+    "verified": true,
+    "notes": "Base zero integer"
+  },
+  {
+    "amount": "1",
+    "words": "एक रुपये फक्त",
+    "verified": true,
+    "notes": "Unit 1"
+  },
+  {
+    "amount": "15",
+    "words": "पंधरा रुपये फक्त",
+    "verified": true,
+    "notes": "Teen 15"
+  },
+  {
+    "amount": "50",
+    "words": "पन्नास रुपये फक्त",
+    "verified": true,
+    "notes": "Tens 50"
+  },
+  {
+    "amount": "99",
+    "words": "नव्व्याण्णव रुपये फक्त",
+    "verified": true,
+    "notes": "Tens 99"
+  },
+  {
+    "amount": "100",
+    "words": "शंभर रुपये फक्त",
+    "verified": true,
+    "notes": "Exact hundred"
+  },
+  {
+    "amount": "101",
+    "words": "एकशे एक रुपये फक्त",
+    "verified": true,
+    "notes": "Hundred plus unit"
+  },
+  {
+    "amount": "250",
+    "words": "दोनशे पन्नास रुपये फक्त",
+    "verified": true,
+    "notes": "Multiple hundreds"
+  },
+  {
+    "amount": "1000",
+    "words": "एक हजार रुपये फक्त",
+    "verified": true,
+    "notes": "Exact thousand"
+  },
+  {
+    "amount": "1500",
+    "words": "एक हजार पाचशे रुपये फक्त",
+    "verified": true,
+    "notes": "Thousand with hundreds"
+  },
+  {
+    "amount": "100000",
+    "words": "एक लाख रुपये फक्त",
+    "verified": true,
+    "notes": "Exact lakh (1,00,000)"
+  },
+  {
+    "amount": "1550000",
+    "words": "पंधरा लाख पन्नास हजार रुपये फक्त",
+    "verified": true,
+    "notes": "Lakh and thousands (15,50,000)"
+  },
+  {
+    "amount": "10000000",
+    "words": "एक कोटी रुपये फक्त",
+    "verified": true,
+    "notes": "Exact crore (1,00,00,000)"
+  },
+  {
+    "amount": "1250000.50",
+    "words": "बारा लाख पन्नास हजार रुपये आणि पन्नास पैसे फक्त",
+    "verified": true,
+    "notes": "Lakhs with 50 paise"
+  },
+  {
+    "amount": "0.50",
+    "words": "शून्य रुपये आणि पन्नास पैसे फक्त",
+    "verified": true,
+    "notes": "Paise only (50 paise)"
+  },
+  {
+    "amount": "0.05",
+    "words": "शून्य रुपये आणि पाच पैसे फक्त",
+    "verified": true,
+    "notes": "Paise only (5 paise)"
+  },
+  {
+    "amount": "1000000000",
+    "words": "एकशे कोटी रुपये फक्त",
+    "verified": false,
+    "notes": "TODO(lawyer): 100 Crore / 1 Arab scale term verification"
+  },
+  {
+    "amount": "1000000000000",
+    "words": "एक लाख कोटी रुपये फक्त",
+    "verified": false,
+    "notes": "TODO(lawyer): 1 Lakh Crore scale term verification"
+  }
+]

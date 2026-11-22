@@ -4,9 +4,9 @@ import { Card, Badge, Button } from "../../shared/components";
 import { Calculator, CheckCircle2, AlertTriangle, FileText, Download, ShieldCheck } from "lucide-react";
 
 interface InspectorProps {
-  formData: Record<string, any>;
-  repeatersData: Record<string, any[]>;
-  derivedValues: Record<string, any>;
+  formData: Record<string, unknown>;
+  repeatersData: Record<string, Array<Record<string, unknown>>>;
+  derivedValues: Record<string, unknown>;
   requiredFieldsCount: { filled: number; total: number };
   onExport: () => void;
   isSubmitting?: boolean;
@@ -22,7 +22,7 @@ export const InspectorPanel: React.FC<InspectorProps> = ({
 }) => {
   const { lang, t } = useI18n();
 
-  const total = parseFloat(formData["financial.total_consideration"] || 0);
+  const total = parseFloat(String(formData["financial.total_consideration"] || 0));
   const advance = parseFloat(formData["financial.earnest_advance"] || 0);
   const balance = derivedValues["financial.balance_amount"] || 0;
   const areaSqm = formData["property.area_sqm"] || 0;

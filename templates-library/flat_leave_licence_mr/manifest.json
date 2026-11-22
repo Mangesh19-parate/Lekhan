@@ -1,0 +1,84 @@
+{
+  "manifest_schema": 1,
+  "template_id": "flat_leave_licence_mr",
+  "name_en": "Apartment Leave and Licence Agreement",
+  "name_mr": "सदनिका लिव्ह अँड लायसन्स करार (अपार्टमेंट परवाना)",
+  "version": 1,
+  "status": "draft",
+  "document_type": "leave_and_licence",
+  "property_type": "flat",
+  "language": "mr",
+  "page_size": "legal",
+  "digits_setting": "western",
+  "retention_class": "matter_lifecycle",
+  "parties": {
+    "licensors": {
+      "role": "licensor",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Licensor(s)",
+      "label_mr": "परवाना देणारे (सदनिका मालक)"
+    },
+    "licensees": {
+      "role": "licensee",
+      "min_parties": 1,
+      "max_parties": 4,
+      "label_en": "Licensee(s)",
+      "label_mr": "परवाना घेणारे (वापरकर्ते)"
+    }
+  },
+  "repeaters": {
+    "witnesses": {
+      "name": "witnesses",
+      "min": 2,
+      "max": 2,
+      "label_en": "Attesting Witnesses",
+      "label_mr": "साक्षीदार"
+    }
+  },
+  "sections": [
+    {
+      "id": "property_schedule",
+      "title_en": "Property Schedule",
+      "title_mr": "मिळकतीचे वर्णन",
+      "field_names": [
+        "property.mouza",
+        "property.khasra_no",
+        "property.area_sqm"
+      ]
+    }
+  ],
+  "fields": {
+    "execution_date": {
+      "name": "execution_date",
+      "type": "string",
+      "label_en": "Execution Date",
+      "label_mr": "दस्त नोंदणी दिनांक",
+      "required": true
+    },
+    "property.mouza": {
+      "name": "property.mouza",
+      "type": "string",
+      "label_en": "Mouza / Village",
+      "label_mr": "मौजे",
+      "required": true
+    },
+    "property.khasra_no": {
+      "name": "property.khasra_no",
+      "type": "string",
+      "label_en": "Khasra / Survey No.",
+      "label_mr": "खसरा / सर्व्हे क्र.",
+      "required": true
+    },
+    "property.area_sqm": {
+      "name": "property.area_sqm",
+      "type": "decimal",
+      "label_en": "Area (Sq. Metres)",
+      "label_mr": "क्षेत्रफळ (चौ.मी.)",
+      "required": true
+    }
+  },
+  "clauses": [
+    "witness_attestation"
+  ]
+}

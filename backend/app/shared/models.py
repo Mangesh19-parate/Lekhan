@@ -20,17 +20,21 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     Numeric,
     String,
     UniqueConstraint,
+    event,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, synonym
 
 from app.shared.ids import uuid7
 
@@ -59,8 +63,8 @@ class TenantScopedMixin:
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
         sort_order=-9,
     )
 
@@ -137,16 +141,28 @@ class User(Base, UUIDv7PKMixin, TenantScopedMixin):
             "role IN ('admin','template_admin','reviewer','drafter')", name="chk_user_role"
         ),
         CheckConstraint("ui_language IN ('en','mr','hi')", name="chk_user_ui_language"),
+        Index("ix_users_tenant_id", "tenant_id"),
     )
 
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(String(32), default="drafter", nullable=False)
-    ui_language: Mapped[str] = mapped_column(String(8), default="en", nullable=False)
+    role: Mapped[str] = mapped_column(
+        String(32), default="drafter", server_default="drafter", nullable=False
+    )
+    ui_language: Mapped[str] = mapped_column(
+        String(8), default="en", server_default="en", nullable=False
+    )
     mfa_secret_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    failed_logins: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    mfa_recovery_codes: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
+    failed_logins: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
     locked_until: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -196,8 +212,33 @@ class Session(Base):
     )
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mfa_pending: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
 
     user: Mapped[User] = relationship("User", back_populates="sessions")
+
+
+class MfaPendingEnrollment(Base):
+    """Temporary storage for unconfirmed MFA enrollments with a 10-minute TTL."""
+
+    __tablename__ = "mfa_pending_enrollments"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    secret_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    hashed_recovery_codes: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    expires_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 # --- Entities: Parties, Properties, Matters, Audit (docs/DATABASE.md) ---
@@ -212,6 +253,7 @@ class Party(Base, UUIDv7PKMixin, TenantScopedMixin, TimestampMixin, VersionedMix
         CheckConstraint(
             "gender IS NULL OR gender IN ('male','female','other')", name="chk_party_gender"
         ),
+        Index("ix_parties_tenant_id", "tenant_id"),
     )
 
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -223,7 +265,7 @@ class Party(Base, UUIDv7PKMixin, TenantScopedMixin, TimestampMixin, VersionedMix
     addresses: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default="{}")
     contact_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     pan_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    pan_blind_index: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, index=True)
+    pan_blind_index: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     id_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     id_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     id_blind_index: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
@@ -273,6 +315,7 @@ class Property(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
             "area_unit IS NULL OR area_unit IN ('sqm','sqft','hectare_r','guntha','acre')",
             name="chk_property_area_unit",
         ),
+        Index("ix_properties_tenant_id", "tenant_id"),
     )
 
     category: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -299,6 +342,7 @@ class Matter(Base, UUIDv7PKMixin, TenantScopedMixin):
     __table_args__ = (
         UniqueConstraint("tenant_id", "matter_no", name="uq_matters_tenant_matter_no"),
         CheckConstraint("status IN ('open','closed')", name="chk_matter_status"),
+        Index("ix_matters_tenant_id", "tenant_id"),
     )
 
     matter_no: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -364,6 +408,18 @@ class AuditLog(Base):
     hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
 
 
+@event.listens_for(AuditLog, "before_update")
+def _prevent_audit_log_update(mapper: Any, connection: Any, target: Any) -> None:
+    raise PermissionError("audit_log is append-only: UPDATE operations are prohibited")
+
+
+@event.listens_for(AuditLog, "before_delete")
+def _prevent_audit_log_delete(mapper: Any, connection: Any, target: Any) -> None:
+    if connection.info.get("allow_audit_cleanup"):
+        return
+    raise PermissionError("audit_log is append-only: DELETE operations are prohibited")
+
+
 # --- Week 7 Entities: Templates, TemplateVersions, Documents, Jobs, Counters ---
 
 
@@ -384,7 +440,7 @@ class Template(Base, UUIDv7PKMixin):
     )
 
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
     )
     doc_type: Mapped[str] = mapped_column(String(64), nullable=False)
     property_category: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -396,17 +452,13 @@ class Template(Base, UUIDv7PKMixin):
         nullable=False,
     )
 
-    versions: Mapped[list[TemplateVersion]] = relationship(
-        "TemplateVersion", back_populates="template", cascade="all, delete-orphan"
-    )
-
 
 class TemplateVersion(Base, UUIDv7PKMixin):
     """Immutable template revision. Once status is approved, it cannot be modified."""
 
     __tablename__ = "template_versions"
     __table_args__ = (
-        UniqueConstraint("template_id", "version", name="uq_template_version"),
+        UniqueConstraint("template_key", "version", name="uq_template_versions_key_version"),
         CheckConstraint(
             "status IN ('draft','under_review','approved','retired')",
             name="chk_template_version_status",
@@ -415,27 +467,30 @@ class TemplateVersion(Base, UUIDv7PKMixin):
             "status <> 'approved' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)",
             name="chk_approved_requires_approver",
         ),
+        Index("ix_template_versions_template_key", "template_key"),
+        Index("ix_template_versions_tenant_id", "tenant_id"),
     )
 
-    template_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), nullable=False
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
     )
+    template_key: Mapped[str] = mapped_column(String(64), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
-    manifest_schema: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    manifest: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    compiled_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    file_ref: Mapped[str] = mapped_column(String(512), nullable=False)
-    file_sha256: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
-    lint_report: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    manifest_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    docx_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    docx_ref: Mapped[str] = mapped_column(String(512), nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    submitted_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     approved_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     approved_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
-    )
-    created_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
@@ -443,7 +498,40 @@ class TemplateVersion(Base, UUIDv7PKMixin):
         nullable=False,
     )
 
-    template: Mapped[Template] = relationship("Template", back_populates="versions")
+
+@event.listens_for(TemplateVersion, "before_update")
+def validate_template_version_immutability(
+    mapper: Any, connection: Any, target: TemplateVersion
+) -> None:
+    """Enforces immutability: once approved, only status transition to retired is permitted."""
+    from sqlalchemy import inspect
+
+    insp = inspect(target)
+    history = insp.get_history("status", False)
+    old_status = history.deleted[0] if history.deleted else target.status
+
+    if old_status == "approved":
+        if target.status != "retired":
+            raise PermissionError(
+                "Approved template versions are immutable; only status transition to retired is allowed."
+            )
+        for col in (
+            "template_key",
+            "version",
+            "docx_sha256",
+            "docx_ref",
+            "manifest_json",
+            "created_by",
+            "submitted_by",
+            "approved_by",
+        ):
+            col_hist = insp.get_history(col, False)
+            if col_hist.has_changes():
+                raise PermissionError(
+                    f"Approved template versions are immutable; modifying '{col}' is prohibited."
+                )
+    elif old_status == "retired":
+        raise PermissionError("Retired template versions cannot be updated.")
 
 
 class Document(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
@@ -453,6 +541,8 @@ class Document(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
     __table_args__ = (
         UniqueConstraint("tenant_id", "doc_no", name="uq_documents_tenant_doc_no"),
         CheckConstraint("status IN ('draft','reviewed','finalised')", name="chk_document_status"),
+        Index("ix_documents_tenant_matter", "tenant_id", "matter_id", "created_at"),
+        Index("ix_documents_tv", "template_version_id"),
     )
 
     matter_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -469,6 +559,10 @@ class Document(Base, UUIDv7PKMixin, TenantScopedMixin, VersionedMixin):
     output_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
     docx_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
     pdf_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # Synonym allowing pipeline, workers, and API to access doc.file_ref seamlessly
+    file_ref = synonym("docx_ref")
+
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
@@ -489,6 +583,7 @@ class Job(Base, UUIDv7PKMixin, TenantScopedMixin):
         CheckConstraint(
             "status IN ('queued','running','succeeded','failed','dead')", name="chk_job_status"
         ),
+        Index("ix_jobs_queue", "run_at", postgresql_where=text("status = 'queued'")),
     )
 
     type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -522,3 +617,71 @@ class Counter(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     year: Mapped[int] = mapped_column(Integer, primary_key=True)
     value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class RateLimit(Base):
+    """Distributed rate limiting and account lockout store."""
+
+    __tablename__ = "rate_limits"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    timestamps: Mapped[list[float]] = mapped_column(JSONB, nullable=False, server_default="[]")
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False, default=0.0)
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class FeeRule(Base, UUIDv7PKMixin, TimestampMixin):
+    """Statutory fee rule for stamp duty and registration fees (docs/DATABASE.md Section 6).
+
+    Carries mandatory source reference and lawyer verification timestamp.
+    Unverified rows (verified_by IS NULL) are never emitted by the calculator.
+    """
+
+    __tablename__ = "fee_rules"
+    __table_args__ = (
+        Index("ix_fee_rules_lookup", "jurisdiction", "instrument", "effective_from"),
+    )
+
+    jurisdiction: Mapped[str] = mapped_column(String(64), nullable=False)
+    instrument: Mapped[str] = mapped_column(String(64), nullable=False)
+    rate: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
+    cap: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    concession: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
+    effective_from: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    effective_to: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    verified_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    verified_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    notes: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+class Draft(Base, UUIDv7PKMixin, TenantScopedMixin):
+    """In-progress document draft with autosaved form data and repeaters."""
+
+    __tablename__ = "drafts"
+    __table_args__ = (
+        Index("ix_drafts_tenant_id", "tenant_id"),
+        Index("ix_drafts_tenant_updated", "tenant_id", "updated_at"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="Untitled Draft")
+    template_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    data: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

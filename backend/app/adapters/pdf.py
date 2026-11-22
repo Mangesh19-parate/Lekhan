@@ -16,13 +16,17 @@ import threading
 from pathlib import Path
 from typing import Protocol
 
-from app.shared.logging import get_logger
+from app.config import get_settings
+from app.shared.logging import get_correlation_id, get_logger
 
 logger = get_logger(__name__)
 
-# Concurrency semaphore: max 3 concurrent LibreOffice conversions to protect server CPU/RAM
-CONCURRENCY_SEMAPHORE = threading.BoundedSemaphore(value=3)
-DEFAULT_CONVERSION_TIMEOUT_SECONDS = 30.0
+# Concurrency semaphore: max N concurrent LibreOffice conversions to protect server CPU/RAM
+settings = get_settings()
+DEFAULT_CONVERSION_TIMEOUT_SECONDS = float(getattr(settings, "LIBREOFFICE_TIMEOUT_SECONDS", 30.0))
+CONCURRENCY_SEMAPHORE = threading.BoundedSemaphore(
+    value=int(getattr(settings, "LIBREOFFICE_PROCESS_LIMIT", 3))
+)
 
 
 class PdfConverter(Protocol):
@@ -32,11 +36,16 @@ class PdfConverter(Protocol):
         self,
         docx_bytes: bytes,
         timeout: float = DEFAULT_CONVERSION_TIMEOUT_SECONDS,
+        strict: bool = False,
     ) -> bytes: ...
 
 
 class PdfConversionError(Exception):
     """Base exception for PDF conversion failures."""
+
+
+class LibreOfficeNotFoundError(PdfConversionError):
+    """Raised when LibreOffice binary is missing or cannot be located."""
 
 
 class PdfConversionTimeoutError(PdfConversionError):
@@ -46,8 +55,11 @@ class PdfConversionTimeoutError(PdfConversionError):
 class LibreOfficePdfConverter:
     """Production LibreOffice adapter running headless in isolated user environments."""
 
-    def __init__(self, binary_path: str | None = None) -> None:
-        self.binary_path = binary_path or self._detect_libreoffice_binary()
+    def __init__(self, binary_path: str | None = None, strict: bool = False) -> None:
+        self.binary_path = binary_path if binary_path is not None else self._detect_libreoffice_binary()
+        self.strict = strict
+        if self.strict and not self.binary_path:
+            raise LibreOfficeNotFoundError("LibreOffice binary not detected on system.")
 
     def _detect_libreoffice_binary(self) -> str | None:
         """Locates LibreOffice / OpenOffice binary across platforms."""
@@ -82,13 +94,17 @@ class LibreOfficePdfConverter:
         self,
         docx_bytes: bytes,
         timeout: float = DEFAULT_CONVERSION_TIMEOUT_SECONDS,
+        strict: bool = False,
     ) -> bytes:
         """Converts DOCX bytes to PDF with isolated profile and hard timeout."""
         if not docx_bytes:
             raise PdfConversionError("Input DOCX bytes are empty.")
 
-        # If LibreOffice is not installed, fall back to convenience stub generator
+        is_strict = strict or getattr(self, "strict", False)
+        # If LibreOffice is not installed, fall back to convenience stub generator unless strict
         if not self.binary_path:
+            if is_strict:
+                raise LibreOfficeNotFoundError("LibreOffice binary not detected on system.")
             logger.warning(
                 "LibreOffice binary not detected on system; generating valid convenience copy PDF stub."
             )
@@ -168,8 +184,13 @@ class LibreOfficePdfConverter:
                 )
             else:
                 proc.kill()
-        except Exception as e:
-            logger.error("Failed to kill LibreOffice process %s: %s", proc.pid, e)
+        except OSError as e:
+            logger.error(
+                "Failed to kill LibreOffice process %s [cid=%s]: %s",
+                proc.pid,
+                get_correlation_id(),
+                e,
+            )
 
     def _generate_fallback_convenience_pdf(self, docx_bytes: bytes) -> bytes:
         """Generates a minimal valid PDF/A convenience copy when LibreOffice is not installed."""

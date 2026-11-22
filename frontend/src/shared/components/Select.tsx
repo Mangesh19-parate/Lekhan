@@ -15,36 +15,42 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ id, label, options, helperText, error, required, requiredMarker, className = "", style, disabled, ...props }, ref) => {
+  (
+    {
+      id,
+      label,
+      options,
+      helperText,
+      error,
+      required,
+      requiredMarker,
+      className = "",
+      disabled,
+      ...props
+    },
+    ref
+  ) => {
     const selectId = id || (label ? `select-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
     const helperId = helperText ? `${selectId}-helper` : undefined;
     const errorId = error ? `${selectId}-error` : undefined;
 
     return (
-      <div className={`lekhan-select-group ${className}`} style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%" }}>
+      <div className={`flex flex-col gap-1.5 w-full ${className}`}>
         {label && (
           <label
             htmlFor={selectId}
-            style={{
-              fontSize: "0.8125rem",
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              userSelect: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
+            className="text-xs font-semibold text-text-primary select-none inline-flex items-center gap-1 font-ui"
           >
-            {label}
+            <span>{label}</span>
             {required && (
-              <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--danger-600)" }}>
+              <span className="text-[11px] font-bold text-danger uppercase">
                 {requiredMarker ? `(${requiredMarker})` : "*"}
               </span>
             )}
           </label>
         )}
 
-        <div style={{ position: "relative", display: "flex", alignItems: "center", width: "100%" }}>
+        <div className="relative flex items-center w-full">
           <select
             ref={ref}
             id={selectId}
@@ -52,24 +58,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={!!error}
             aria-describedby={[errorId, helperId].filter(Boolean).join(" ") || undefined}
             required={required}
-            className={`lekhan-select-field ${error ? "has-error" : ""}`}
-            style={{
-              width: "100%",
-              height: "40px",
-              padding: "0 36px 0 12px",
-              fontSize: "0.875rem",
-              fontFamily: "var(--font-ui)",
-              color: "var(--text-primary)",
-              backgroundColor: disabled ? "var(--surface-sunken)" : "var(--surface-card)",
-              border: `1px solid ${error ? "var(--danger-600)" : "var(--line-medium)"}`,
-              borderRadius: "var(--radius-input)",
-              appearance: "none",
-              cursor: disabled ? "not-allowed" : "pointer",
-              transition: "border-color var(--transition-fast), box-shadow var(--transition-fast)",
-              boxSizing: "border-box",
-              opacity: disabled ? 0.6 : 1,
-              ...style,
-            }}
+            className={`w-full h-10 pl-3 pr-9 rounded-input border text-sm font-ui appearance-none transition-all duration-150 focus:outline-none focus:ring-2 disabled:bg-sunken disabled:cursor-not-allowed disabled:opacity-60 bg-subtle dark:bg-sunken/40 text-text-primary ${
+              error
+                ? "border-danger text-danger-600 focus:ring-danger-500 focus:border-danger"
+                : "border-line-subtle hover:border-line-medium focus:border-brand-500 focus:ring-brand-500/25"
+            }`}
             {...props}
           >
             {options.map((opt) => (
@@ -79,28 +72,26 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             ))}
           </select>
 
-          <ChevronDown
-            size={16}
-            style={{
-              position: "absolute",
-              right: "12px",
-              pointerEvents: "none",
-              color: "var(--text-secondary)",
-            }}
-          />
+          <div className="absolute right-3 flex items-center pointer-events-none text-text-secondary">
+            <ChevronDown size={16} />
+          </div>
         </div>
 
         {error && (
-          <div id={errorId} role="alert" style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.75rem", color: "var(--danger-600)", fontWeight: 500 }}>
-            <AlertCircle size={14} className="shrink-0" />
+          <div
+            id={errorId}
+            role="alert"
+            className="flex items-center gap-1.5 text-xs font-medium text-danger mt-0.5"
+          >
+            <AlertCircle size={13} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {!error && helperText && (
-          <div id={helperId} style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>
+          <p id={helperId} className="text-xs text-text-secondary font-ui mt-0.5">
             {helperText}
-          </div>
+          </p>
         )}
       </div>
     );
@@ -108,4 +99,3 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 );
 
 Select.displayName = "Select";
-

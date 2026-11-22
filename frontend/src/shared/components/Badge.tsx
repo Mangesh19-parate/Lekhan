@@ -10,7 +10,6 @@ export interface BadgeProps {
   icon?: React.ReactNode;
   size?: "sm" | "md";
   className?: string;
-  style?: React.CSSProperties;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -20,90 +19,43 @@ export const Badge: React.FC<BadgeProps> = ({
   icon,
   size = "md",
   className = "",
-  style,
 }) => {
-  const getVariantStyles = (): { bg: string; color: string; border: string; defaultIcon: React.ReactNode } => {
-    switch (variant) {
-      case "approved":
-        // Strict DESIGN.md rule: Gold reserved ONLY for Approved by <role>
-        return {
-          bg: "var(--approved-100)",
-          color: "var(--brand-900)",
-          border: "1px solid var(--approved-border)",
-          defaultIcon: <Award size={14} color="var(--approved-500)" />,
-        };
-      case "under_review":
-        return {
-          bg: "var(--warning-tint)",
-          color: "var(--warning-600)",
-          border: "1px solid var(--warning-border)",
-          defaultIcon: <Clock size={14} />,
-        };
-      case "draft":
-        return {
-          bg: "var(--surface-subtle)",
-          color: "var(--text-secondary)",
-          border: "1px solid var(--line-medium)",
-          defaultIcon: <FileText size={14} />,
-        };
-      case "active":
-        return {
-          bg: "var(--brand-100)",
-          color: "var(--brand-600)",
-          border: "1px solid var(--brand-500)",
-          defaultIcon: <CheckCircle2 size={14} />,
-        };
-      case "danger":
-        return {
-          bg: "var(--danger-tint)",
-          color: "var(--danger-600)",
-          border: "1px solid var(--danger-border)",
-          defaultIcon: <XCircle size={14} />,
-        };
-      case "neutral":
-      default:
-        return {
-          bg: "var(--surface-sunken)",
-          color: "var(--text-secondary)",
-          border: "1px solid var(--line-subtle)",
-          defaultIcon: <AlertTriangle size={14} />,
-        };
-    }
-  };
+  const sizeClasses = size === "sm" ? "px-2 py-0.5 text-xs gap-1" : "px-2.5 py-1 text-xs gap-1.5";
 
-  const { bg, color, border, defaultIcon } = getVariantStyles();
-  const isSm = size === "sm";
+  const config = {
+    approved: {
+      classes: "bg-approved-100 text-brand-900 border border-approved-border dark:bg-approved-100/20 dark:text-approved-400 dark:border-approved-400/40",
+      defaultIcon: <Award size={13} className="text-approved-500" />,
+    },
+    under_review: {
+      classes: "bg-warning-tint text-warning-600 border border-warning-border dark:bg-warning-500/10 dark:text-warning-500 dark:border-warning-500/30",
+      defaultIcon: <Clock size={13} />,
+    },
+    draft: {
+      classes: "bg-subtle text-text-secondary border border-line-medium dark:bg-sunken dark:text-text-muted dark:border-line-subtle",
+      defaultIcon: <FileText size={13} />,
+    },
+    active: {
+      classes: "bg-brand-100 text-brand-600 border border-brand-500 dark:bg-brand-900/50 dark:text-brand-400 dark:border-brand-500/40",
+      defaultIcon: <CheckCircle2 size={13} />,
+    },
+    danger: {
+      classes: "bg-danger-tint text-danger-600 border border-danger-border dark:bg-danger-500/10 dark:text-danger-500 dark:border-danger-500/30",
+      defaultIcon: <XCircle size={13} />,
+    },
+    neutral: {
+      classes: "bg-sunken text-text-secondary border border-line-subtle dark:bg-sunken/80 dark:text-text-tertiary",
+      defaultIcon: <AlertTriangle size={13} />,
+    },
+  }[variant];
 
   return (
     <span
-      className={`lekhan-badge ${className}`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: isSm ? "4px" : "6px",
-        padding: isSm ? "2px 8px" : "4px 10px",
-        borderRadius: "var(--radius-pill)",
-        backgroundColor: bg,
-        color: color,
-        border: border,
-        fontSize: isSm ? "0.6875rem" : "0.75rem",
-        fontWeight: 600,
-        fontFamily: "var(--font-ui)",
-        letterSpacing: 0,
-        userSelect: "none",
-        whiteSpace: "nowrap",
-        lineHeight: 1.2,
-        ...style,
-      }}
+      className={`inline-flex items-center font-medium font-ui rounded-pill tracking-normal whitespace-nowrap select-none transition-colors ${sizeClasses} ${config.classes} ${className}`}
     >
-      <span className="shrink-0 flex items-center">{icon || defaultIcon}</span>
+      <span className="shrink-0 flex items-center">{icon || config.defaultIcon}</span>
       <span>{label}</span>
-      {sublabel && (
-        <span style={{ opacity: 0.75, fontWeight: 500, fontSize: "0.9em" }}>
-          ({sublabel})
-        </span>
-      )}
+      {sublabel && <span className="opacity-70 font-normal ml-0.5">({sublabel})</span>}
     </span>
   );
 };
-

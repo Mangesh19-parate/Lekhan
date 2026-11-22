@@ -14,6 +14,9 @@ import datetime
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
+from app.lang_packs.base import validate_and_quantize_amount
+from app.shared.errors import InvalidAmountError
+
 # Marathi words for numbers 0 to 99
 MARATHI_NUMS_0_TO_99: dict[int, str] = {
     0: "शून्य",
@@ -157,9 +160,7 @@ def number_to_words_mr(amount: int | Decimal, *, currency: bool = True) -> str:
     Example: 1550000 -> 'पंधरा लाख पन्नास हजार रुपये फक्त'
     Example: 1250000.50 -> 'बारा लाख पन्नास हजार रुपये आणि पन्नास पैसे फक्त'
     """
-    d_amount = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    integer_part = int(d_amount)
-    paise_part = int((d_amount - integer_part) * 100)
+    integer_part, paise_part = validate_and_quantize_amount(amount)
 
     if integer_part == 0 and paise_part == 0:
         return "शून्य रुपये फक्त" if currency else "शून्य"

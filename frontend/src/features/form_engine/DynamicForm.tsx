@@ -8,17 +8,18 @@ import { FileText, CheckCircle2, ChevronRight, Layers, Landmark, MapPin, IndianR
 
 interface Props {
   manifest: TemplateManifest;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
   isSubmitting?: boolean;
-  formData?: Record<string, any>;
-  repeatersData?: Record<string, any[]>;
-  onFieldChange?: (key: string, value: any) => void;
-  onRepeatersChange?: (repKey: string, items: any[]) => void;
+  formData?: Record<string, unknown>;
+  repeatersData?: Record<string, Array<Record<string, unknown>>>;
+  onFieldChange?: (key: string, value: unknown) => void;
+  onRepeatersChange?: (repKey: string, items: Array<Record<string, unknown>>) => void;
   activeSectionId?: string;
   onSelectSection?: (sectionId: string) => void;
   onOpenPropertySearch?: () => void;
   onOpenPartySearch?: (targetRole: string, index?: number) => void;
   advisoryElement?: React.ReactNode;
+  fieldErrors?: Record<string, string>;
 }
 
 export const DynamicForm: React.FC<Props> = ({
@@ -34,12 +35,13 @@ export const DynamicForm: React.FC<Props> = ({
   onOpenPropertySearch,
   onOpenPartySearch,
   advisoryElement,
+  fieldErrors,
 }) => {
   const { lang, t } = useI18n();
 
   // Internal state if parent does not provide controlled state
-  const [internalFormData, setInternalFormData] = useState<Record<string, any>>({});
-  const [internalRepeatersData, setInternalRepeatersData] = useState<Record<string, any[]>>({});
+  const [internalFormData, setInternalFormData] = useState<Record<string, unknown>>({});
+  const [internalRepeatersData, setInternalRepeatersData] = useState<Record<string, Array<Record<string, unknown>>>>({});
 
   const formData = externalFormData || internalFormData;
   const repeatersData = externalRepeatersData || internalRepeatersData;
@@ -47,7 +49,7 @@ export const DynamicForm: React.FC<Props> = ({
   // Initialize defaults if uncontrolled
   useEffect(() => {
     if (!externalFormData) {
-      const initial: Record<string, any> = {};
+      const initial: Record<string, unknown> = {};
       Object.entries(manifest.fields).forEach(([key, field]) => {
         initial[key] = field.default ?? "";
       });
@@ -55,7 +57,7 @@ export const DynamicForm: React.FC<Props> = ({
     }
 
     if (!externalRepeatersData) {
-      const initRepeaters: Record<string, any[]> = {};
+      const initRepeaters: Record<string, Array<Record<string, unknown>>> = {};
       Object.entries(manifest.repeaters).forEach(([key, rep]) => {
         const initialCount = Math.max(1, rep.min);
         initRepeaters[key] = Array.from({ length: initialCount }, () => ({}));
@@ -64,7 +66,7 @@ export const DynamicForm: React.FC<Props> = ({
     }
   }, [manifest, externalFormData, externalRepeatersData]);
 
-  const handleFieldChange = (key: string, value: any) => {
+  const handleFieldChange = (key: string, value: unknown) => {
     if (externalOnFieldChange) {
       externalOnFieldChange(key, value);
     } else {
@@ -72,7 +74,7 @@ export const DynamicForm: React.FC<Props> = ({
     }
   };
 
-  const handleRepeatersChange = (key: string, items: any[]) => {
+  const handleRepeatersChange = (key: string, items: Array<Record<string, unknown>>) => {
     if (externalOnRepeatersChange) {
       externalOnRepeatersChange(key, items);
     } else {
@@ -268,6 +270,7 @@ export const DynamicForm: React.FC<Props> = ({
                       requiredMarker={t("form.required")}
                       helperText={lang === "mr" ? fDef.help_text_mr : fDef.help_text_en}
                       placeholder={fDef.type === "decimal" ? "0.00" : undefined}
+                      error={fieldErrors?.[fKey]}
                     />
 
                     {/* Live Amount in words for financial inputs */}
@@ -356,6 +359,7 @@ export const DynamicForm: React.FC<Props> = ({
             items={repeatersData[repKey] || []}
             onChange={(items) => handleRepeatersChange(repKey, items)}
             onOpenPartySearch={onOpenPartySearch}
+            errors={fieldErrors}
           />
         </Card>
       ))}

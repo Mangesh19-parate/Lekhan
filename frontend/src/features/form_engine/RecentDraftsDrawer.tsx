@@ -10,8 +10,8 @@ export interface SavedDraft {
   plotNo?: string;
   mouza?: string;
   data: {
-    formData: Record<string, any>;
-    repeatersData: Record<string, any[]>;
+    formData: Record<string, unknown>;
+    repeatersData: Record<string, Array<Record<string, unknown>>>;
   };
 }
 

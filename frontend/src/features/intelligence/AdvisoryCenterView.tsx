@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, type AdvisoryRule } from "../../shared/api";
 import { Button, Badge, Card, Skeleton } from "../../shared/components";
 import {
   AlertTriangle,
@@ -19,7 +19,7 @@ interface AdvisoryCenterViewProps {
 export const AdvisoryCenterView: React.FC<AdvisoryCenterViewProps> = ({ onNavigate }) => {
   const { lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [rules, setRules] = useState<any[]>([]);
+  const [rules, setRules] = useState<AdvisoryRule[]>([]);
 
   const fetchRules = async () => {
     setLoading(true);

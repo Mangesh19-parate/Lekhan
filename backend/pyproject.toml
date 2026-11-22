@@ -34,6 +34,7 @@ dev = [
   "ruff>=0.7.3",
   "import-linter>=2.1",
   "schemathesis>=3.28.0",
+  "mutmut>=2.4.4",
   "bandit>=1.7.10",
   "pip-audit>=2.7.3",
 ]
@@ -78,4 +79,24 @@ markers = [
   "golden: marks template golden-file tests",
   "property: marks Hypothesis property-based tests",
 ]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = ["tests/*", "migrations/*"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "migrations", "conformance", "corpus_tools"]
+skips = ["B101", "B104"]
 

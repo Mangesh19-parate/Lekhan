@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../shared/i18n";
-import { api } from "../../shared/api";
+import { api, DraftItem } from "../../shared/api";
 import { Button, Badge, Card } from "../../shared/components";
 import {
   Clock,
@@ -14,7 +14,7 @@ import {
 
 interface DraftsPendingViewProps {
   onNavigate: (viewId: string) => void;
-  onResumeDraft?: (draftData: any) => void;
+  onResumeDraft?: (draftData: Record<string, unknown>) => void;
 }
 
 export const DraftsPendingView: React.FC<DraftsPendingViewProps> = ({
@@ -22,25 +22,66 @@ export const DraftsPendingView: React.FC<DraftsPendingViewProps> = ({
   onResumeDraft,
 }) => {
   const { lang } = useI18n();
-  const [drafts, setDrafts] = useState<any[]>(() => {
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Initialize from offline localStorage cache
+  const [drafts, setDrafts] = useState<DraftItem[]>(() => {
     const saved = localStorage.getItem("lekhan_saved_drafts");
     if (saved) {
       try {
-        return JSON.parse(saved);
-      } catch (e) {}
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // invalid JSON
+      }
     }
     return [];
   });
 
-  const handleDeleteDraft = (id: string) => {
+  const fetchServerDrafts = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const serverDrafts = await api.listDrafts();
+      setDrafts(serverDrafts);
+      // Persist to localStorage only as offline cache
+      localStorage.setItem("lekhan_saved_drafts", JSON.stringify(serverDrafts));
+    } catch (err: unknown) {
+      // Offline fallback: keep existing localStorage drafts
+      const msg = err instanceof Error ? err.message : "Using offline draft cache";
+      setErrorMessage(`${msg} (Displaying offline cached drafts)`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServerDrafts();
+  }, []);
+
+  const handleDeleteDraft = async (id: string) => {
+    // Optimistically update local state & offline cache
     const updated = drafts.filter((d) => d.id !== id);
     setDrafts(updated);
     localStorage.setItem("lekhan_saved_drafts", JSON.stringify(updated));
+
+    try {
+      await api.deleteDraft(id);
+    } catch (err: unknown) {
+      // If server delete fails, inform user
+      console.warn("Failed to delete draft from server:", err);
+    }
   };
 
-  const handleResume = (draft: any) => {
+  const handleResume = (draft: DraftItem) => {
     if (onResumeDraft) {
-      onResumeDraft(draft);
+      onResumeDraft({
+        id: draft.id,
+        title: draft.title,
+        template_id: draft.template_id,
+        ...draft.data,
+      });
     }
     onNavigate("new_draft");
   };
@@ -59,14 +100,27 @@ export const DraftsPendingView: React.FC<DraftsPendingViewProps> = ({
           <p style={{ color: "var(--text-secondary)", margin: "4px 0 0 0", fontSize: "0.875rem" }}>
             {lang === "mr"
               ? "अपूर्ण राहिलेले मसुदे, ऑटोसॅव्ह झालेले कामकाज व पुनरुत्थानासाठी सज्ज प्रकरणे."
-              : "Recover and resume drafting in-progress legal matters with zero data loss."}
+              : "Server-persisted draft matters with local offline caching for zero data loss."}
           </p>
         </div>
 
-        <Button size="sm" variant="primary" onClick={() => onNavigate("new_draft")} leftIcon={<Plus size={15} />}>
-          {lang === "mr" ? "नवीन मसुदा" : "Create New Draft"}
-        </Button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <Button size="sm" variant="secondary" onClick={fetchServerDrafts} disabled={loading} leftIcon={<RefreshCw size={14} />}>
+            {loading ? (lang === "mr" ? "ताजे करत आहे..." : "Refreshing...") : (lang === "mr" ? "रिफ्रेश" : "Refresh")}
+          </Button>
+          <Button size="sm" variant="primary" onClick={() => onNavigate("new_draft")} leftIcon={<Plus size={15} />}>
+            {lang === "mr" ? "नवीन मसुदा" : "Create New Draft"}
+          </Button>
+        </div>
       </div>
+
+      {/* Offline Alert */}
+      {errorMessage && (
+        <div style={{ padding: "10px 14px", borderRadius: "var(--radius-input)", backgroundColor: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E", fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "8px" }}>
+          <AlertTriangle size={15} />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* 2. Drafts Grid */}
       {drafts.length === 0 ? (
@@ -84,57 +138,63 @@ export const DraftsPendingView: React.FC<DraftsPendingViewProps> = ({
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "16px" }}>
-          {drafts.map((d) => (
-            <Card
-              key={d.id}
-              style={{
-                padding: "18px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0, color: "var(--brand-900)" }}>
-                    {d.title || "Untitled Draft"}
-                  </h3>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: "2px" }}>
-                    Last saved: {new Date(d.savedAt).toLocaleString()}
+          {drafts.map((d) => {
+            const formData = (d.data?.formData || d.data || {}) as Record<string, unknown>;
+            const mouza = String(formData["property.mouza"] || "Sonegaon");
+            const plotNo = String(formData["property.plot_no"] || "Draft Plot");
+            const savedTime = d.updated_at ? new Date(d.updated_at).toLocaleString() : "Recently";
+
+            return (
+              <Card
+                key={d.id}
+                style={{
+                  padding: "18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0, color: "var(--brand-900)" }}>
+                      {d.title || "Untitled Draft"}
+                    </h3>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: "2px" }}>
+                      Last saved: {savedTime}
+                    </div>
                   </div>
+                  <Badge variant="neutral" size="sm" label={d.template_id || "Draft"} />
                 </div>
-                <Badge variant="neutral" size="sm" label="In Progress" />
-              </div>
 
-              <div style={{ backgroundColor: "var(--surface-sunken)", padding: "10px", borderRadius: "var(--radius-input)", fontSize: "0.8125rem" }}>
-                <div><strong>Mouza:</strong> {d.mouza || d.data?.formData?.["property.mouza"] || "Sonegaon"}</div>
-                <div><strong>Plot No:</strong> {d.plotNo || d.data?.formData?.["property.plot_no"] || "Draft Plot"}</div>
-              </div>
+                <div style={{ backgroundColor: "var(--surface-sunken)", padding: "10px", borderRadius: "var(--radius-input)", fontSize: "0.8125rem" }}>
+                  <div><strong>Mouza:</strong> {mouza}</div>
+                  <div><strong>Plot / Survey:</strong> {plotNo}</div>
+                </div>
 
-              <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => handleResume(d)}
-                  leftIcon={<Play size={14} />}
-                  style={{ flex: 1 }}
-                >
-                  {lang === "mr" ? "मसुदा सुरू ठेवा" : "Resume Drafting"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleDeleteDraft(d.id)}
-                  leftIcon={<Trash2 size={14} />}
-                >
-                  Delete
-                </Button>
-              </div>
-            </Card>
-          ))}
+                <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleResume(d)}
+                    leftIcon={<Play size={14} />}
+                    style={{ flex: 1 }}
+                  >
+                    {lang === "mr" ? "मसुदा सुरू ठेवा" : "Resume Drafting"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleDeleteDraft(d.id)}
+                    leftIcon={<Trash2 size={14} />}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
-

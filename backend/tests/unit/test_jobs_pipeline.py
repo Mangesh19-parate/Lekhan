@@ -6,10 +6,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters.storage import default_storage
+from app.api.auth import get_session_repo, get_user_repo
+from app.api.documents import get_document_repo, get_job_repo
 from app.generation.jobs import job_queue
 from app.generation.pipeline import generation_pipeline
+from app.generation.repository import InMemoryDocumentRepository
+from app.identity.repository import create_dev_user_repository
+from app.identity.session_repository import InMemorySessionRepository
 from app.main import app
 
+test_session_repo = InMemorySessionRepository()
+test_doc_repo = InMemoryDocumentRepository()
+app.dependency_overrides[get_user_repo] = create_dev_user_repository
+app.dependency_overrides[get_session_repo] = lambda: test_session_repo
+app.dependency_overrides[get_document_repo] = lambda: test_doc_repo
+app.dependency_overrides[get_job_repo] = lambda: job_queue
 client = TestClient(app)
 
 TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000000")
@@ -18,6 +29,8 @@ TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000000")
 @pytest.fixture(autouse=True)
 def clean_state():
     job_queue.clear()
+    test_doc_repo.clear()
+    generation_pipeline.repository = test_doc_repo
     generation_pipeline.clear()
 
 
@@ -105,21 +118,35 @@ def test_api_document_creation_and_download() -> None:
     )
     assert login_res.status_code == 200
     cookie_val = login_res.cookies["lekhan_session"]
+    csrf_token = login_res.json()["csrf_token"]
 
-    # 2. Enqueue and generate document
+    # 2. Enqueue document generation job (async 202)
     gen_res = client.post(
         "/api/v1/documents",
         json=SAMPLE_PAYLOAD,
         cookies={"lekhan_session": cookie_val},
+        headers={"X-CSRF-Token": csrf_token},
     )
-    assert gen_res.status_code == 200
+    assert gen_res.status_code == 202
     gen_data = gen_res.json()
-    assert gen_data["status"] == "succeeded"
-    assert gen_data["state"] == "COMPLETED"
-    assert "download_url" in gen_data
+    assert gen_data["status"] == "queued"
+    job_id = gen_data["job_id"]
 
-    # 3. Download resulting DOCX
-    download_url = gen_data["download_url"]
+    # 3. Worker executes the claimed job
+    from app.worker import run_worker_once
+    processed = run_worker_once(job_queue)
+    assert processed is True
+
+    # 4. Poll GET /jobs/{id}
+    poll_res = client.get(f"/jobs/{job_id}", cookies={"lekhan_session": cookie_val})
+    assert poll_res.status_code == 200
+    poll_data = poll_res.json()
+    assert poll_data["status"] == "succeeded"
+    assert poll_data["outputs"]["docx"] is True
+    assert "download_url" in poll_data
+
+    # 5. Download resulting DOCX
+    download_url = poll_data["download_url"]
     dl_res = client.get(download_url, cookies={"lekhan_session": cookie_val})
     assert dl_res.status_code == 200
     assert (

@@ -101,7 +101,7 @@ def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGene
     queue = JobQueue()
     job = queue.enqueue(
         tenant_id=tenant_id,
-        job_type="generate_docx",
+        type="generate_docx",
         payload={
             "execution_date": "2026-11-09",
             "sellers": [
