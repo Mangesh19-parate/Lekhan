@@ -4,7 +4,7 @@ import { LiveAmountInWords } from "./LiveAmountInWords";
 import { RepeaterGroup } from "./RepeaterGroup";
 import { useI18n } from "../../shared/i18n";
 import { Card, Input, Button, Badge } from "../../shared/components";
-import { FileText, CheckCircle2, ChevronRight, Layers, Landmark, MapPin, IndianRupee, Users, Search } from "lucide-react";
+import { FileText, CheckCircle2, ChevronRight, Layers, Landmark, MapPin, IndianRupee, Users, Search, Calendar } from "lucide-react";
 
 interface Props {
   manifest: TemplateManifest;
@@ -50,8 +50,9 @@ export const DynamicForm: React.FC<Props> = ({
   useEffect(() => {
     if (!externalFormData) {
       const initial: Record<string, unknown> = {};
+      const todayStr = new Date().toISOString().split("T")[0];
       Object.entries(manifest.fields).forEach(([key, field]) => {
-        initial[key] = field.default ?? "";
+        initial[key] = field.default ?? (field.type === "date" || key === "execution_date" ? todayStr : "");
       });
       setInternalFormData(initial);
     }
@@ -115,6 +116,8 @@ export const DynamicForm: React.FC<Props> = ({
         return <MapPin size={18} color="var(--brand-600)" />;
       case "financial_details":
         return <IndianRupee size={18} color="var(--brand-600)" />;
+      case "execution_details":
+        return <Calendar size={18} color="var(--brand-600)" />;
       default:
         return <Layers size={18} color="var(--brand-600)" />;
     }
@@ -263,7 +266,7 @@ export const DynamicForm: React.FC<Props> = ({
                     <Input
                       id={fKey}
                       label={lang === "mr" ? fDef.label_mr || fKey : fDef.label_en || fKey}
-                      type={fDef.type === "decimal" || fDef.type === "integer" ? "number" : "text"}
+                      type={fDef.type === "decimal" || fDef.type === "integer" ? "number" : fDef.type === "date" ? "date" : "text"}
                       value={formData[fKey] != null ? String(formData[fKey]) : ""}
                       onChange={(e) => handleFieldChange(fKey, e.target.value)}
                       required={fDef.required}

@@ -229,6 +229,12 @@ export const defaultManifest: TemplateManifest = {
         "financial.earnest_advance",
       ],
     },
+    {
+      id: "execution_details",
+      title_en: "Execution & General Details",
+      title_mr: "दस्त निष्पादन तपशील",
+      field_names: ["execution_date"],
+    },
   ],
   fields: {
     "property.mouza": {
@@ -326,6 +332,14 @@ export const defaultManifest: TemplateManifest = {
       label_mr: "इसार / आगाऊ रक्कम (रु.)",
       required: true,
       default: "500000",
+    },
+    "execution_date": {
+      name: "execution_date",
+      type: "date",
+      label_en: "Execution Date",
+      label_mr: "दस्त निष्पादनाची तारीख",
+      required: true,
+      default: "2026-11-22",
     },
   },
   derived_fields: {

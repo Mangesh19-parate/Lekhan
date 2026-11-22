@@ -50,6 +50,25 @@ export function normalizeManifest(raw: Partial<TemplateManifest> & { template_id
     };
   }
 
+  // Ensure all fields in raw.fields belong to at least one section.
+  // Many templates specify execution_date or general fields without an explicit section.
+  const existingSectionFieldNames = new Set(
+    (raw.sections ?? []).flatMap((s) => s.field_names ?? [])
+  );
+  const orphanFieldNames = Object.keys(raw.fields ?? {}).filter(
+    (fKey) => !existingSectionFieldNames.has(fKey)
+  );
+
+  const sections = [...(raw.sections ?? [])];
+  if (orphanFieldNames.length > 0) {
+    sections.push({
+      id: "execution_details",
+      title_en: "Execution & General Details",
+      title_mr: "दस्त निष्पादन तपशील",
+      field_names: orphanFieldNames,
+    });
+  }
+
   return {
     manifest_schema: raw.manifest_schema ?? 1,
     template_id: raw.template_id,
@@ -62,7 +81,7 @@ export function normalizeManifest(raw: Partial<TemplateManifest> & { template_id
     page_size: raw.page_size ?? "legal",
     parties: raw.parties ?? {},
     repeaters,
-    sections: raw.sections ?? [],
+    sections,
     fields: raw.fields ?? {},
     derived_fields: raw.derived_fields ?? {},
     validations: raw.validations ?? [],
@@ -71,8 +90,17 @@ export function normalizeManifest(raw: Partial<TemplateManifest> & { template_id
 
 export function buildInitialFormData(manifest: TemplateManifest): Record<string, unknown> {
   const initial: Record<string, unknown> = {};
+  const todayStr = new Date().toISOString().split("T")[0];
   for (const [key, field] of Object.entries(manifest.fields)) {
-    initial[key] = field.default ?? (field.type === "boolean" ? false : "");
+    if (field.default !== undefined) {
+      initial[key] = field.default;
+    } else if (field.type === "date" || key === "execution_date") {
+      initial[key] = todayStr;
+    } else if (field.type === "boolean") {
+      initial[key] = false;
+    } else {
+      initial[key] = "";
+    }
   }
   return initial;
 }

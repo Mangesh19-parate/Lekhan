@@ -41,6 +41,7 @@ import {
   AlertCircle,
   Clock,
   RefreshCw,
+  Calendar,
 } from "lucide-react";
 
 const SAMPLE_NAGPUR_PLOT = {
@@ -56,6 +57,7 @@ const SAMPLE_NAGPUR_PLOT = {
   "boundaries.south": "लेआउट सीमा",
   "financial.total_consideration": 2500000,
   "financial.earnest_advance": 500000,
+  "execution_date": new Date().toISOString().split("T")[0],
 };
 
 interface DraftingWorkspaceProps {
@@ -76,19 +78,19 @@ export const DraftingWorkspace: React.FC<DraftingWorkspaceProps> = ({
   // Form State
   const [formData, setFormData] = useState<Record<string, unknown>>(() => {
     if (initialDraftData?.formData && typeof initialDraftData.formData === "object") {
-      return initialDraftData.formData as Record<string, unknown>;
+      const data = { ...(initialDraftData.formData as Record<string, unknown>) };
+      if (!data.execution_date) data.execution_date = new Date().toISOString().split("T")[0];
+      return data;
     }
     const saved = localStorage.getItem("lekhan_current_form");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (!parsed.execution_date) parsed.execution_date = new Date().toISOString().split("T")[0];
+        return parsed;
       } catch (e) { }
     }
-    const initial: Record<string, unknown> = {};
-    Object.entries(defaultManifest.fields).forEach(([key, field]) => {
-      initial[key] = field.default ?? "";
-    });
-    return initial;
+    return buildInitialFormData(defaultManifest);
   });
 
   const [repeatersData, setRepeatersData] = useState<Record<string, Array<Record<string, unknown>>>>(() => {
@@ -549,13 +551,23 @@ const validateRequiredFields = (
   if (Object.keys(errors).length > 0) {
     setFieldErrors(errors);
     setSubmitting(false);
+    const errorKeys = Object.keys(errors);
+    const missingNames = errorKeys
+      .map((k) => {
+        const fDef = activeManifest.fields[k];
+        return fDef ? (lang === "mr" ? fDef.label_mr : fDef.label_en) || k : k;
+      })
+      .slice(0, 2)
+      .join(", ");
+    const remainingCount = errorKeys.length > 2 ? ` (+${errorKeys.length - 2} more)` : "";
+
     toast({
       type: "error",
       title: lang === "mr" ? "कृपया आवश्यक माहिती भरा" : "Required Fields Missing",
       description:
         lang === "mr"
-          ? `${Object.keys(errors).length} आवश्यक नोंदी भरणे बाकी आहे.`
-          : `${Object.keys(errors).length} required fields are empty.`,
+          ? `${missingNames} भरणे बाकी आहे.${remainingCount}`
+          : `Please fill: ${missingNames}${remainingCount}`,
     });
     const firstKey = Object.keys(errors)[0];
     const el = document.getElementById(firstKey) || document.getElementById(`input-${firstKey}`);
@@ -794,6 +806,7 @@ return (
               {sec.id === "property_details" && <Landmark size={14} color={isActive ? "var(--brand-600)" : "var(--text-tertiary)"} />}
               {sec.id === "boundaries" && <MapPin size={14} color={isActive ? "var(--brand-600)" : "var(--text-tertiary)"} />}
               {sec.id === "financial_details" && <IndianRupee size={14} color={isActive ? "var(--brand-600)" : "var(--text-tertiary)"} />}
+              {sec.id === "execution_details" && <Calendar size={14} color={isActive ? "var(--brand-600)" : "var(--text-tertiary)"} />}
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {lang === "mr" ? sec.title_mr : sec.title_en}
               </span>
