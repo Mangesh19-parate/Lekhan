@@ -24,7 +24,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onNaviga
     setLoading(true);
     try {
       const data = await api.getUsers();
-      setUsers(data || []);
+      setUsers(Array.isArray(data) ? data : []);
     } catch {
       setUsers([]);
     } finally {

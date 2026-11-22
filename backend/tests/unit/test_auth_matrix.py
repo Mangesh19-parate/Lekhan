@@ -19,6 +19,7 @@ from app.identity.policy import Actor, Resource, authorize
 from app.identity.repository import create_dev_user_repository
 from app.identity.session_repository import InMemorySessionRepository
 from app.identity.service import session_store
+from app.identity.session_repository import InMemorySessionRepository
 from app.identity.throttling import login_throttler
 from app.main import app
 from app.shared.security import hash_password, verify_password

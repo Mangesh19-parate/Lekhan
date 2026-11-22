@@ -11,7 +11,9 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from xml.etree import ElementTree as ET
+
+from defusedxml import ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
 
 from app.templates.lint.models import LintFinding, LintSeverity
 
@@ -49,7 +51,12 @@ def audit_docx_fonts(docx_bytes: bytes) -> tuple[list[str], list[LintFinding]]:
                 ):
                     content = zf.read(info.filename)
                     try:
-                        root = ET.fromstring(content)
+                        root = SafeET.fromstring(
+                            content,
+                            forbid_dtd=True,
+                            forbid_entities=True,
+                            forbid_external=True,
+                        )
                         for r_fonts in root.iter(f"{{{W_NAMESPACE}}}rFonts"):
                             for attr_name in ("ascii", "cs", "hAnsi", "eastAsia"):
                                 font_name = r_fonts.attrib.get(f"{{{W_NAMESPACE}}}{attr_name}")

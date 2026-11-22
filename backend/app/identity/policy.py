@@ -47,6 +47,7 @@ class Actor:
     tenant_id: uuid.UUID
     role: str
     active: bool = True
+    email: str | None = None
 
 
 @dataclass(frozen=True)

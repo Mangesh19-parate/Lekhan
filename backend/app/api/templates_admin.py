@@ -14,7 +14,6 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -169,7 +168,8 @@ def get_template_manifest(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Manifest for template '{template_id}' not found.",
         )
-    return json.loads(manifest_file.read_text(encoding="utf-8"))
+    data = json.loads(manifest_file.read_text(encoding="utf-8"))
+    return dict(data) if isinstance(data, dict) else {}
 
 
 @router.post("/{template_id}/lint", summary="Run DocxLinter against a template")

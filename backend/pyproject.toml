@@ -70,10 +70,15 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true
 
+[[tool.mypy.overrides]]
+module = ["docxtpl", "argon2", "argon2.*", "defusedxml", "defusedxml.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+pythonpath = [".", ".."]
 markers = [
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",
   "golden: marks template golden-file tests",

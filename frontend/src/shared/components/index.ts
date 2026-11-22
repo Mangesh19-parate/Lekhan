@@ -10,4 +10,5 @@ export * from "./Toast";
 export * from "./EmptyState";
 export * from "./Skeleton";
 export * from "./Table";
+export * from "./ErrorBoundary";
 

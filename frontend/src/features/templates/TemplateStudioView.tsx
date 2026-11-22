@@ -17,6 +17,13 @@ import {
   Archive,
 } from "lucide-react";
 
+const DEFAULT_STUDIO_TEMPLATES = [
+  { template_id: "sale_deed_plot_mr", name_mr: "प्लॉट खरेदीखत (नागपूर सुधार प्रन्यास / मनपा)", name_en: "Sale Deed: Plot", version: "1.0.0", status: "approved" },
+  { template_id: "sale_deed_flat_mr", name_mr: "सदनिका खरेदीखत (रेरा नोंदणीकृत इमारत)", name_en: "Sale Deed: Flat", version: "1.0.0", status: "approved" },
+  { template_id: "general_poa_mr", name_mr: "कुलमुखत्यारपत्र (General Power of Attorney)", name_en: "General POA", version: "1.0.0", status: "approved" },
+  { template_id: "agreement_to_sell_plot_mr", name_mr: "इसारपावती / साठेखत", name_en: "Agreement to Sell", version: "1.0.0", status: "approved" },
+];
+
 interface TemplateStudioViewProps {
   onNavigate: (viewId: string) => void;
 }
@@ -96,16 +103,18 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
     }
   };
 
+  const safeTemplates = Array.isArray(templates) && templates.length > 0 ? templates : DEFAULT_STUDIO_TEMPLATES;
+
   const fetchTemplates = async () => {
     setLoading(true);
     try {
       const data = await api.listTemplates();
-      setTemplates(data || []);
-      if (data && data.length > 0 && !selectedTemplateId) {
+      setTemplates(Array.isArray(data) && data.length > 0 ? data : DEFAULT_STUDIO_TEMPLATES);
+      if (Array.isArray(data) && data.length > 0 && !selectedTemplateId) {
         setSelectedTemplateId(data[0].template_id);
       }
     } catch {
-      setTemplates([]);
+      setTemplates(DEFAULT_STUDIO_TEMPLATES);
     } finally {
       setLoading(false);
     }
@@ -200,7 +209,7 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
           <Select
             value={selectedTemplateId}
             onChange={(e) => setSelectedTemplateId(e.target.value)}
-            options={templates.map((t) => ({
+            options={safeTemplates.map((t) => ({
               label: `${lang === "mr" ? t.name_mr || t.name_en : t.name_en} (${t.template_id})`,
               value: t.template_id,
             }))}
@@ -217,7 +226,7 @@ export const TemplateStudioView: React.FC<TemplateStudioViewProps> = ({ onNaviga
           </h3>
 
           {(() => {
-            const currentTmpl = templates.find((t) => t.template_id === selectedTemplateId);
+            const currentTmpl = safeTemplates.find((t) => t.template_id === selectedTemplateId);
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -252,6 +252,7 @@ def get_document_details(
 
 
 @router.get("/{document_id}/download", summary="Download generated document DOCX (Master)")
+@router.get("/{document_id}/docx", summary="Download generated document DOCX (Master alias)")
 def download_document(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
@@ -564,7 +565,6 @@ def validate_draft_data(
 ) -> Any:
     """Evaluates cross-field validation rules, derived fields, and visibility."""
     import json
-    from pathlib import Path
 
     from app.templates.compiler import ManifestCompiler, ManifestRuntime
     from app.templates.validator import validate_template_id

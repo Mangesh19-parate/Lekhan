@@ -479,6 +479,169 @@ const startPollingJob = (jobId: string, docIdFallback: string | null) => {
           title: lang === "mr" ? "दस्त निर्मिती यशस्वी!" : "Document Generated Successfully",
           description: `ID: ${job.document_id || docIdFallback || jobId}`,
         });
+      });
+    });
+
+    return errors;
+  };
+
+  const startPollingJob = (jobId: string, docIdFallback: string | null) => {
+    if (pollTimerRef.current) {
+      window.clearTimeout(pollTimerRef.current);
+    }
+
+    const poll = async () => {
+      try {
+        const job = await apiClient<JobDetailResponse>(`/api/v1/jobs/${encodeURIComponent(jobId)}`);
+
+        let step: ProgressStep = "REQUESTED";
+        if (job.status === "succeeded" || job.state === "COMPLETED") {
+          step = "DONE";
+        } else if (job.state === "VERIFIED" || job.state === "STORED") {
+          step = "VERIFIED";
+        } else if (job.state === "RENDERED") {
+          step = "RENDERED";
+        } else {
+          step = "REQUESTED";
+        }
+
+        if (job.status === "succeeded") {
+          setSubmitting(false);
+          setProgressState((prev) => ({
+            ...prev,
+            currentStep: "DONE",
+            status: "succeeded",
+            documentId: job.document_id || docIdFallback || prev.documentId,
+          }));
+
+          const downloadUrl =
+            job.download_url || `/api/v1/documents/${job.document_id || docIdFallback}/download`;
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = `${activeManifest.template_id}_${job.document_id || docIdFallback || "draft"}.docx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+
+          toast({
+            type: "success",
+            title: lang === "mr" ? "दस्त निर्मिती यशस्वी!" : "Document Generated Successfully",
+            description: `ID: ${job.document_id || docIdFallback || jobId}`,
+          });
+          return;
+        }
+
+        if (job.status === "failed" || job.status === "dead") {
+          setSubmitting(false);
+          const errCode = job.error?.code || "JOB_FAILED";
+          const errMsg =
+            job.error?.message ||
+            (lang === "mr" ? "दस्त निर्मिती अयशस्वी झाली." : "Document generation failed.");
+          setProgressState((prev) => ({
+            ...prev,
+            status: "failed",
+            errorCode: errCode,
+            errorMessage: errMsg,
+          }));
+          toast({
+            type: "error",
+            title: lang === "mr" ? "दस्त निर्मितीमध्ये त्रुटी आली" : "Document Generation Failed",
+            description: `[${errCode}] ${errMsg}`,
+          });
+          return;
+        }
+
+        setProgressState((prev) => ({
+          ...prev,
+          currentStep: step,
+        }));
+
+        pollTimerRef.current = window.setTimeout(poll, 1500);
+      } catch (err: unknown) {
+        setSubmitting(false);
+        const errCode = err instanceof ApiError && err.code ? err.code : "POLL_FAILED";
+        const errMsg = err instanceof Error ? err.message : "Failed to fetch job status.";
+        setProgressState((prev) => ({
+          ...prev,
+          status: "failed",
+          errorCode: errCode,
+          errorMessage: errMsg,
+        }));
+        toast({
+          type: "error",
+          title: lang === "mr" ? "पडताळणी त्रुटी" : "Polling Failed",
+          description: `[${errCode}] ${errMsg}`,
+        });
+      }
+    };
+
+    pollTimerRef.current = window.setTimeout(poll, 1500);
+  };
+
+  // Submit and DOCX Generation
+  const handleSubmit = async (submitData?: Record<string, any>) => {
+    const currentSubmitData = submitData || formData;
+    setSubmitting(true);
+
+    // 1. Block submit and show field-level errors if required fields are empty
+    const errors = validateRequiredFields(activeManifest, currentSubmitData, repeatersData);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSubmitting(false);
+      toast({
+        type: "error",
+        title: lang === "mr" ? "कृपया आवश्यक माहिती भरा" : "Required Fields Missing",
+        description:
+          lang === "mr"
+            ? `${Object.keys(errors).length} आवश्यक नोंदी भरणे बाकी आहे.`
+            : `${Object.keys(errors).length} required fields are empty.`,
+      });
+      const firstKey = Object.keys(errors)[0];
+      const el = document.getElementById(firstKey) || document.getElementById(`input-${firstKey}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+      return;
+    }
+
+    setFieldErrors({});
+
+    try {
+      // 2. Call /documents/validate/{template_id} before submitting
+      const preparedValidationData = unflattenFormData(
+        Object.fromEntries(
+          Object.entries(currentSubmitData).map(([k, v]) => {
+            const fDef = activeManifest.fields[k];
+            if ((fDef?.type === "decimal" || fDef?.type === "integer") && typeof v === "string" && v.trim() !== "") {
+              const num = parseFloat(v);
+              return [k, isNaN(num) ? v : num];
+            }
+            return [k, v];
+          })
+        )
+      );
+
+      const validationRes = await apiClient<ValidationResponse>(
+        `/api/v1/documents/validate/${encodeURIComponent(activeManifest.template_id)}`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
+          body: JSON.stringify({ data: preparedValidationData }),
+        }
+      );
+
+      if (!validationRes.valid || (validationRes.violations && validationRes.violations.length > 0)) {
+        const firstViolation = validationRes.violations[0];
+        const msg = firstViolation
+          ? (lang === "mr" ? firstViolation.message_mr : firstViolation.message_en)
+          : "Validation rules failed";
+        toast({
+          type: "error",
+          title: lang === "mr" ? "साचा प्रमाणीकरण त्रुटी" : "Validation Failed",
+          description: msg,
+        });
+        setSubmitting(false);
         return;
       }
 

@@ -11,7 +11,9 @@ import io
 import re
 import zipfile
 from typing import Any
-from xml.etree import ElementTree as ET
+
+from defusedxml import ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
 
 from app.templates.lint.models import LintFinding, LintSeverity
 
@@ -54,7 +56,12 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
             ):
                 content = zf.read(info.filename)
                 try:
-                    root = ET.fromstring(content)
+                    root = SafeET.fromstring(
+                        content,
+                        forbid_dtd=True,
+                        forbid_entities=True,
+                        forbid_external=True,
+                    )
                     for p_idx, p in enumerate(root.iter(f"{{{W_NAMESPACE}}}p")):
                         text = "".join(t.text or "" for t in p.iter(f"{{{W_NAMESPACE}}}t"))
 
@@ -193,7 +200,9 @@ def check_tag_alignment(docx_bytes: bytes, manifest: dict[str, Any]) -> list[Lin
             dir_name = field_name.split("boundaries.", 1)[1]
             if f"boundary_{dir_name}" in found_tags:
                 return True
-        if field_name in parties and (f"{field_name}_block" in found_tags or field_name in found_tags):
+        if field_name in parties and (
+            f"{field_name}_block" in found_tags or field_name in found_tags
+        ):
             return True
         if field_name == "witnesses" and any(t.startswith("witness_") for t in found_tags):
             return True

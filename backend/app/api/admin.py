@@ -173,17 +173,19 @@ def get_audit_trail(
 
     formatted_records = []
     for r in reversed(records):
-        formatted_records.append({
-            "id": r.id,
-            "action": r.action,
-            "entity": r.entity,
-            "entity_id": r.entity_id,
-            "timestamp": r.at.isoformat(),
-            "actor_id": str(r.actor_id) if r.actor_id else None,
-            "hash": r.hash.hex(),
-            "prev_hash": r.prev_hash.hex() if r.prev_hash else "00" * 32,
-            "meta": r.meta,
-        })
+        formatted_records.append(
+            {
+                "id": r.id,
+                "action": r.action,
+                "entity": r.entity,
+                "entity_id": r.entity_id,
+                "timestamp": r.at.isoformat(),
+                "actor_id": str(r.actor_id) if r.actor_id else None,
+                "hash": r.hash.hex(),
+                "prev_hash": r.prev_hash.hex() if r.prev_hash else "00" * 32,
+                "meta": r.meta,
+            }
+        )
 
     return {
         "chain_valid": chain_valid,
@@ -271,7 +273,7 @@ def get_system_health(
     db_ok = ping_db()
     storage_dir = settings.STORAGE_PATH
     storage_ok = storage_dir.exists() and os.access(storage_dir, os.W_OK)
-    
+
     disk_free_gb = 0.0
     try:
         total, used, free = shutil.disk_usage(storage_dir if storage_dir.exists() else ".")

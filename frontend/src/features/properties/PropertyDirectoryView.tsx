@@ -58,7 +58,7 @@ export const PropertyDirectoryView: React.FC<PropertyDirectoryViewProps> = ({
         q && q.length >= 2 ? q : "सोनेगाव",
         category === "all" ? undefined : category
       );
-      setProperties(res || []);
+      setProperties(Array.isArray(res) ? res : []);
     } catch {
       setProperties([]);
     } finally {

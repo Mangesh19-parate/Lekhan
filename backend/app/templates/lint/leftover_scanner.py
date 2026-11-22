@@ -11,7 +11,6 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from xml.etree import ElementTree as ET
 
 from app.templates.lint.models import LeftoverFinding, LintFinding, LintSeverity
 
@@ -70,7 +69,12 @@ def scan_docx_for_leftover_data(
                 ):
                     content = zf.read(info.filename)
                     try:
-                        root = ET.fromstring(content)
+                        root = SafeET.fromstring(
+                            content,
+                            forbid_dtd=True,
+                            forbid_entities=True,
+                            forbid_external=True,
+                        )
                         for p_idx, p in enumerate(root.iter(f"{{{W_NAMESPACE}}}p")):
                             raw_text = "".join(t.text or "" for t in p.iter(f"{{{W_NAMESPACE}}}t"))
 

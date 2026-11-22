@@ -14,6 +14,9 @@ import re
 import zipfile
 from xml.etree import ElementTree as ET
 
+import defusedxml.ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
+
 from app.templates.lint.models import LintFinding, LintSeverity
 
 W_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -116,7 +119,12 @@ def repair_and_check_split_runs(
                         or "footer" in item.filename
                     ):
                         try:
-                            root = ET.fromstring(content)
+                            root = SafeET.fromstring(
+                                content,
+                                forbid_dtd=True,
+                                forbid_entities=True,
+                                forbid_external=True,
+                            )
                             part_merges = 0
 
                             for p_idx, p in enumerate(root.iter(f"{{{W_NAMESPACE}}}p")):

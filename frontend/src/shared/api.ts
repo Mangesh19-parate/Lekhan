@@ -428,7 +428,22 @@ export async function apiClient<T = unknown>(
     return (await res.json()) as T;
   }
 
-  return (await res.blob()) as unknown as T;
+  // Handle explicit binary downloads (DOCX, PDF)
+  if (
+    endpoint.includes("/download") ||
+    endpoint.includes("/export") ||
+    endpoint.endsWith(".docx") ||
+    endpoint.endsWith(".pdf")
+  ) {
+    return (await res.blob()) as unknown as T;
+  }
+
+  throw new ApiError(
+    `API endpoint ${endpoint} returned non-JSON response (${contentType || "empty"}). The backend service may be offline or misconfigured.`,
+    res.status,
+    "INVALID_CONTENT_TYPE",
+    correlationId
+  );
 }
 
 // --- Typed API Surface ---

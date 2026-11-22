@@ -64,6 +64,8 @@
 
   --approved-400: #DFB96E;
 
+  --approved-400: #DFB96E;
+
   /* Semantic Feedback */
   --danger-600: #C82014;
   --danger-500: #E02E22;
@@ -137,6 +139,8 @@
   --line-strong: rgba(255, 255, 255, 0.32);
   --border-subtle: rgba(255, 255, 255, 0.12);
   --focus-ring: 0 0 0 3px rgba(16, 185, 129, 0.40);
+
+  --approved-400: #DFB96E;
 
   --approved-400: #DFB96E;
 

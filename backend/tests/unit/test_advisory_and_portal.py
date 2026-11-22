@@ -14,7 +14,7 @@ import uuid
 import pytest
 
 from app.advisory.engine import AdvisoryRulesEngine
-from app.generation.jobs import JobQueue, JobRecord
+from app.generation.jobs import JobQueue
 from app.generation.pipeline import GenerationPipelineFSM
 from app.portal.generator import PortalSheetGenerator
 
