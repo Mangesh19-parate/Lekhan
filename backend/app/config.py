@@ -73,7 +73,15 @@ class Settings(BaseSettings):
         if isinstance(data, dict):
             secrets_dir = Path(os.getenv("SECRETS_DIR", "/run/secrets"))
             if secrets_dir.is_dir():
-                for field in ("secret_key", "master_key", "index_key", "database_url", "db_password"):
+                for field in (
+                    "secret_key",
+                    "master_key",
+                    "index_key",
+                    "database_url",
+                    "db_password",
+                    "app_database_url",
+                    "app_db_password",
+                ):
                     secret_file = secrets_dir / field
                     if secret_file.is_file() and field.upper() not in data:
                         data[field.upper()] = secret_file.read_text(encoding="utf-8").strip()
@@ -86,6 +94,15 @@ class Settings(BaseSettings):
                         data["DATABASE_URL"] = db_url.replace("lekhan@", f"lekhan:{db_pw}@")
                     elif "lekhan:lekhan@" in db_url:
                         data["DATABASE_URL"] = db_url.replace("lekhan:lekhan@", f"lekhan:{db_pw}@")
+                # If app_db_password secret exists and APP_DATABASE_URL lacks credentials, inject it
+                app_pw_file = secrets_dir / "app_db_password"
+                if app_pw_file.is_file():
+                    app_pw = app_pw_file.read_text(encoding="utf-8").strip()
+                    app_url = data.get("APP_DATABASE_URL", "")
+                    if "lekhan_app@" in app_url and "lekhan_app:@" not in app_url:
+                        data["APP_DATABASE_URL"] = app_url.replace("lekhan_app@", f"lekhan_app:{app_pw}@")
+                    elif "lekhan_app:lekhan_app@" in app_url:
+                        data["APP_DATABASE_URL"] = app_url.replace("lekhan_app:lekhan_app@", f"lekhan_app:{app_pw}@")
         return data
 
     ENV: Literal["dev", "test", "staging", "prod"] = "dev"
@@ -114,6 +131,34 @@ class Settings(BaseSettings):
     ENFORCE_MFA: bool = Field(
         default=False,
         description="Enforce mandatory MFA for admin, reviewer, and template_admin roles",
+    )
+    DOMAIN: str = Field(
+        default="app.lekhan.local",
+        description="Application primary domain name",
+    )
+    SMTP_HOST: str | None = Field(
+        default=None,
+        description="SMTP server hostname for transactional emails",
+    )
+    SMTP_PORT: int = Field(
+        default=587,
+        description="SMTP server port",
+    )
+    SMTP_USER: str | None = Field(
+        default=None,
+        description="SMTP username",
+    )
+    SMTP_PASSWORD: str | None = Field(
+        default=None,
+        description="SMTP password",
+    )
+    SMTP_FROM: str = Field(
+        default="noreply@lekhan.local",
+        description="Sender email address for transactional emails",
+    )
+    SMTP_TLS: bool = Field(
+        default=True,
+        description="Enable STARTTLS for SMTP connections",
     )
 
     # Storage and external binaries
@@ -210,6 +255,8 @@ class Settings(BaseSettings):
             _validate_deployed_key("SECRET_KEY", self.SECRET_KEY, require_base64_32bytes=False)
             _validate_deployed_key("MASTER_KEY", self.MASTER_KEY, require_base64_32bytes=True)
             _validate_deployed_key("INDEX_KEY", self.INDEX_KEY, require_base64_32bytes=True)
+            if not self.ENFORCE_MFA:
+                self.ENFORCE_MFA = True
         return self
 
 

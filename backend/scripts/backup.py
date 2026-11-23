@@ -23,6 +23,24 @@ from app.config import get_settings
 from app.generation.pipeline import generation_pipeline
 from app.numbering.service import document_numbering_service
 from app.shared.logging import get_logger
+from app.shared.models import (
+    AuditLog as AuditLogModel,
+    Counter as CounterModel,
+    Document as DocumentModel,
+    DocumentReview,
+    Draft,
+    FeeRule,
+    Job,
+    Matter,
+    MatterParty,
+    Party,
+    PartyVersion,
+    Property,
+    Template,
+    TemplateVersion,
+    Tenant,
+    User,
+)
 
 logger = get_logger(__name__)
 
@@ -36,17 +54,38 @@ def compute_sha256(file_path: Path) -> str:
     return h.hexdigest()
 
 
+def model_to_dict(instance: Any) -> dict[str, Any]:
+    """Converts a SQLAlchemy model instance to a JSON-serializable dictionary."""
+    data: dict[str, Any] = {}
+    for col in instance.__table__.columns:
+        val = getattr(instance, col.name)
+        if val is None:
+            data[col.name] = None
+        elif isinstance(val, uuid.UUID):
+            data[col.name] = str(val)
+        elif isinstance(val, (datetime.datetime, datetime.date)):
+            data[col.name] = val.isoformat()
+        elif isinstance(val, bytes):
+            data[col.name] = {"_type": "bytes", "hex": val.hex()}
+        elif hasattr(val, "__float__") and not isinstance(val, (int, float, bool)):
+            data[col.name] = str(val)
+        else:
+            data[col.name] = val
+    return data
+
+
 def create_backup(
     destination_dir: Path | None = None,
     include_storage: bool = True,
 ) -> Path:
-    """Creates a complete timestamped, checksummed backup archive."""
+    """Creates a complete timestamped, checksummed backup archive covering all business entities."""
     settings = get_settings()
     dest_dir = destination_dir or Path("./var/backups")
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
     temp_stage = Path(tempfile.mkdtemp(prefix=f"backup_stage_{timestamp_str}_"))
+    is_prod_staging = settings.ENV in ("prod", "production", "staging")
 
     try:
         data_dir = temp_stage / "data"
@@ -57,85 +96,60 @@ def create_backup(
         manifest_entries: dict[str, str] = {}
 
         # 1. Snapshot database and in-memory services
-        documents_list: list[dict[str, Any]] = []
-        counters_list: list[dict[str, Any]] = []
-        audit_logs_list: list[dict[str, Any]] = []
+        db_snapshot: dict[str, Any] = {
+            "version": "2.0.0",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
 
-        # Check DB first if available
+        entity_tables = [
+            ("tenants", Tenant),
+            ("users", User),
+            ("templates", Template),
+            ("template_versions", TemplateVersion),
+            ("parties", Party),
+            ("party_versions", PartyVersion),
+            ("properties", Property),
+            ("matters", Matter),
+            ("matter_parties", MatterParty),
+            ("documents", DocumentModel),
+            ("document_reviews", DocumentReview),
+            ("jobs", Job),
+            ("drafts", Draft),
+            ("counters", CounterModel),
+            ("audit_logs", AuditLogModel),
+            ("fee_rules", FeeRule),
+        ]
+
         db_populated = False
         try:
             from app.adapters.db import SessionLocal, ping_db
-            from app.shared.models import (
-                AuditLog as AuditLogModel,
-                Counter as CounterModel,
-                Document as DocumentModel,
-            )
 
             if ping_db():
                 with SessionLocal() as session:
-                    db_docs = session.query(DocumentModel).all()
-                    for d in db_docs:
-                        documents_list.append(
-                            {
-                                "id": str(d.id),
-                                "tenant_id": str(d.tenant_id),
-                                "template_version_id": str(d.template_version_id),
-                                "doc_no": d.doc_no,
-                                "engine_version": d.engine_version,
-                                "language": d.language,
-                                "data_snapshot": d.data_snapshot,
-                                "input_hash": d.input_hash.hex()
-                                if isinstance(d.input_hash, bytes)
-                                else str(d.input_hash),
-                                "output_hash": d.output_hash.hex()
-                                if isinstance(d.output_hash, bytes)
-                                else str(d.output_hash),
-                                "file_ref": d.file_ref,
-                                "pdf_ref": d.pdf_ref,
-                                "status": d.status,
-                                "created_at": d.created_at.isoformat()
-                                if hasattr(d.created_at, "isoformat")
-                                else str(d.created_at),
-                            }
-                        )
-                    db_counters = session.query(CounterModel).all()
-                    for c in db_counters:
-                        counters_list.append(
-                            {
-                                "tenant_id": str(c.tenant_id),
-                                "series_key": c.key,
-                                "year": c.year,
-                                "value": c.value,
-                            }
-                        )
-                    db_audit = session.query(AuditLogModel).order_by(AuditLogModel.id.asc()).all()
-                    for a in db_audit:
-                        audit_logs_list.append(
-                            {
-                                "id": a.id,
-                                "tenant_id": str(a.tenant_id),
-                                "actor_id": str(a.actor_id) if a.actor_id else None,
-                                "action": a.action,
-                                "entity": a.entity,
-                                "entity_id": a.entity_id,
-                                "at": a.at.isoformat()
-                                if hasattr(a.at, "isoformat")
-                                else str(a.at),
-                                "meta": a.meta,
-                                "prev_hash": a.prev_hash.hex() if a.prev_hash else None,
-                                "hash": a.hash.hex()
-                                if isinstance(a.hash, bytes)
-                                else str(a.hash),
-                            }
-                        )
-                    if db_docs or db_counters or db_audit:
-                        db_populated = True
+                    for table_name, model_cls in entity_tables:
+                        records = session.query(model_cls).all()
+                        serialized = [model_to_dict(r) for r in records]
+                        db_snapshot[table_name] = serialized
+                        if serialized:
+                            db_populated = True
         except Exception as exc:
-            logger.debug("Database snapshot fallback to in-memory: %s", exc)
+            if is_prod_staging:
+                logger.error("Database snapshot failed in %s: %s", settings.ENV, exc)
+                raise RuntimeError(
+                    f"Production database snapshot failed: {exc}"
+                ) from exc
+            logger.debug("Database snapshot offline in dev/test (%s); falling back to in-memory", exc)
 
         if not db_populated:
+            if is_prod_staging:
+                raise RuntimeError(
+                    f"Production database backup rejected: database is empty or unreachable in {settings.ENV}"
+                )
+
+            # Offline dev/test fallback: snapshot in-memory pipeline, counters, and audit service
             repo = getattr(generation_pipeline, "repository", None)
             repo_docs = getattr(repo, "_documents", {}).values() if repo else []
+            documents_list: list[dict[str, Any]] = []
             for d in repo_docs:
                 documents_list.append(
                     {
@@ -160,6 +174,9 @@ def create_backup(
                         else str(d.created_at),
                     }
                 )
+            db_snapshot["documents"] = documents_list
+
+            counters_list: list[dict[str, Any]] = []
             for k, v in document_numbering_service._counters.items():
                 counters_list.append(
                     {
@@ -169,7 +186,10 @@ def create_backup(
                         "value": v,
                     }
                 )
+            db_snapshot["counters"] = counters_list
+
             from app.audit.service import audit_service
+            audit_logs_list: list[dict[str, Any]] = []
             for tid, records in getattr(audit_service._repository, "_logs", {}).items():
                 for r in records:
                     audit_logs_list.append(
@@ -190,14 +210,12 @@ def create_backup(
                             else str(r.hash),
                         }
                     )
+            db_snapshot["audit_logs"] = audit_logs_list
 
-        db_snapshot: dict[str, Any] = {
-            "version": "1.0.0",
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "documents": documents_list,
-            "counters": counters_list,
-            "audit_logs": audit_logs_list,
-        }
+            # Default empty lists for other tables in test double
+            for table_name, _ in entity_tables:
+                if table_name not in db_snapshot:
+                    db_snapshot[table_name] = []
 
         db_file = data_dir / "db_snapshot.json"
         db_file.write_text(json.dumps(db_snapshot, indent=2, ensure_ascii=False), encoding="utf-8")

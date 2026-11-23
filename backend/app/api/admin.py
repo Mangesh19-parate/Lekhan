@@ -22,7 +22,6 @@ from app.audit.repository import AuditRepository
 from app.audit.service import AuditService, audit_service
 from app.config import get_settings
 from app.generation.jobs import JobRepository
-from app.generation.pipeline import generation_pipeline
 from app.identity.policy import ROLE_PERMISSIONS, Actor, authorize
 from app.identity.repository import UserRepository
 from app.api.templates_admin import list_templates

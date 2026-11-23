@@ -50,6 +50,7 @@ def test_backup_and_restore_cycle(temp_backup_env) -> None:
         tenant_id=tenant_id,
         type="generate_docx",
         payload={
+            "template_id": "sale_deed_plot_mr",
             "execution_date": "2026-11-09",
             "sellers": [
                 {

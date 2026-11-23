@@ -13,13 +13,17 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import re
 import secrets
+from typing import Any
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.config import get_settings
+from app.shared.logging import get_logger
 
+logger = get_logger(__name__)
 settings = get_settings()
 
 
@@ -118,3 +122,34 @@ def mask_phone(phone: str | None) -> str:
     if len(clean) >= 10:
         return f"{'*' * (len(clean) - 4)}{clean[-4:]}"
     return "****"
+
+
+def encrypt_json_payload(payload: dict[str, Any] | list[Any], key_id: str = "v1") -> dict[str, Any]:
+    """Encrypts an entire JSON dictionary or list into an authenticated AES-256-GCM envelope."""
+    if not payload:
+        return {}
+    if isinstance(payload, dict) and "_enc" in payload and "_v" in payload:
+        return payload
+    raw_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    encrypted_bytes = encrypt_field(raw_json, key_id=key_id)
+    b64_ciphertext = base64.b64encode(encrypted_bytes).decode("ascii")
+    return {"_enc": b64_ciphertext, "_v": "1"}
+
+
+def decrypt_json_payload(payload: Any) -> Any:
+    """Decrypts an AES-256-GCM envelope dictionary back to the original dictionary or list."""
+    if not isinstance(payload, dict):
+        return payload
+    if "_enc" not in payload or "_v" not in payload:
+        return payload
+    b64_ciphertext = payload["_enc"]
+    try:
+        encrypted_bytes = base64.b64decode(b64_ciphertext.encode("ascii"), validate=True)
+        raw_json = decrypt_field(encrypted_bytes)
+        return json.loads(raw_json)
+    except Exception as exc:
+        logger.error("Failed to decrypt JSON payload: %s", exc)
+        from app.config import get_settings
+        if get_settings().ENV in ("prod", "staging"):
+            raise ValueError(f"Payload decryption failed: {exc}") from exc
+        return payload

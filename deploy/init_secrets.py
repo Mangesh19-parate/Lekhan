@@ -17,6 +17,7 @@ SECRETS_DIR = Path(__file__).parent / "secrets"
 
 SECRETS_CONFIG = {
     "db_password.secret": lambda: secrets.token_hex(24),
+    "app_db_password.secret": lambda: secrets.token_hex(24),
     "secret_key.secret": lambda: secrets.token_hex(32),
     "master_key.secret": lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
     "index_key.secret": lambda: base64.b64encode(secrets.token_bytes(32)).decode("ascii"),

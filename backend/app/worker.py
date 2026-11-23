@@ -72,6 +72,7 @@ def run_worker_once(
     job = active_repo.claim_next(
         tenant_id=None,
         visibility_timeout_seconds=visibility_timeout_seconds,
+        max_attempts=max_attempts,
     )
     if not job:
         return False

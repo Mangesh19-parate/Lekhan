@@ -11,6 +11,21 @@ export default defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173",
     trace: "on-first-retry",
   },
+  webServer: [
+    {
+      command: "python -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+      cwd: "../backend",
+      port: 8000,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+    },
+    {
+      command: "pnpm dev",
+      port: 5173,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+    },
+  ],
   projects: [
     {
       name: "chromium",

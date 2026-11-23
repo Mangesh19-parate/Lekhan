@@ -53,13 +53,15 @@ services:
       SECRETS_DIR: /run/secrets
     secrets:
       - db_password
+      - app_db_password
+      - secret_key
+      - master_key
+      - index_key
     networks:
       - lekhan_net
     depends_on:
       db:
         condition: service_healthy
-      migrator:
-        condition: service_completed_successfully
 
   # ----------------------------------------------------------------------------
   # 2. Lekhan Web API (FastAPI)
@@ -78,12 +80,17 @@ services:
       - /app/.cache:mode=0700,uid=10001,gid=10001,size=64M
     environment:
       ENV: prod
+      DOMAIN: "app.lekhan.local"
+      APP_DATABASE_URL: postgresql+psycopg://lekhan_app@db:5432/lekhan_prod
       DATABASE_URL: postgresql+psycopg://lekhan@db:5432/lekhan_prod
       STORAGE_PATH: /var/storage
       SECRETS_DIR: /run/secrets
       ALLOWED_ORIGINS: "https://lekhan.local,https://app.lekhan.local"
+      ENFORCE_MFA: "true"
+      TRUSTED_PROXIES: "127.0.0.1,::1,172.16.0.0/12,10.0.0.0/8"
     secrets:
       - db_password
+      - app_db_password
       - secret_key
       - master_key
       - index_key
@@ -94,8 +101,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrator:
-        condition: service_completed_successfully
       migrator:
         condition: service_completed_successfully
     healthcheck:
@@ -127,11 +132,13 @@ services:
       - /app/.cache:mode=0700,uid=10001,gid=10001,size=128M
     environment:
       ENV: prod
+      APP_DATABASE_URL: postgresql+psycopg://lekhan_app@db:5432/lekhan_prod
       DATABASE_URL: postgresql+psycopg://lekhan@db:5432/lekhan_prod
       STORAGE_PATH: /var/storage
       SECRETS_DIR: /run/secrets
     secrets:
       - db_password
+      - app_db_password
       - secret_key
       - master_key
       - index_key
@@ -163,6 +170,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      DOMAIN: "app.lekhan.local"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./frontend/dist:/srv/frontend/dist:ro
@@ -199,6 +208,8 @@ volumes:
 secrets:
   db_password:
     file: ./deploy/secrets/db_password.secret
+  app_db_password:
+    file: ./deploy/secrets/app_db_password.secret
   secret_key:
     file: ./deploy/secrets/secret_key.secret
   master_key:

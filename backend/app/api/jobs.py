@@ -12,15 +12,11 @@ from sqlalchemy.orm import Session
 from app.adapters.db import get_db
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.api.auth import get_current_actor
+from app.api.documents import get_job_repo
 from app.generation.jobs import JobRepository
 from app.identity.policy import Actor, authorize
 
 router = APIRouter(tags=["jobs"])
-
-
-def get_job_repo(db: Session = Depends(get_db)) -> JobRepository:
-    """Provides the JobRepository scoped to the current database session."""
-    return PostgresJobRepository(db)
 
 
 class JobDetailResponse(BaseModel):

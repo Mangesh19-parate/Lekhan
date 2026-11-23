@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters.db import SessionLocal
 from app.generation.models import GeneratedDocumentRecord
+from app.shared.crypto import decrypt_json_payload, encrypt_json_payload
 from app.shared.models import Document as DocumentModel
 
 
@@ -25,7 +26,7 @@ def _to_record(model: DocumentModel) -> GeneratedDocumentRecord:
         doc_no=model.doc_no,
         engine_version=model.engine_version,
         language=model.language,
-        data_snapshot=model.data_snapshot,
+        data_snapshot=decrypt_json_payload(model.data_snapshot),
         input_hash=model.input_hash,
         output_hash=model.output_hash,
         file_ref=model.file_ref,
@@ -58,7 +59,7 @@ class PostgresDocumentRepository:
                 doc_no=record.doc_no,
                 language=record.language,
                 engine_version=record.engine_version,
-                data_snapshot=record.data_snapshot,
+                data_snapshot=encrypt_json_payload(record.data_snapshot),
                 input_hash=record.input_hash,
                 output_hash=record.output_hash,
                 file_ref=record.file_ref,

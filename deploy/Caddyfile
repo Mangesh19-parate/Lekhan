@@ -1,17 +1,21 @@
 # ==============================================================================
 # Caddy Production Reverse Proxy Configuration
 # Adheres to:
-# - Automatic TLS & HTTP/2 / HTTP/3
+# - Automatic TLS & HTTP/2 / HTTP/3 with automatic HTTP -> HTTPS redirect
 # - Strict Security Headers (CSP, HSTS, X-Frame-Options)
 # - Proxy pass to FastAPI API & Health probes
+# - Static SPA frontend serving
 # ==============================================================================
 
 {
     admin off
-    auto_https disable_redirects
 }
 
-:80 {
+{$DOMAIN:app.lekhan.local} {
+    # Internal TLS for local/staging test domains (*.local).
+    # For public FQDNs, remove 'tls internal' or pass external certs.
+    tls internal
+
     log {
         output stdout
         format json

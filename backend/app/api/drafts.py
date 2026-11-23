@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.adapters.db import get_db
 from app.api.auth import get_current_actor
 from app.identity.policy import Actor, Resource, authorize
+from app.shared.crypto import decrypt_json_payload, encrypt_json_payload
 from app.shared.ids import uuid7
 from app.shared.models import Draft
 
@@ -52,7 +53,7 @@ def _format_draft(draft: Draft) -> DraftResponse:
         user_id=draft.user_id,
         title=draft.title,
         template_id=draft.template_id,
-        data=draft.data or {},
+        data=decrypt_json_payload(draft.data) if draft.data else {},
         created_at=draft.created_at.isoformat() if draft.created_at else "",
         updated_at=draft.updated_at.isoformat() if draft.updated_at else "",
     )
@@ -96,7 +97,7 @@ def create_draft(
         user_id=actor.user_id,
         title=payload.title,
         template_id=payload.template_id,
-        data=payload.data,
+        data=encrypt_json_payload(payload.data),
     )
     db.add(draft)
     db.commit()
@@ -153,7 +154,7 @@ def update_draft(
     if payload.template_id is not None:
         draft.template_id = payload.template_id
     if payload.data is not None:
-        draft.data = payload.data
+        draft.data = encrypt_json_payload(payload.data)
 
     draft.updated_at = datetime.datetime.now(datetime.timezone.utc)
     db.commit()

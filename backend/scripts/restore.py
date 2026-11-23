@@ -10,6 +10,7 @@ Restores and verifies data integrity from a backup archive bundle:
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -24,6 +25,24 @@ from app.config import get_settings
 from app.generation.pipeline import GeneratedDocumentRecord, generation_pipeline
 from app.numbering.service import CounterKey, document_numbering_service
 from app.shared.logging import get_logger
+from app.shared.models import (
+    AuditLog as AuditLogModel,
+    Counter as CounterModel,
+    Document as DocumentModel,
+    DocumentReview,
+    Draft,
+    FeeRule,
+    Job,
+    Matter,
+    MatterParty,
+    Party,
+    PartyVersion,
+    Property,
+    Template,
+    TemplateVersion,
+    Tenant,
+    User,
+)
 
 logger = get_logger(__name__)
 
@@ -38,6 +57,33 @@ def compute_sha256(file_path: Path) -> str:
         while chunk := f.read(65536):
             h.update(chunk)
     return h.hexdigest()
+
+
+def dict_to_model_kwargs(model_cls: type, data: dict[str, Any]) -> dict[str, Any]:
+    """Converts a serialized dictionary back into typed kwargs for a SQLAlchemy model."""
+    kwargs: dict[str, Any] = {}
+    for col in model_cls.__table__.columns:
+        if col.name not in data:
+            continue
+        val = data[col.name]
+        if val is None:
+            kwargs[col.name] = None
+            continue
+
+        python_type = getattr(col.type, "python_type", None)
+        if isinstance(val, dict) and val.get("_type") == "bytes":
+            kwargs[col.name] = bytes.fromhex(val["hex"])
+        elif python_type is uuid.UUID and isinstance(val, str):
+            kwargs[col.name] = uuid.UUID(val)
+        elif python_type is datetime.datetime and isinstance(val, str):
+            kwargs[col.name] = datetime.datetime.fromisoformat(val)
+        elif python_type is datetime.date and isinstance(val, str):
+            kwargs[col.name] = datetime.date.fromisoformat(val)
+        elif python_type is bytes and isinstance(val, str):
+            kwargs[col.name] = bytes.fromhex(val)
+        else:
+            kwargs[col.name] = val
+    return kwargs
 
 
 def restore_backup(
@@ -57,7 +103,10 @@ def restore_backup(
     try:
         # 1. Unpack archive
         with tarfile.open(archive_path, "r:gz") as tar:
-            tar.extractall(path=temp_extract)
+            if hasattr(tarfile, "data_filter"):
+                tar.extractall(path=temp_extract, filter="data")
+            else:
+                tar.extractall(path=temp_extract)
 
         manifest_file = temp_extract / "manifest.json"
         if not manifest_file.exists():
@@ -123,40 +172,63 @@ def restore_backup(
                 restored_counters_count += 1
 
             # Restore into relational DB if connected
+            entity_tables = [
+                ("tenants", Tenant),
+                ("users", User),
+                ("templates", Template),
+                ("template_versions", TemplateVersion),
+                ("parties", Party),
+                ("party_versions", PartyVersion),
+                ("properties", Property),
+                ("matters", Matter),
+                ("matter_parties", MatterParty),
+                ("documents", DocumentModel),
+                ("document_reviews", DocumentReview),
+                ("jobs", Job),
+                ("drafts", Draft),
+                ("counters", CounterModel),
+                ("audit_logs", AuditLogModel),
+                ("fee_rules", FeeRule),
+            ]
+
+            restored_entities_count = 0
+            is_prod_staging = settings.ENV in ("prod", "production", "staging")
+
             try:
                 from app.adapters.db import SessionLocal, ping_db
-                from app.shared.models import Counter as CounterModel, Document as DocumentModel
 
                 if ping_db():
                     with SessionLocal() as session:
-                        for c in db_data.get("counters", []):
-                            t_id = uuid.UUID(c["tenant_id"])
-                            key_val = c["series_key"]
-                            yr_val = int(c["year"])
-                            existing_counter = session.query(CounterModel).filter(
-                                CounterModel.tenant_id == t_id,
-                                CounterModel.key == key_val,
-                                CounterModel.year == yr_val,
-                            ).first()
-                            if existing_counter:
-                                existing_counter.value = int(c["value"])
-                            else:
-                                session.add(
-                                    CounterModel(
-                                        tenant_id=t_id,
-                                        key=key_val,
-                                        year=yr_val,
-                                        value=int(c["value"]),
-                                    )
-                                )
+                        for table_name, model_cls in entity_tables:
+                            table_records = db_data.get(table_name, [])
+                            for rec in table_records:
+                                kwargs = dict_to_model_kwargs(model_cls, rec)
+                                pk_cols = [c.name for c in model_cls.__table__.primary_key.columns]
+                                if pk_cols:
+                                    filter_kwargs = {c: kwargs[c] for c in pk_cols if c in kwargs}
+                                    existing = session.query(model_cls).filter_by(**filter_kwargs).first()
+                                    if existing:
+                                        for k, v in kwargs.items():
+                                            setattr(existing, k, v)
+                                    else:
+                                        session.add(model_cls(**kwargs))
+                                else:
+                                    session.add(model_cls(**kwargs))
+                                restored_entities_count += 1
                         session.commit()
+                elif is_prod_staging:
+                    raise RuntimeError(
+                        f"Production database restore rejected: database is unreachable in {settings.ENV}"
+                    )
             except Exception as exc:
-                logger.debug("Database restore sync skipped: %s", exc)
+                if is_prod_staging:
+                    logger.error("Database restore failed in %s: %s", settings.ENV, exc)
+                    raise RuntimeError(f"Production database restore failed: {exc}") from exc
+                logger.debug("Database restore skipped in dev/test: %s", exc)
 
-            # Restore audit logs
+            # Restore audit logs in-memory
             from app.audit.repository import AuditRecord
             from app.audit.service import audit_service
-            import datetime
 
             restored_audit_count = 0
             raw_audit_logs = db_data.get("audit_logs", [])
@@ -173,40 +245,11 @@ def restore_backup(
                         at=datetime.datetime.fromisoformat(al["at"]),
                         meta=al.get("meta", {}),
                         prev_hash=bytes.fromhex(al["prev_hash"]) if al.get("prev_hash") else None,
-                        hash=bytes.fromhex(al["hash"]),
+                        hash=bytes.fromhex(al["hash"]) if isinstance(al["hash"], str) else bytes(al["hash"]),
                     )
                     if hasattr(audit_service._repository, "_logs"):
                         audit_service._repository._logs.setdefault(rec.tenant_id, []).append(rec)
                     restored_audit_count += 1
-
-                # Database restore for audit logs
-                try:
-                    from app.adapters.db import SessionLocal, ping_db
-                    from app.shared.models import AuditLog as AuditLogModel
-
-                    if ping_db():
-                        with SessionLocal() as session:
-                            for al in raw_audit_logs:
-                                al_id = int(al["id"])
-                                exists = session.query(AuditLogModel).filter(AuditLogModel.id == al_id).first()
-                                if not exists:
-                                    session.add(
-                                        AuditLogModel(
-                                            id=al_id,
-                                            tenant_id=uuid.UUID(al["tenant_id"]),
-                                            actor_id=uuid.UUID(al["actor_id"]) if al.get("actor_id") else None,
-                                            action=al["action"],
-                                            entity=al["entity"],
-                                            entity_id=al.get("entity_id"),
-                                            at=datetime.datetime.fromisoformat(al["at"]),
-                                            meta=al.get("meta", {}),
-                                            prev_hash=bytes.fromhex(al["prev_hash"]) if al.get("prev_hash") else None,
-                                            hash=bytes.fromhex(al["hash"]),
-                                        )
-                                    )
-                            session.commit()
-                except Exception as exc:
-                    logger.debug("Database audit restore skipped: %s", exc)
 
         # 4. Restore Object Store files
         storage_src = temp_extract / "storage"
@@ -234,6 +277,7 @@ def restore_backup(
             "restored_counters_count": restored_counters_count,
             "restored_audit_count": restored_audit_count,
             "restored_storage_files_count": restored_files_count,
+            "restored_entities": restored_entities_count,
             "audit_chain_verified": audit_report.status == "healthy",
             "audit_chain_report": audit_report.to_dict(),
         }

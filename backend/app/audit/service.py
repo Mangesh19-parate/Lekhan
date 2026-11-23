@@ -37,9 +37,14 @@ class AuditService:
     """Audit log service with repository-backed tracking & hash-chain verification."""
 
     def __init__(self, repository: AuditRepository | None = None) -> None:
-        self._repository: AuditRepository = (
-            repository if repository is not None else InMemoryAuditRepository()
-        )
+        if repository is not None:
+            self._repository = repository
+        else:
+            try:
+                from app.adapters.repositories.audit import PostgresAuditRepository
+                self._repository = PostgresAuditRepository()
+            except Exception:
+                self._repository = InMemoryAuditRepository()
 
     @property
     def _logs(self) -> dict[uuid.UUID, list[AuditRecord]]:
@@ -61,7 +66,16 @@ class AuditService:
         now = datetime.now(timezone.utc)
         meta_dict = meta or {}
 
-        last_record = self._repository.get_last_record(tenant_id)
+        try:
+            last_record = self._repository.get_last_record(tenant_id)
+        except Exception as exc:
+            from app.config import get_settings
+            if get_settings().ENV in ("dev", "test") and not isinstance(self._repository, InMemoryAuditRepository):
+                logger.debug("PostgreSQL audit get_last_record failed (%s); using in-memory for dev/test", exc)
+                self._repository = InMemoryAuditRepository()
+                last_record = self._repository.get_last_record(tenant_id)
+            else:
+                raise
         prev_hash = last_record.hash if last_record else None
 
         current_hash = compute_audit_hash(
@@ -88,7 +102,15 @@ class AuditService:
             hash=current_hash,
         )
 
-        return self._repository.append(tenant_id, record)
+        try:
+            return self._repository.append(tenant_id, record)
+        except Exception as exc:
+            from app.config import get_settings
+            if get_settings().ENV in ("dev", "test") and not isinstance(self._repository, InMemoryAuditRepository):
+                logger.debug("PostgreSQL audit append failed (%s); using in-memory for dev/test", exc)
+                self._repository = InMemoryAuditRepository()
+                return self._repository.append(tenant_id, record)
+            raise
 
     def get_chain(
         self, tenant_id: uuid.UUID, limit: int = 100, offset: int = 0
@@ -109,7 +131,15 @@ class AuditService:
 
     def clear(self, tenant_id: uuid.UUID | None = None) -> None:
         """Clears logs (test fixture helper)."""
-        self._repository.clear(tenant_id)
+        try:
+            self._repository.clear(tenant_id)
+        except Exception as exc:
+            from app.config import get_settings
+            if get_settings().ENV in ("dev", "test"):
+                self._repository = InMemoryAuditRepository()
+                self._repository.clear(tenant_id)
+            else:
+                raise
 
 
 audit_service = AuditService()

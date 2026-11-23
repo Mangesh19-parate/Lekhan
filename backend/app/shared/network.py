@@ -2,9 +2,28 @@
 
 from __future__ import annotations
 
+import ipaddress
 from fastapi import Request
 
 from app.config import get_settings
+
+
+def _is_ip_trusted(socket_ip: str, allowed_proxies: set[str]) -> bool:
+    """Checks whether the socket IP matches an allowed IP literal or CIDR network block."""
+    if socket_ip in allowed_proxies:
+        return True
+    try:
+        addr = ipaddress.ip_address(socket_ip)
+        for allowed in allowed_proxies:
+            if "/" in allowed:
+                try:
+                    if addr in ipaddress.ip_network(allowed, strict=False):
+                        return True
+                except ValueError:
+                    pass
+    except ValueError:
+        pass
+    return False
 
 
 def get_client_ip(request: Request, trusted_proxies: list[str] | None = None) -> str:
@@ -19,10 +38,10 @@ def get_client_ip(request: Request, trusted_proxies: list[str] | None = None) ->
 
     settings = get_settings()
     allowed_proxies = set(trusted_proxies if trusted_proxies is not None else settings.TRUSTED_PROXIES)
-    if settings.is_dev:
+    if settings.is_dev or settings.is_test:
         allowed_proxies.add("testclient")
 
-    if socket_ip in allowed_proxies:
+    if _is_ip_trusted(socket_ip, allowed_proxies):
         xff = request.headers.get("X-Forwarded-For")
         if xff:
             first_ip = xff.split(",")[0].strip()

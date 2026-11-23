@@ -11,11 +11,12 @@ import datetime
 import uuid
 from typing import Any
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, text
 from sqlalchemy.orm import Session
 
 from app.adapters.db import SessionLocal
 from app.generation.jobs import JobRecord
+from app.shared.crypto import decrypt_json_payload, encrypt_json_payload
 from app.shared.ids import uuid7
 from app.shared.models import Job as JobModel
 
@@ -26,7 +27,7 @@ def _to_record(model: JobModel) -> JobRecord:
         id=model.id,
         tenant_id=model.tenant_id,
         type=model.type,
-        payload=model.payload,
+        payload=decrypt_json_payload(model.payload),
         status=model.status,
         state=model.state or "REQUESTED",
         run_at=model.run_at,
@@ -75,7 +76,7 @@ class PostgresJobRepository:
                 id=job_id,
                 tenant_id=tenant_id,
                 type=type,
-                payload=payload,
+                payload=encrypt_json_payload(payload),
                 status="queued",
                 state="REQUESTED",
                 run_at=now,
@@ -147,21 +148,70 @@ class PostgresJobRepository:
         self,
         tenant_id: uuid.UUID | None = None,
         visibility_timeout_seconds: int = 300,
+        max_attempts: int = 3,
     ) -> JobRecord | None:
         """Claims the next pending job atomically via FOR UPDATE SKIP LOCKED.
 
         Includes queued runnable jobs and crashed running jobs whose locked_at
-        exceeds the visibility timeout.
+        exceeds the visibility timeout, strictly enforcing max_attempts.
+        For cross-tenant worker claiming under least-privilege PostgreSQL RLS,
+        invokes the SECURITY DEFINER function `claim_next_job`.
         """
         session = self._get_session()
         should_close = self._session is None
         try:
+            bind = session.get_bind()
+            if bind is not None and bind.dialect.name == "postgresql" and tenant_id is None:
+                stmt = text(
+                    """
+                    SELECT id, tenant_id, type, payload, status, state, run_at, attempts, locked_at, idempotency_key, error, created_at
+                    FROM claim_next_job(:timeout, :max_attempts)
+                    """
+                )
+                row = session.execute(
+                    stmt,
+                    {"timeout": visibility_timeout_seconds, "max_attempts": max_attempts},
+                ).mappings().first()
+                if not row:
+                    return None
+                session.commit()
+                return JobRecord(
+                    id=row["id"],
+                    tenant_id=row["tenant_id"],
+                    type=row["type"],
+                    payload=decrypt_json_payload(row["payload"]),
+                    status=row["status"],
+                    state=row["state"],
+                    run_at=row["run_at"],
+                    attempts=row["attempts"],
+                    locked_at=row["locked_at"],
+                    idempotency_key=row["idempotency_key"],
+                    error=row["error"],
+                    created_at=row["created_at"],
+                )
+
             now = datetime.datetime.now(datetime.timezone.utc)
             visibility_cutoff = now - datetime.timedelta(seconds=visibility_timeout_seconds)
 
+            # Dead-letter crashed jobs that exceeded max_attempts past visibility timeout
+            stale_dead_cond = and_(
+                JobModel.status == "running",
+                JobModel.locked_at <= visibility_cutoff,
+                JobModel.attempts >= max_attempts,
+            )
+            stale_query = session.query(JobModel).filter(stale_dead_cond)
+            if tenant_id is not None:
+                stale_query = stale_query.filter(JobModel.tenant_id == tenant_id)
+            for stale_job in stale_query.all():
+                stale_job.status = "dead"
+                stale_job.error = {
+                    "code": "MAX_ATTEMPTS_EXCEEDED",
+                    "message": "Job exceeded maximum retry attempts during background execution",
+                }
+
             claimable_cond = or_(
-                and_(JobModel.status == "queued", JobModel.run_at <= now),
-                and_(JobModel.status == "running", JobModel.locked_at <= visibility_cutoff),
+                and_(JobModel.status == "queued", JobModel.run_at <= now, JobModel.attempts < max_attempts),
+                and_(JobModel.status == "running", JobModel.locked_at <= visibility_cutoff, JobModel.attempts < max_attempts),
             )
 
             query = (
@@ -175,6 +225,7 @@ class PostgresJobRepository:
 
             db_job = query.first()
             if not db_job:
+                session.commit()
                 return None
 
             db_job.status = "running"

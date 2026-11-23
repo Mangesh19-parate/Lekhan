@@ -12,8 +12,8 @@ import builtins
 import datetime
 import uuid
 from dataclasses import dataclass, field
-from threading import Lock
-from typing import Any, Protocol
+from threading import RLock
+from typing import Any, Protocol, runtime_checkable
 
 from app.shared.ids import uuid7
 
@@ -46,6 +46,7 @@ class JobRecord:
             self.type = self.job_type
 
 
+@runtime_checkable
 class JobRepository(Protocol):
     """Explicit repository interface for background job queue persistence."""
 
@@ -78,6 +79,7 @@ class JobRepository(Protocol):
         self,
         tenant_id: uuid.UUID | None = None,
         visibility_timeout_seconds: int = 300,
+        max_attempts: int = 3,
     ) -> JobRecord | None:
         """Atomically claims the next runnable queued job or crashed running job past visibility timeout."""
         ...
@@ -108,7 +110,7 @@ class InMemoryJobRepository:
     """Thread-safe in-memory job repository for unit testing and local mocks."""
 
     def __init__(self) -> None:
-        self._lock = Lock()
+        self._lock = RLock()
         self._jobs: dict[uuid.UUID, JobRecord] = {}
 
     def enqueue(
@@ -175,12 +177,21 @@ class InMemoryJobRepository:
         self,
         tenant_id: uuid.UUID | None = None,
         visibility_timeout_seconds: int = 300,
+        max_attempts: int = 3,
     ) -> JobRecord | None:
         with self._lock:
             now = datetime.datetime.now(datetime.timezone.utc)
             visibility_cutoff = now - datetime.timedelta(seconds=visibility_timeout_seconds)
             for job in self._jobs.values():
                 if tenant_id is not None and job.tenant_id != tenant_id:
+                    continue
+                if job.attempts >= max_attempts:
+                    if job.status == "running" and job.locked_at is not None and job.locked_at <= visibility_cutoff:
+                        job.status = "dead"
+                        job.error = {
+                            "code": "MAX_ATTEMPTS_EXCEEDED",
+                            "message": "Job exceeded maximum retry attempts during background execution",
+                        }
                     continue
                 is_queued = job.status == "queued" and job.run_at <= now
                 is_timed_out = (
