@@ -196,16 +196,21 @@ def generate_plot_sale_deed_docx(
                     # Handle multi-line replacements by converting newline to Word break
                     xml_val = val.replace("\n", "<w:br/>")
                     doc_xml = doc_xml.replace(placeholder, xml_val)
-
-                # 6. Verification Gate: Assert NO leftover tags {{ or {%
-                unrendered_tags = re.findall(r"\{\{.*?\}\}|\{%.*?%\}", doc_xml)
-                if unrendered_tags:
-                    raise SpikeGenerationError(
-                        f"Verification Gate Failed: Unrendered template tags remain in output: {unrendered_tags}"
-                    )
-
                 content = doc_xml.encode("utf-8")
-
             zout.writestr(item, content)
+
+    # 6. Verification Gate: Assert NO leftover tags {{ or {% across all word/*.xml parts
+    with zipfile.ZipFile(io.BytesIO(out_buf.getvalue()), "r") as z_verify:
+        leftover_tags: list[str] = []
+        for item in z_verify.infolist():
+            if item.filename.startswith("word/") and item.filename.endswith(".xml"):
+                part_xml = z_verify.read(item.filename).decode("utf-8", errors="ignore")
+                found = re.findall(r"\{\{.*?\}\}|\{%.*?%\}", part_xml)
+                if found:
+                    leftover_tags.extend([f"{item.filename}: {t}" for t in found])
+        if leftover_tags:
+            raise SpikeGenerationError(
+                f"Verification Gate Failed: Unrendered template tags remain in output: {leftover_tags}"
+            )
 
     return out_buf.getvalue()

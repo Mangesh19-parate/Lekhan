@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from docxtpl import DocxTemplate
+from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 
 from app.adapters.pdf import default_pdf_converter
@@ -55,31 +56,44 @@ def _render_template_docx(
     context: dict[str, Any],
     docx_bytes_input: bytes | None = None,
 ) -> bytes:
-    """Renders a template.docx from bytes or templates-library/ in a sandboxed Jinja environment."""
+    """Renders a template.docx from bytes or templates-library/ in a sandboxed Jinja environment with StrictUndefined."""
     if docx_bytes_input is not None:
         doc = DocxTemplate(io.BytesIO(docx_bytes_input))
     else:
         template_dir = validate_template_id(template_id)
+        # Verify approved status from manifest
+        manifest_path = template_dir / "manifest.json"
+        if manifest_path.exists():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("status") != "approved":
+                raise ValueError(
+                    f"Template '{template_id}' has status '{manifest.get('status')}' and is not approved for production drafting."
+                )
         template_path = template_dir / "template.docx"
         if not template_path.exists():
             raise ValueError(f"Template '{template_id}' not found.")
         doc = DocxTemplate(str(template_path))
-    doc.render(context, jinja_env=SandboxedEnvironment())
+
+    # Configure StrictUndefined to fail fast on any missing variables or undefined tags
+    jinja_env = SandboxedEnvironment(undefined=StrictUndefined)
+    doc.render(context, jinja_env=jinja_env)
     out_buf = io.BytesIO()
     doc.save(out_buf)
     docx_bytes = out_buf.getvalue()
 
+    # Comprehensive verification gate: scan all XML parts (document, headers, footers, footnotes)
     with zipfile.ZipFile(io.BytesIO(docx_bytes), "r") as zf:
-        if "word/document.xml" in zf.namelist():
-            xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-            leftover = re.findall(r"\{\{.*?\}\}|\{%.*?%\}", xml)
-            if leftover:
-                raise ValueError(f"Unrendered template tags remain: {leftover[:5]}")
+        for name in zf.namelist():
+            if name.startswith("word/") and name.endswith(".xml"):
+                xml = zf.read(name).decode("utf-8", errors="ignore")
+                leftover = re.findall(r"\{\{.*?\}\}|\{%.*?%\}", xml)
+                if leftover:
+                    raise ValueError(f"Unrendered template tags remain in {name}: {leftover[:5]}")
     return docx_bytes
 
 
 def _normalize_payload(raw_payload: dict[str, Any]) -> dict[str, Any]:
-    """Normalizes legacy test & seed payloads to PlotSaleDeedInput schema."""
+    """Normalizes legacy test & seed payloads to PlotSaleDeedInput schema without inventing data."""
     payload = dict(raw_payload)
     if "vendors" in payload and "sellers" not in payload:
         payload["sellers"] = payload["vendors"]
@@ -88,12 +102,10 @@ def _normalize_payload(raw_payload: dict[str, Any]) -> dict[str, Any]:
         if "boundaries" in prop and "boundaries" not in payload:
             payload["boundaries"] = prop["boundaries"]
         payload["property_details"] = prop
-    if "boundaries" not in payload:
-        payload["boundaries"] = {"east": "रस्ता", "west": "प्लॉट", "north": "प्लॉट", "south": "प्लॉट"}
     if "financial_terms" in payload and "financial" not in payload:
         f_terms = payload["financial_terms"]
         payload["financial"] = {
-            "total_consideration": f_terms.get("total_consideration", 100000),
+            "total_consideration": f_terms.get("total_consideration"),
             "earnest_advance": f_terms.get("advance_paid", f_terms.get("earnest_advance", 0)),
             "instalments": f_terms.get("instalments", []),
         }
@@ -117,9 +129,14 @@ class GenerationPipelineFSM:
         db_session: Any | None = None,
     ) -> None:
         self.storage = storage
-        self.repository: DocumentRepository = (
-            repository if repository is not None else InMemoryDocumentRepository()
-        )
+        if repository is not None:
+            self.repository = repository
+        else:
+            try:
+                from app.adapters.repositories.documents import PostgresDocumentRepository
+                self.repository = PostgresDocumentRepository(session=db_session)
+            except Exception:
+                self.repository = InMemoryDocumentRepository()
         self.db_session = db_session
 
     def process_job(self, job: JobRecord) -> GeneratedDocumentRecord:
@@ -146,7 +163,10 @@ class GenerationPipelineFSM:
 
             # 1. State: REQUESTED -> VALIDATED
             job.state = "VALIDATED"
-            template_id = str(job.payload.get("template_id") or "sale_deed_plot_mr")
+            raw_template_id = job.payload.get("template_id")
+            if not raw_template_id:
+                raise ValueError("Required generation parameter 'template_id' is missing.")
+            template_id = str(raw_template_id)
             canonical_input_bytes = json.dumps(
                 job.payload, sort_keys=True, ensure_ascii=False
             ).encode("utf-8")
@@ -173,22 +193,41 @@ class GenerationPipelineFSM:
                 try:
                     raw_tv_id = job.payload.get("template_version_id")
                     tv = None
-                    if raw_tv_id:
-                        tv = (
-                            session.query(TemplateVersion)
-                            .filter(TemplateVersion.id == uuid.UUID(str(raw_tv_id)))
-                            .first()
-                        )
-                    else:
-                        tv = (
-                            session.query(TemplateVersion)
-                            .filter(
-                                TemplateVersion.template_key == template_id,
-                                TemplateVersion.status == "approved",
+                    try:
+                        if raw_tv_id:
+                            tv_uuid = uuid.UUID(str(raw_tv_id))
+                            tv = (
+                                session.query(TemplateVersion)
+                                .filter(TemplateVersion.id == tv_uuid)
+                                .first()
                             )
-                            .order_by(TemplateVersion.version.desc())
-                            .first()
-                        )
+                            if not tv:
+                                raise ValueError(f"Template version {raw_tv_id} not found in database.")
+                            if tv.status != "approved":
+                                raise ValueError(
+                                    f"Template version {raw_tv_id} has status '{tv.status}' and is not approved."
+                                )
+                            if tv.template_key != template_id:
+                                raise ValueError(
+                                    f"Template version {raw_tv_id} belongs to '{tv.template_key}', not requested template '{template_id}'."
+                                )
+                        else:
+                            tv = (
+                                session.query(TemplateVersion)
+                                .filter(
+                                    TemplateVersion.template_key == template_id,
+                                    TemplateVersion.status == "approved",
+                                )
+                                .order_by(TemplateVersion.version.desc())
+                                .first()
+                            )
+                    except ValueError:
+                        raise
+                    except Exception as db_exc:
+                        logger.debug("Database template query failed (%s); resolving from filesystem", db_exc)
+                        if raw_tv_id:
+                            raise ValueError(f"Template version {raw_tv_id} could not be resolved from database: {db_exc}")
+                        tv = None
 
                     if tv:
                         pinned_version_id = tv.id
@@ -206,7 +245,21 @@ class GenerationPipelineFSM:
 
             if pinned_version_id is None:
                 raw_tv_id = job.payload.get("template_version_id")
-                pinned_version_id = uuid.UUID(str(raw_tv_id)) if raw_tv_id else uuid.uuid4()
+                if raw_tv_id:
+                    raise ValueError(f"Template version {raw_tv_id} could not be resolved or verified.")
+                # Verify filesystem manifest approved status
+                template_dir = validate_template_id(template_id)
+                manifest_path = template_dir / "manifest.json"
+                if not manifest_path.exists():
+                    raise ValueError(f"Template manifest missing for '{template_id}'.")
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if manifest.get("status") != "approved":
+                    raise ValueError(
+                        f"Template '{template_id}' has status '{manifest.get('status')}' and is not approved for production drafting."
+                    )
+                pinned_version_id = uuid.uuid5(
+                    uuid.NAMESPACE_DNS, f"template:{template_id}:v{manifest.get('version', 1)}"
+                )
 
             # 2. State: VALIDATED -> RENDERED
             job.state = "RENDERED"
@@ -259,8 +312,13 @@ class GenerationPipelineFSM:
             job.status = "succeeded"
             job.result_ref = storage_key
 
-            # Generate gap-free sequence document number (PRD FR-12, ADR 012)
-            doc_no = document_numbering_service.next_doc_no(job.tenant_id, series_key="DOC")
+            # Generate gap-free sequence document number within transaction (PRD FR-12, ADR 012)
+            repo_session = getattr(self.repository, "_session", None) or self.db_session
+            doc_no = document_numbering_service.next_doc_no(
+                job.tenant_id,
+                series_key="DOC",
+                session=repo_session,
+            )
 
             # Extract sanitized immutable data snapshot (excluding ephemeral fields per ADR 005)
             data_snapshot = {

@@ -10,8 +10,9 @@ from pydantic import BaseModel
 
 from app.api.admin import get_audit_repo
 from app.api.auth import get_current_actor, get_user_repo
+from app.api.documents import get_pipeline
 from app.audit.repository import AuditRepository
-from app.generation.pipeline import generation_pipeline
+from app.generation.pipeline import GenerationPipelineFSM
 from app.identity.policy import Actor
 from app.identity.repository import UserRepository
 from app.api.templates_admin import list_templates
@@ -39,9 +40,10 @@ def get_dashboard_stats(
     actor: Actor = Depends(get_current_actor),
     user_repo: UserRepository = Depends(get_user_repo),
     audit_repo: AuditRepository = Depends(get_audit_repo),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> OperationalStats:
     """Computes real-time drafting operational statistics for the active tenant."""
-    docs, total = generation_pipeline.list_documents(
+    docs, total = pipeline.list_documents(
         tenant_id=actor.tenant_id,
         limit=100,
         offset=0,

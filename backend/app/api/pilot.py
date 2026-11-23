@@ -12,7 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 from app.api.auth import get_current_actor
-from app.generation.pipeline import generation_pipeline
+from app.api.documents import get_pipeline
+from app.generation.pipeline import GenerationPipelineFSM
 from app.identity.policy import Actor
 from app.pilot.corrections import (
     CorrectionCreateRequest,
@@ -141,9 +142,10 @@ def resolve_pilot_correction(
 )
 def get_pilot_statistics(
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> Any:
     """Returns pilot metrics, resolution rate, and corrections-per-draft trend."""
-    _, total_drafts = generation_pipeline.list_documents(tenant_id=actor.tenant_id)
+    _, total_drafts = pipeline.list_documents(tenant_id=actor.tenant_id)
     return pilot_corrections_service.get_pilot_stats(
         tenant_id=actor.tenant_id,
         total_drafts=max(1, total_drafts),

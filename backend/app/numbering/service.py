@@ -89,10 +89,15 @@ class DocumentNumberingService:
                     next_val = int(row[0])
                     if should_close:
                         active_session.commit()
+                    else:
+                        active_session.flush()
             except Exception as e:
                 if should_close:
                     active_session.rollback()
-                logger.debug("Database counter allocation unavailable, falling back to memory: %s", e)
+                logger.error("Database counter allocation failed: %s", e)
+                from app.config import get_settings
+                if get_settings().ENV in ("prod", "staging"):
+                    raise RuntimeError(f"Database counter allocation failed in {get_settings().ENV}: {e}") from e
                 next_val = None
             finally:
                 if should_close and active_session is not None:
@@ -165,6 +170,28 @@ class DocumentNumberingService:
         key = CounterKey(tenant_id=tenant_id, series_key=series_key, year=target_year)
         with self._lock:
             self._counters.pop(key, None)
+
+    def set_counter(
+        self,
+        tenant_id: uuid.UUID,
+        series_key: str = "DOC",
+        year: int | None = None,
+        value: int = 0,
+    ) -> None:
+        """Sets counter explicitly for testing/drill purposes."""
+        target_year = year or datetime.datetime.now(datetime.timezone.utc).year
+        key = CounterKey(tenant_id=tenant_id, series_key=series_key, year=target_year)
+        with self._lock:
+            self._counters[key] = value
+
+    def get_counter(
+        self,
+        tenant_id: uuid.UUID,
+        series_key: str = "DOC",
+        year: int | None = None,
+    ) -> int:
+        """Gets current counter value for testing/drill purposes."""
+        return self.peek_current_sequence(tenant_id=tenant_id, series_key=series_key, year=year)
 
     def clear(self) -> None:
         """Clears all counters."""

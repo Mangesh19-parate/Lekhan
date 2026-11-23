@@ -8,7 +8,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.api.auth import get_current_actor
-from app.generation.pipeline import generation_pipeline
+from app.api.documents import get_pipeline
+from app.generation.pipeline import GenerationPipelineFSM
 from app.identity.policy import Actor, Resource, authorize
 from app.portal.generator import portal_sheet_generator
 from app.portal.models import PortalDataSheet
@@ -24,9 +25,10 @@ router = APIRouter(prefix="/api/v1/documents", tags=["portal_sheet"])
 def get_document_portal_sheet(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> Any:
     """Produces assistive portal data sheet from document snapshot (PRD FR-16, F-063)."""
-    doc = generation_pipeline.get_document(document_id, actor.tenant_id)
+    doc = pipeline.get_document(document_id, actor.tenant_id)
     if not doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -49,9 +51,10 @@ def get_document_portal_sheet(
 def download_portal_sheet_text(
     document_id: uuid.UUID,
     actor: Actor = Depends(get_current_actor),
+    pipeline: GenerationPipelineFSM = Depends(get_pipeline),
 ) -> Response:
     """Streams plain text portal entry sheet directly formatted for copy-paste."""
-    doc = generation_pipeline.get_document(document_id, actor.tenant_id)
+    doc = pipeline.get_document(document_id, actor.tenant_id)
     if not doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

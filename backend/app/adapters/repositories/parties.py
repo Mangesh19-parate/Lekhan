@@ -13,7 +13,14 @@ from sqlalchemy.orm import Session
 
 from app.adapters.db import SessionLocal
 from app.parties.models import PartyRecord, PartyVersionRecord
-from app.shared.crypto import compute_blind_index, decrypt_field, encrypt_field, mask_pan
+from app.shared.crypto import (
+    compute_blind_index,
+    decrypt_field,
+    decrypt_json_payload,
+    encrypt_field,
+    encrypt_json_payload,
+    mask_pan,
+)
 from app.shared.models import Party as PartyModel, PartyVersion as PartyVersionModel
 from app.shared.trigram import trigram_similarity
 
@@ -64,6 +71,12 @@ class PostgresPartyRepository:
         session = self._get_session()
         should_close = self._session is None
         try:
+            pan_enc = None
+            pan_blind_index = None
+            if party.pan_masked:
+                pan_enc = encrypt_field(party.pan_masked)
+                pan_blind_index = compute_blind_index(party.pan_masked)
+
             db_party = PartyModel(
                 id=party.id,
                 tenant_id=tenant_id,
@@ -74,6 +87,8 @@ class PostgresPartyRepository:
                 names=party.names,
                 occupations=party.occupations,
                 addresses=party.addresses,
+                pan_enc=pan_enc,
+                pan_blind_index=pan_blind_index,
                 version=party.version,
                 created_by=actor_id,
             )
@@ -130,6 +145,9 @@ class PostgresPartyRepository:
             db_party.occupations = party.occupations
             db_party.addresses = party.addresses
             db_party.version = party.version
+            if party.pan_masked:
+                db_party.pan_enc = encrypt_field(party.pan_masked)
+                db_party.pan_blind_index = compute_blind_index(party.pan_masked)
             session.commit()
             return party
         finally:
@@ -155,7 +173,7 @@ class PostgresPartyRepository:
             db_ver = PartyVersionModel(
                 party_id=version.party_id,
                 version=version.version,
-                data=version.data,
+                data=encrypt_json_payload(version.data),
                 changed_by=version.changed_by,
             )
             session.add(db_ver)
@@ -195,7 +213,7 @@ class PostgresPartyRepository:
                 PartyVersionRecord(
                     party_id=v.party_id,
                     version=v.version,
-                    data=v.data,
+                    data=decrypt_json_payload(v.data),
                     changed_by=v.changed_by,
                 )
                 for v in db_vers

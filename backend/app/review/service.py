@@ -32,8 +32,15 @@ logger = get_logger(__name__)
 class DocumentReviewService:
     """Manages document review transitions, checklists, and immutability."""
 
-    def __init__(self, pipeline: GenerationPipelineFSM = generation_pipeline) -> None:
-        self.pipeline = pipeline
+    def __init__(self, pipeline: GenerationPipelineFSM | None = None) -> None:
+        if pipeline is not None:
+            self.pipeline = pipeline
+        else:
+            try:
+                from app.adapters.repositories.documents import PostgresDocumentRepository
+                self.pipeline = GenerationPipelineFSM(repository=PostgresDocumentRepository())
+            except Exception:
+                self.pipeline = GenerationPipelineFSM()
         self._reviews: dict[uuid.UUID, ReviewMetadata] = {}
 
     def _get_db_session(self, session: Session | None = None) -> tuple[Session | None, bool]:
@@ -44,6 +51,23 @@ class DocumentReviewService:
             return SessionLocal(), True
         except Exception:
             return None, False
+
+    def _get_document(
+        self,
+        document_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        session: Session | None = None,
+    ) -> Any:
+        """Retrieves document from session-bound PostgreSQL repository or fallback pipeline."""
+        if session is not None:
+            try:
+                from app.adapters.repositories.documents import PostgresDocumentRepository
+                doc = PostgresDocumentRepository(session=session).get(tenant_id, document_id)
+                if doc:
+                    return doc
+            except Exception:
+                pass
+        return self.pipeline.get_document(document_id, tenant_id)
 
     def get_review_record(
         self,
@@ -84,7 +108,7 @@ class DocumentReviewService:
                 if should_close:
                     db.close()
 
-        doc = self.pipeline.get_document(document_id, tenant_id)
+        doc = self._get_document(document_id, tenant_id, session)
         if not doc:
             return None
         return self._reviews.get(document_id, ReviewMetadata(status=ReviewStatus(doc.status)))
@@ -98,7 +122,7 @@ class DocumentReviewService:
         session: Session | None = None,
     ) -> ReviewMetadata:
         """Submits document review with completed checklist."""
-        doc = self.pipeline.get_document(document_id, tenant_id)
+        doc = self._get_document(document_id, tenant_id, session)
         if not doc:
             raise KeyError(f"Document {document_id} not found.")
 
@@ -158,12 +182,14 @@ class DocumentReviewService:
                     db_rev.reviewed_by = reviewer_id
                     db_rev.reviewed_at = now_dt
 
-                if should_close:
-                    db.commit()
+                # Ensure review transition is committed to database
+                db.commit()
             except Exception as e:
-                if should_close:
-                    db.rollback()
-                logger.debug("Database review persistence fallback: %s", e)
+                db.rollback()
+                logger.error("Database review persistence error: %s", e)
+                from app.config import get_settings
+                if get_settings().ENV in ("prod", "staging"):
+                    raise RuntimeError(f"Database review persistence error: {e}") from e
             finally:
                 if should_close:
                     db.close()
@@ -188,7 +214,7 @@ class DocumentReviewService:
         session: Session | None = None,
     ) -> ReviewMetadata:
         """Locks document as finalised. Output becomes permanently immutable."""
-        doc = self.pipeline.get_document(document_id, tenant_id)
+        doc = self._get_document(document_id, tenant_id, session)
         if not doc:
             raise KeyError(f"Document {document_id} not found.")
 
@@ -244,12 +270,14 @@ class DocumentReviewService:
                     db_rev.finalised_by = finaliser_id
                     db_rev.finalised_at = now_dt
 
-                if should_close:
-                    db.commit()
+                # Ensure finalisation transition is committed to database
+                db.commit()
             except Exception as e:
-                if should_close:
-                    db.rollback()
-                logger.debug("Database finalization fallback: %s", e)
+                db.rollback()
+                logger.error("Database finalization error: %s", e)
+                from app.config import get_settings
+                if get_settings().ENV in ("prod", "staging"):
+                    raise RuntimeError(f"Database finalization error: {e}") from e
             finally:
                 if should_close:
                     db.close()
@@ -274,7 +302,7 @@ class DocumentReviewService:
         session: Session | None = None,
     ) -> ReviewMetadata:
         """Reopens a reviewed document back to draft for revisions."""
-        doc = self.pipeline.get_document(document_id, tenant_id)
+        doc = self._get_document(document_id, tenant_id, session)
         if not doc:
             raise KeyError(f"Document {document_id} not found.")
 
@@ -316,12 +344,14 @@ class DocumentReviewService:
                 if db_rev:
                     db_rev.status = new_meta.status.value
 
-                if should_close:
-                    db.commit()
+                # Ensure reopen transition is committed to database
+                db.commit()
             except Exception as e:
-                if should_close:
-                    db.rollback()
-                logger.debug("Database reopen fallback: %s", e)
+                db.rollback()
+                logger.error("Database reopen error: %s", e)
+                from app.config import get_settings
+                if get_settings().ENV in ("prod", "staging"):
+                    raise RuntimeError(f"Database reopen error: {e}") from e
             finally:
                 if should_close:
                     db.close()

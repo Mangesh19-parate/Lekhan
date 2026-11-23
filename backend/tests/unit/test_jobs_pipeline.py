@@ -5,6 +5,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
+from app.adapters.db import get_db
 from app.adapters.storage import default_storage
 from app.api.auth import get_session_repo, get_user_repo
 from app.api.documents import get_document_repo, get_job_repo
@@ -17,6 +18,7 @@ from app.main import app
 
 test_session_repo = InMemorySessionRepository()
 test_doc_repo = InMemoryDocumentRepository()
+app.dependency_overrides[get_db] = lambda: None
 app.dependency_overrides[get_user_repo] = create_dev_user_repository
 app.dependency_overrides[get_session_repo] = lambda: test_session_repo
 app.dependency_overrides[get_document_repo] = lambda: test_doc_repo
@@ -35,6 +37,7 @@ def clean_state():
 
 
 SAMPLE_PAYLOAD = {
+    "template_id": "sale_deed_plot_mr",
     "execution_date": "०९ नोव्हेंबर २०२६",
     "sellers": [
         {
@@ -134,7 +137,7 @@ def test_api_document_creation_and_download() -> None:
 
     # 3. Worker executes the claimed job
     from app.worker import run_worker_once
-    processed = run_worker_once(job_queue)
+    processed = run_worker_once(job_queue, pipeline=generation_pipeline)
     assert processed is True
 
     # 4. Poll GET /jobs/{id}

@@ -860,12 +860,56 @@ def verify_password_reset_token(
         return None
 
 
+def deliver_password_reset_token(
+    email: str,
+    token: str,
+    tenant_id: uuid.UUID,
+) -> dict[str, str]:
+    """Delivers password reset link via configured SMTP or local delivery outbox."""
+    domain = getattr(settings, "DOMAIN", "app.lekhan.local")
+    base_url = f"https://{domain}" if not (settings.is_dev or settings.is_test) else "http://localhost:5173"
+    reset_url = f"{base_url}/auth/reset-password?token={token}"
+
+    smtp_host = getattr(settings, "SMTP_HOST", None)
+    if smtp_host:
+        try:
+            import smtplib
+            from email.message import EmailMessage
+
+            msg = EmailMessage()
+            msg["Subject"] = "Lekhan — Password Reset Instructions"
+            msg["From"] = getattr(settings, "SMTP_FROM", "noreply@lekhan.local")
+            msg["To"] = email
+            msg.set_content(
+                f"You requested a password reset for your Lekhan account.\n\n"
+                f"Please use the following link within 15 minutes to reset your password:\n"
+                f"{reset_url}\n\n"
+                f"If you did not make this request, you can safely ignore this email."
+            )
+            port = int(getattr(settings, "SMTP_PORT", 587))
+            with smtplib.SMTP(smtp_host, port, timeout=5) as server:
+                if getattr(settings, "SMTP_TLS", True):
+                    server.starttls()
+                user = getattr(settings, "SMTP_USER", None)
+                pwd = getattr(settings, "SMTP_PASSWORD", None)
+                if user and pwd:
+                    server.login(user, pwd)
+                server.send_message(msg)
+            logger.info("Password reset instructions dispatched via SMTP")
+        except Exception as exc:
+            logger.error("Failed to dispatch password reset email via SMTP: %s", exc)
+    else:
+        logger.info("Password reset instructions generated and ready for delivery")
+
+    return {"reset_url": reset_url, "reset_token": token}
+
+
 @router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED, summary="Request password reset link")
 def forgot_password(
     payload: ForgotPasswordPayload,
     request: Request,
     user_repo: UserRepository = Depends(get_user_repo),
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Dispatches password reset token. Always returns 202 to prevent user enumeration."""
     client_ip = get_client_ip(request)
     throttle_key = f"forgot:{client_ip}"
@@ -877,14 +921,25 @@ def forgot_password(
     login_throttler.record_failure(throttle_key)
 
     user = user_repo.find_by_email(tenant_id=None, email=payload.email)
+    delivery_info = None
     if user and user.active:
         token = generate_password_reset_token(user.id, user.tenant_id, user.password_hash)
-        logger.info("Password reset initiated for user %s [cid=%s]", user.id, token[:8])
+        logger.info("Password reset initiated for user %s", user.id)
+        delivery_info = deliver_password_reset_token(
+            email=user.email,
+            token=token,
+            tenant_id=user.tenant_id,
+        )
 
-    return {
+    resp: dict[str, Any] = {
         "status": "accepted",
         "message": "If the email is registered, instructions to reset your password have been dispatched.",
     }
+    if (settings.is_dev or settings.is_test) and delivery_info:
+        resp["reset_url"] = delivery_info.get("reset_url")
+        resp["reset_token"] = delivery_info.get("reset_token")
+
+    return resp
 
 
 @router.post("/password/reset", summary="Complete password reset using token")
