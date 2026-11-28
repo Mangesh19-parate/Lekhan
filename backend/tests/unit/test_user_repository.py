@@ -13,9 +13,12 @@ import uuid
 import pytest
 
 from app.identity.models import UserRecord
-from app.identity.repository import UserRepository, create_dev_user_repository, InMemoryUserRepository
+from app.identity.repository import (
+    InMemoryUserRepository,
+    UserRepository,
+    create_dev_user_repository,
+)
 from app.shared.security import hash_password, verify_password
-
 
 TENANT_1 = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
 TENANT_2 = uuid.UUID("0193132e-504f-7a1b-8000-000000000002")
@@ -118,4 +121,3 @@ def test_dev_seed_repository_has_valid_argon2_hashes() -> None:
     assert admin.role == "admin"
     assert verify_password(admin.password_hash, "ValidPassword123!") is True
     assert verify_password(admin.password_hash, "WrongPassword") is False
-

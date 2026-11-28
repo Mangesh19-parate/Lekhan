@@ -12,12 +12,10 @@ Verifies:
 
 from __future__ import annotations
 
-import hmac
 import hashlib
+import hmac
 import uuid
-from typing import Any
 
-import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
@@ -69,9 +67,9 @@ def test_all_state_changing_routes_have_csrf_dependency() -> None:
             methods_str = ",".join(sorted(state_changing))
             unprotected_routes.append(f"{methods_str} {route.path}")
 
-    assert (
-        not unprotected_routes
-    ), f"State-changing routes missing require_csrf dependency: {unprotected_routes}"
+    assert not unprotected_routes, (
+        f"State-changing routes missing require_csrf dependency: {unprotected_routes}"
+    )
 
 
 def test_csrf_token_derived_from_session_hmac() -> None:

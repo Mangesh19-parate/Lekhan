@@ -95,7 +95,9 @@ def test_agricultural_and_rera_advisories(advisory_engine: AdvisoryRulesEngine) 
 
 def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGenerator) -> None:
     """Verifies generation of structured portal data sheet and copy-paste text."""
-    pipeline = GenerationPipelineFSM()
+    from app.generation.repository import InMemoryDocumentRepository
+
+    pipeline = GenerationPipelineFSM(repository=InMemoryDocumentRepository())
     tenant_id = uuid.uuid4()
 
     queue = JobQueue()
@@ -103,6 +105,7 @@ def test_portal_sheet_generation_and_copy_text(portal_generator: PortalSheetGene
         tenant_id=tenant_id,
         type="generate_docx",
         payload={
+            "template_id": "sale_deed_plot_mr",
             "execution_date": "2026-11-09",
             "sellers": [
                 {

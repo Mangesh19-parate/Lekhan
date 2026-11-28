@@ -54,7 +54,9 @@ def review_checklist() -> ReviewChecklist:
 
 @pytest.mark.golden
 @pytest.mark.parametrize("tmpl_dir", ALL_TEMPLATE_DIRS, ids=[p.name for p in ALL_TEMPLATE_DIRS])
-def test_document_full_coverage_lifecycle(tmpl_dir: Path, review_checklist: ReviewChecklist) -> None:
+def test_document_full_coverage_lifecycle(
+    tmpl_dir: Path, review_checklist: ReviewChecklist
+) -> None:
     """Verifies that every template passes all 8 stages of the coverage matrix."""
     t_id = tmpl_dir.name
     manifest_file = tmpl_dir / "manifest.json"
@@ -75,7 +77,9 @@ def test_document_full_coverage_lifecycle(tmpl_dir: Path, review_checklist: Revi
     assert len(linter_report.leftover_data) == 0
 
     # Stage 3: Form UI Schema Structure
-    assert "sections" in raw_manifest and len(raw_manifest["sections"]) > 0, f"No sections in {t_id}"
+    assert "sections" in raw_manifest and len(raw_manifest["sections"]) > 0, (
+        f"No sections in {t_id}"
+    )
     assert "parties" in raw_manifest and len(raw_manifest["parties"]) > 0, f"No parties in {t_id}"
     assert "fields" in raw_manifest and len(raw_manifest["fields"]) > 0, f"No fields in {t_id}"
 

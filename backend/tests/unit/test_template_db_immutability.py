@@ -26,8 +26,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.adapters.storage import LocalObjectStore
 from app.api.templates_admin import (
     approve_template,
-    get_template_manifest,
-    list_templates,
     submit_template_for_review,
     upload_template,
 )
@@ -248,10 +246,12 @@ async def test_upload_creates_version_n_plus_one(db_session: Session, tmp_path: 
     manifest = json.dumps({"template_id": template_key, "name_en": "Sequential Deed"})
     dummy_bytes = b"PK\x03\x04test_docx_content"
 
-    with patch("app.api.templates_admin.default_storage", storage), \
-         patch("app.api.templates_admin.TEMPLATES_DIR", tmp_path / "lib"), \
-         patch("app.api.templates_admin.check_structural_safety", return_value=[]), \
-         patch("app.api.templates_admin.DocxLinter") as mock_linter:
+    with (
+        patch("app.api.templates_admin.default_storage", storage),
+        patch("app.api.templates_admin.TEMPLATES_DIR", tmp_path / "lib"),
+        patch("app.api.templates_admin.check_structural_safety", return_value=[]),
+        patch("app.api.templates_admin.DocxLinter") as mock_linter,
+    ):
         mock_report = MagicMock()
         mock_report.can_approve = True
         mock_report.to_dict.return_value = {}

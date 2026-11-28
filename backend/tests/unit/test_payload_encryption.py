@@ -1,11 +1,8 @@
 """Unit tests for JSON payload and PII encryption (AES-256-GCM)."""
 
-import json
 from app.shared.crypto import (
     compute_blind_index,
-    decrypt_field,
     decrypt_json_payload,
-    encrypt_field,
     encrypt_json_payload,
     mask_aadhaar,
     mask_pan,

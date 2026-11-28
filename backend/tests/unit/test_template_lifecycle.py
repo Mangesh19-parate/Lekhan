@@ -119,7 +119,9 @@ def test_template_lifecycle_workflow(db_session: Session, tmp_path: Path) -> Non
     assert "Uploader cannot submit their own template" in exc_upload_submit.value.detail
 
     # 2. Distinct submitter submits for review
-    submit_res = submit_template_for_review(template_id=template_id, actor=submitter_actor, db=db_session)
+    submit_res = submit_template_for_review(
+        template_id=template_id, actor=submitter_actor, db=db_session
+    )
     assert submit_res["status"] == "under_review"
 
     db_session.refresh(tv)
@@ -161,14 +163,18 @@ def test_template_lifecycle_workflow(db_session: Session, tmp_path: Path) -> Non
         docx_file = tmpl_dir / "template.docx"
         docx_file.write_bytes(b"dummy_valid_docx")
 
-        with patch("app.api.templates_admin.check_structural_safety", return_value=[]), \
-             patch("app.api.templates_admin.DocxLinter") as mock_linter_cls:
+        with (
+            patch("app.api.templates_admin.check_structural_safety", return_value=[]),
+            patch("app.api.templates_admin.DocxLinter") as mock_linter_cls,
+        ):
             mock_report = MagicMock()
             mock_report.can_approve = True
             mock_report.leftover_data = []
             mock_linter_cls.return_value.lint.return_value = mock_report
 
-            approve_res = approve_template(template_id=template_id, actor=reviewer_actor, db=db_session)
+            approve_res = approve_template(
+                template_id=template_id, actor=reviewer_actor, db=db_session
+            )
             assert approve_res["status"] == "approved"
 
         db_session.refresh(tv)
@@ -220,8 +226,10 @@ def test_quality_lint_gate_blocks_approval(db_session: Session, tmp_path: Path) 
         mock_report.can_approve = False
         mock_report.leftover_data = [{"type": "aadhaar", "value": "1234-5678-9012"}]
 
-        with patch("app.api.templates_admin.check_structural_safety", return_value=[]), \
-             patch("app.api.templates_admin.DocxLinter") as mock_linter_cls:
+        with (
+            patch("app.api.templates_admin.check_structural_safety", return_value=[]),
+            patch("app.api.templates_admin.DocxLinter") as mock_linter_cls,
+        ):
             mock_linter_cls.return_value.lint.return_value = mock_report
 
             with pytest.raises(HTTPException) as exc_info:

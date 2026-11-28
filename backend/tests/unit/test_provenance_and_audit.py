@@ -114,9 +114,7 @@ def test_docx_provenance_verification_authentic_and_tampered() -> None:
     files = {name: in_zip.read(name) for name in in_zip.namelist()}
     in_zip.close()
 
-    tampered_doc_xml = files["word/document.xml"].replace(
-        b"50,00,000", b"10,00,000"
-    )
+    tampered_doc_xml = files["word/document.xml"].replace(b"50,00,000", b"10,00,000")
     assert tampered_doc_xml != files["word/document.xml"]
     files["word/document.xml"] = tampered_doc_xml
 
@@ -215,15 +213,24 @@ def test_api_document_verify_endpoints() -> None:
         template_sha256="12345" * 12,
     )
 
+    from app.api.auth import require_csrf
+
     actor = Actor(user_id=uuid.uuid4(), tenant_id=tenant_id, role="drafter")
     app.dependency_overrides[get_current_actor] = lambda: actor
+    app.dependency_overrides[require_csrf] = lambda: None
 
     client = TestClient(app)
     try:
         # Test POST /api/v1/documents/verify with authentic DOCX
         resp_post = client.post(
             "/api/v1/documents/verify",
-            files={"file": ("draft.docx", stamped_docx, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+            files={
+                "file": (
+                    "draft.docx",
+                    stamped_docx,
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
         )
         assert resp_post.status_code == 200
         data = resp_post.json()
@@ -232,10 +239,24 @@ def test_api_document_verify_endpoints() -> None:
         assert data["document_id"] == str(doc_id)
 
         # Test POST /api/v1/documents/verify with tampered DOCX
-        tampered_docx = stamped_docx.replace(b"Sample", b"Simple")
+        in_zip = zipfile.ZipFile(io.BytesIO(stamped_docx), "r")
+        files = {name: in_zip.read(name) for name in in_zip.namelist()}
+        in_zip.close()
+        files["word/document.xml"] = files["word/document.xml"].replace(b"Sample", b"Simple")
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            for name, data in files.items():
+                z.writestr(name, data)
+        tampered_docx = out.getvalue()
         resp_tampered = client.post(
             "/api/v1/documents/verify",
-            files={"file": ("draft.docx", tampered_docx, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+            files={
+                "file": (
+                    "draft.docx",
+                    tampered_docx,
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
         )
         assert resp_tampered.status_code == 200
         data_tampered = resp_tampered.json()
@@ -248,9 +269,12 @@ def test_api_document_verify_endpoints() -> None:
 def test_api_download_and_finalise_audit_logging() -> None:
     """Document downloads and finalisation log audit events to the audit trail."""
     from app.adapters.storage import default_storage
+    from app.audit.service import InMemoryAuditRepository, audit_service
     from app.generation.models import GeneratedDocumentRecord
     from app.review.fsm import ReviewChecklist
     from app.review.service import document_review_service
+
+    audit_service._repository = InMemoryAuditRepository()
 
     tenant_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -272,13 +296,24 @@ def test_api_download_and_finalise_audit_logging() -> None:
         input_hash=b"0" * 32,
         output_hash=b"1" * 32,
         file_ref=storage_key,
+        pdf_ref=None,
         status="draft",
         created_at="2026-11-14T10:00:00Z",
     )
     generation_pipeline.repository.save(tenant_id, doc_record)
+    document_review_service.pipeline = generation_pipeline
+
+    from app.adapters.db import get_db
+    from app.api.auth import require_csrf
+    from app.api.documents import get_document_repo
+    from app.api.review import get_pipeline as get_review_pipeline
 
     actor = Actor(user_id=user_id, tenant_id=tenant_id, role="admin")
     app.dependency_overrides[get_current_actor] = lambda: actor
+    app.dependency_overrides[get_document_repo] = lambda: generation_pipeline.repository
+    app.dependency_overrides[get_review_pipeline] = lambda: generation_pipeline
+    app.dependency_overrides[require_csrf] = lambda: None
+    app.dependency_overrides[get_db] = lambda: None
     client = TestClient(app)
 
     try:
@@ -289,17 +324,15 @@ def test_api_download_and_finalise_audit_logging() -> None:
         # Check audit trail for download_document (docx)
         events = audit_service.get_chain(tenant_id)
         assert any(
-            e.action == "download_document" and e.meta.get("format") == "docx"
-            for e in events
+            e.action == "download_document" and e.meta.get("format") == "docx" for e in events
         )
 
         # 2. Advance document to reviewed so it can be finalised
         checklist = ReviewChecklist(
-            parties_identified=True,
-            title_search_attached=True,
-            consideration_matches=True,
-            encumbrances_disclosed=True,
-            statutory_notes_acknowledged=True,
+            parties_verified=True,
+            property_schedule_verified=True,
+            consideration_and_payment_verified=True,
+            no_unfilled_blanks=True,
         )
         document_review_service.mark_reviewed(doc_id, tenant_id, checklist, str(user_id))
 
@@ -309,9 +342,6 @@ def test_api_download_and_finalise_audit_logging() -> None:
 
         # Check audit trail for finalise_document
         events = audit_service.get_chain(tenant_id)
-        assert any(
-            e.action == "finalise_document" and e.entity_id == str(doc_id)
-            for e in events
-        )
+        assert any(e.action == "finalise_document" and e.entity_id == str(doc_id) for e in events)
     finally:
         app.dependency_overrides.pop(get_current_actor, None)

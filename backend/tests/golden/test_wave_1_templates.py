@@ -427,6 +427,7 @@ def test_wave_1_hindi_templates_lint_and_compiler(tmpl_id: str) -> None:
 
     report = DocxLinter().lint(docx_path.read_bytes(), manifest=raw_manifest)
     assert report.can_approve is True, f"Lint failed on {tmpl_id}: {report.errors}"
-    assert len(report.leftover_data) == 0, f"Leftover data found in {tmpl_id}: {report.leftover_data}"
+    assert len(report.leftover_data) == 0, (
+        f"Leftover data found in {tmpl_id}: {report.leftover_data}"
+    )
     assert len(report.errors) == 0, f"Errors in {tmpl_id}: {report.errors}"
-

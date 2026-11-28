@@ -13,16 +13,19 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.pdf import LibreOfficeNotFoundError, LibreOfficePdfConverter, PdfConversionTimeoutError
-from app.api.auth import get_current_actor
+from app.adapters.pdf import (
+    LibreOfficeNotFoundError,
+    LibreOfficePdfConverter,
+    PdfConversionTimeoutError,
+)
+from app.api.auth import get_current_actor, require_csrf
 from app.api.documents import get_job_repo
-from app.generation.jobs import InMemoryJobRepository, JobRecord
-from app.generation.pipeline import GenerationPipelineFSM
+from app.generation.jobs import InMemoryJobRepository
 from app.identity.policy import Actor
 from app.main import app
 from app.worker import classify_job_exception, run_worker_once
@@ -50,6 +53,7 @@ def client(mock_job_repo: InMemoryJobRepository) -> TestClient:
     """FastAPI TestClient with overridden actor and in-memory job repository."""
     app.dependency_overrides[get_current_actor] = lambda: TEST_ACTOR
     app.dependency_overrides[get_job_repo] = lambda: mock_job_repo
+    app.dependency_overrides[require_csrf] = lambda: None
     yield TestClient(app, raise_server_exceptions=False)
     app.dependency_overrides.clear()
 
@@ -106,13 +110,13 @@ def test_get_jobs_reports_state_and_polling_flow(
     assert alias_res.json()["status"] == "queued"
 
     # 3. Worker executes the job
-    with patch("app.worker.generation_pipeline.process_job") as mock_process:
-        mock_doc = MagicMock()
-        mock_doc.file_ref = "documents/test.docx"
-        mock_process.return_value = mock_doc
+    mock_pipeline = MagicMock()
+    mock_doc = MagicMock()
+    mock_doc.file_ref = "documents/test.docx"
+    mock_pipeline.process_job.return_value = mock_doc
 
-        processed = run_worker_once(repo=mock_job_repo)
-        assert processed is True
+    processed = run_worker_once(repo=mock_job_repo, pipeline=mock_pipeline)
+    assert processed is True
 
     # 4. Poll GET /jobs/{id} after completion
     poll_res2 = client.get(f"/jobs/{job_id}")
@@ -194,7 +198,9 @@ def test_worker_crash_mid_job_visibility_timeout_recovery(
     assert claimed_w2.attempts == 2
 
     # Worker 2 successfully finishes the job
-    mock_job_repo.update_state(tenant_id=TENANT_ID, job_id=job.id, status="succeeded", state="COMPLETED")
+    mock_job_repo.update_state(
+        tenant_id=TENANT_ID, job_id=job.id, status="succeeded", state="COMPLETED"
+    )
     finished_job = mock_job_repo.get(TENANT_ID, job.id)
     assert finished_job.status == "succeeded"
 
@@ -216,8 +222,9 @@ def test_libreoffice_missing_handling(
     )
 
     # 3. Simulate worker encountering LibreOfficeNotFoundError
-    with patch("app.worker.generation_pipeline.process_job", side_effect=LibreOfficeNotFoundError("soffice not found")):
-        run_worker_once(repo=mock_job_repo)
+    mock_pipeline = MagicMock()
+    mock_pipeline.process_job.side_effect = LibreOfficeNotFoundError("soffice not found")
+    run_worker_once(repo=mock_job_repo, pipeline=mock_pipeline)
 
     # 4. Check job status via GET /jobs/{id}
     res = client.get(f"/jobs/{job.id}")
@@ -242,10 +249,11 @@ def test_transient_error_backoff_and_dead_letter_after_max_attempts(
     )
 
     timeout_exc = PdfConversionTimeoutError("PDF conversion timed out after 30s")
+    mock_pipeline = MagicMock()
+    mock_pipeline.process_job.side_effect = timeout_exc
 
     # Attempt 1: Worker runs and encounters transient error
-    with patch("app.worker.generation_pipeline.process_job", side_effect=timeout_exc):
-        run_worker_once(repo=mock_job_repo, max_attempts=3)
+    run_worker_once(repo=mock_job_repo, pipeline=mock_pipeline, max_attempts=3)
 
     job1 = mock_job_repo.get(TENANT_ID, job.id)
     assert job1.status == "queued"
@@ -255,8 +263,7 @@ def test_transient_error_backoff_and_dead_letter_after_max_attempts(
 
     # Attempt 2: Reset run_at to now, simulate attempt 2
     job1.run_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
-    with patch("app.worker.generation_pipeline.process_job", side_effect=timeout_exc):
-        run_worker_once(repo=mock_job_repo, max_attempts=3)
+    run_worker_once(repo=mock_job_repo, pipeline=mock_pipeline, max_attempts=3)
 
     job2 = mock_job_repo.get(TENANT_ID, job.id)
     assert job2.status == "queued"
@@ -264,8 +271,7 @@ def test_transient_error_backoff_and_dead_letter_after_max_attempts(
 
     # Attempt 3: Reset run_at to now, simulate attempt 3 (reaches max_attempts)
     job2.run_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
-    with patch("app.worker.generation_pipeline.process_job", side_effect=timeout_exc):
-        run_worker_once(repo=mock_job_repo, max_attempts=3)
+    run_worker_once(repo=mock_job_repo, pipeline=mock_pipeline, max_attempts=3)
 
     job3 = mock_job_repo.get(TENANT_ID, job.id)
     assert job3.status == "dead"
@@ -277,19 +283,25 @@ def test_transient_error_backoff_and_dead_letter_after_max_attempts(
 def test_classify_job_exception_sanitization() -> None:
     """Verifies that all exception types produce safe codes, safe messages, and never leak PII/internals."""
     # Validation error -> non-transient
-    code, msg, transient = classify_job_exception(ValueError("Corrupted tag at byte 0x4F: secret_internal_var"))
+    code, msg, transient = classify_job_exception(
+        ValueError("Corrupted tag at byte 0x4F: secret_internal_var")
+    )
     assert code == "VALIDATION_FAILED"
     assert "secret_internal_var" not in msg
     assert transient is False
 
     # Missing LibreOffice -> non-transient
-    code, msg, transient = classify_job_exception(LibreOfficeNotFoundError("Internal /usr/bin/soffice missing"))
+    code, msg, transient = classify_job_exception(
+        LibreOfficeNotFoundError("Internal /usr/bin/soffice missing")
+    )
     assert code == "CONVERTER_MISSING"
     assert "/usr/bin/soffice" not in msg
     assert transient is False
 
     # Timeout -> transient
-    code, msg, transient = classify_job_exception(PdfConversionTimeoutError("Timeout in soffice.bin after 30s"))
+    code, msg, transient = classify_job_exception(
+        PdfConversionTimeoutError("Timeout in soffice.bin after 30s")
+    )
     assert code == "CONVERTER_TIMEOUT"
     assert "soffice.bin" not in msg
     assert transient is True

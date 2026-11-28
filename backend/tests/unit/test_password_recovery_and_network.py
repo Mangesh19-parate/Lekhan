@@ -2,6 +2,7 @@
 
 import uuid
 from unittest.mock import MagicMock
+
 import pytest
 from starlette.datastructures import Headers
 
@@ -17,7 +18,6 @@ from app.identity.repository import InMemoryUserRepository
 from app.identity.session_repository import InMemorySessionRepository
 from app.shared.network import get_client_ip
 from app.shared.security import hash_password, verify_password
-
 
 TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000000")
 USER_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
@@ -59,9 +59,7 @@ def test_forgot_and_reset_password_flow():
     new_password = "UpdatedNewPassword456!"
     reset_payload = ResetPasswordPayload(token=token, new_password=new_password)
     req2 = _make_dummy_request(client_host="10.0.0.2")
-    reset_res = reset_password(
-        reset_payload, req2, user_repo=user_repo, session_repo=session_repo
-    )
+    reset_res = reset_password(reset_payload, req2, user_repo=user_repo, session_repo=session_repo)
 
     assert reset_res["status"] == "ok"
 
@@ -73,9 +71,7 @@ def test_forgot_and_reset_password_flow():
 
     # 4. Token cannot be reused a second time (password hash prefix changed)
     with pytest.raises(Exception):
-        reset_password(
-            reset_payload, req2, user_repo=user_repo, session_repo=session_repo
-        )
+        reset_password(reset_payload, req2, user_repo=user_repo, session_repo=session_repo)
 
 
 def test_forgot_password_user_enumeration_prevention():

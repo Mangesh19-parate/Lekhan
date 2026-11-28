@@ -43,10 +43,7 @@ def test_synthetic_users_disabled_in_prod(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(auth_api, "settings", prod_settings)
 
     assert auth_api._find_user_by_email("admin@lekhan.local") is None
-    assert (
-        auth_api._find_user_by_id(auth_api.SYNTHETIC_USERS["admin@lekhan.local"]["id"])
-        is None
-    )
+    assert auth_api._find_user_by_id(auth_api.SYNTHETIC_USERS["admin@lekhan.local"]["id"]) is None
 
 
 def test_unauthenticated_generate_spike_endpoint_removed() -> None:
@@ -65,4 +62,3 @@ def test_advisory_list_rules_returns_catalog() -> None:
         "ADVISORY_AGRICULTURAL_STATUS",
         "ADVISORY_MAHARERA_DISCLOSURE",
     ]
-

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, Generator
+from typing import Generator
 from unittest.mock import patch
 
 import pytest
@@ -41,8 +41,9 @@ from app.identity.mfa import generate_totp_code, generate_totp_secret
 from app.main import app
 from app.shared.crypto import decrypt_mfa_secret, encrypt_mfa_secret
 from app.shared.ids import uuid7
-from app.shared.models import Base, MfaPendingEnrollment, Session as SessionModel, Tenant, User as UserModel
-from app.shared.security import derive_csrf_token, hash_password
+from app.shared.models import Base, MfaPendingEnrollment, Tenant
+from app.shared.models import User as UserModel
+from app.shared.security import hash_password
 
 settings = get_settings()
 
@@ -53,7 +54,13 @@ TEST_PASSWORD = "StrongPassword#2026!"
 @pytest.fixture
 def test_db() -> Generator[Session, None, None]:
     """Sets up an in-memory SQLite database populated with base schema and test tenant."""
-    engine = create_engine("sqlite:///:memory:")
+    from sqlalchemy.pool import StaticPool
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine)
     session = session_factory()
@@ -61,8 +68,6 @@ def test_db() -> Generator[Session, None, None]:
     tenant = Tenant(
         id=TEST_TENANT_ID,
         name="Test Law Firm",
-        slug="test-firm",
-        tier="standard",
     )
     session.add(tenant)
     session.commit()
@@ -76,6 +81,7 @@ def test_db() -> Generator[Session, None, None]:
 @pytest.fixture
 def client_with_db(test_db: Session) -> Generator[TestClient, None, None]:
     """FastAPI TestClient wired to the test database session and repositories."""
+
     def _override_get_db() -> Generator[Session, None, None]:
         yield test_db
 
@@ -90,8 +96,7 @@ def client_with_db(test_db: Session) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session_repo] = _override_get_session_repo
 
     # Reset in-memory rate throttlers and replay caches
-    mfa_throttler._attempts.clear()
-    mfa_throttler._lockouts.clear()
+    mfa_throttler.reset()
     _USED_TOTP_CODES.clear()
 
     with TestClient(app, raise_server_exceptions=False) as client:
@@ -195,9 +200,7 @@ def test_login_bypass_attempt_with_mfa_pending(
 # --- 3. Replayed TOTP Code Rejected ---
 
 
-def test_replayed_totp_rejected(
-    client_with_db: TestClient, test_db: Session
-) -> None:
+def test_replayed_totp_rejected(client_with_db: TestClient, test_db: Session) -> None:
     """Verifies that a TOTP code cannot be replayed within the valid time window."""
     totp_secret = generate_totp_secret()
     user = _create_user(test_db, "totpreplay@example.com", role="drafter", mfa_secret=totp_secret)
@@ -252,9 +255,7 @@ def test_replayed_totp_rejected(
 # --- 4. Reused Recovery Code Rejected ---
 
 
-def test_reused_recovery_code_rejected(
-    client_with_db: TestClient, test_db: Session
-) -> None:
+def test_reused_recovery_code_rejected(client_with_db: TestClient, test_db: Session) -> None:
     """Verifies that a recovery code is consumed atomically and cannot be reused."""
     from app.identity.mfa import generate_recovery_codes
 
@@ -385,9 +386,7 @@ def test_mfa_enable_requires_password_and_valid_code(
     assert pending_after is None
 
 
-def test_mfa_pending_enrollment_db_ttl(
-    client_with_db: TestClient, test_db: Session
-) -> None:
+def test_mfa_pending_enrollment_db_ttl(client_with_db: TestClient, test_db: Session) -> None:
     """Verifies that pending MFA enrollments expire after 10 minutes."""
     user = _create_user(test_db, "mfa_ttl@example.com", role="drafter")
 
@@ -409,7 +408,9 @@ def test_mfa_pending_enrollment_db_ttl(
     # Age the pending enrollment past the 10-minute TTL in the DB
     pending = test_db.query(MfaPendingEnrollment).filter_by(user_id=user.id).first()
     assert pending is not None
-    pending.expires_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
+    pending.expires_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        seconds=1
+    )
     test_db.commit()
 
     # Attempt to enable -> fails due to expiration
@@ -489,12 +490,12 @@ def test_mfa_disable_requires_password_and_valid_code(
 # --- 7. Rate Limiting on /mfa/verify ---
 
 
-def test_rate_limiting_on_mfa_verify(
-    client_with_db: TestClient, test_db: Session
-) -> None:
+def test_rate_limiting_on_mfa_verify(client_with_db: TestClient, test_db: Session) -> None:
     """Verifies that consecutive failed MFA verify calls trigger 429 Too Many Requests."""
     totp_secret = generate_totp_secret()
-    user = _create_user(test_db, "ratelimit_mfa@example.com", role="drafter", mfa_secret=totp_secret)
+    user = _create_user(
+        test_db, "ratelimit_mfa@example.com", role="drafter", mfa_secret=totp_secret
+    )
 
     res_login = client_with_db.post(
         "/api/v1/auth/login",
@@ -527,9 +528,7 @@ def test_rate_limiting_on_mfa_verify(
 # --- 8. Mandatory MFA Enforcement for Roles ---
 
 
-def test_mandatory_mfa_enforcement(
-    client_with_db: TestClient, test_db: Session
-) -> None:
+def test_mandatory_mfa_enforcement(client_with_db: TestClient, test_db: Session) -> None:
     """Verifies ENFORCE_MFA flag blocks admin, reviewer, and template_admin if not enrolled."""
     # Drafter without MFA is allowed to log in directly
     drafter = _create_user(test_db, "drafter_free@example.com", role="drafter")

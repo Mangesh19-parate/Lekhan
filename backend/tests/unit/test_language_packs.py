@@ -3,18 +3,10 @@
 import uuid
 from datetime import date
 from decimal import Decimal
-import uuid
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-
-from app.api.auth import get_current_actor
-from app.identity.policy import Actor
-from app.main import app
-from app.shared.errors import InvalidAmountError
-from app.lang_packs.hindi import number_to_words_hi
 
 from app.api.auth import get_current_actor
 from app.identity.policy import Actor
@@ -279,4 +271,3 @@ def test_language_packs_reject_float_and_invalid_bounds() -> None:
     with pytest.raises(InvalidAmountError) as exc_en_bound:
         number_to_words_en(Decimal("1000000000000000.01"))
     assert exc_en_bound.value.status_code == 422
-

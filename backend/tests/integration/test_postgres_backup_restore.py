@@ -16,14 +16,15 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.audit.service import audit_service
 from app.audit.jobs import verify_all_audit_chains
-from app.shared.models import Base, Counter as CounterModel, Document as DocumentModel, Tenant
+from app.audit.service import audit_service
+from app.config import get_settings
+from app.shared.models import Base, Tenant
+from app.shared.models import Counter as CounterModel
 from scripts.backup import create_backup
 from scripts.restore import restore_backup
 
@@ -85,7 +86,9 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
     try:
         with Session(engine) as session:
             # Create tenant
-            tenant = Tenant(id=tenant_id, name="Drill Law Chambers", slug=f"drill-{uuid.uuid4().hex[:6]}")
+            tenant = Tenant(
+                id=tenant_id, name="Drill Law Chambers", slug=f"drill-{uuid.uuid4().hex[:6]}"
+            )
             session.add(tenant)
 
             # Create sequence counter
@@ -94,8 +97,12 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
             session.commit()
 
         # Create chained audit log entries
-        audit_service.log_event(tenant_id=tenant_id, action="create_document", entity="document", entity_id="1")
-        audit_service.log_event(tenant_id=tenant_id, action="finalise_document", entity="document", entity_id="1")
+        audit_service.log_event(
+            tenant_id=tenant_id, action="create_document", entity="document", entity_id="1"
+        )
+        audit_service.log_event(
+            tenant_id=tenant_id, action="finalise_document", entity="document", entity_id="1"
+        )
 
         # 1. Run backup
         archive = create_backup(destination_dir=backup_dest, include_storage=True)
@@ -106,7 +113,9 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
         with Session(engine) as session:
             session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).delete()
             session.commit()
-            remaining = session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).first()
+            remaining = (
+                session.query(CounterModel).filter(CounterModel.tenant_id == tenant_id).first()
+            )
             assert remaining is None, "Row must be deleted for drill verification"
         audit_service.clear()
 
@@ -128,4 +137,3 @@ def test_postgres_backup_and_restore_drill(postgres_engine: tuple[Engine, str | 
             assert restored_counter.value == 42
     finally:
         shutil.rmtree(stage_dir, ignore_errors=True)
-

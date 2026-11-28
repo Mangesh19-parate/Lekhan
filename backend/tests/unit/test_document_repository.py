@@ -152,4 +152,3 @@ def test_list_and_search_tenant_scoped() -> None:
     search_docs, search_total = repo.list(TENANT_1, search="104")
     assert search_total == 1
     assert search_docs[0].id == d1.id
-

@@ -137,6 +137,7 @@ def test_api_document_creation_and_download() -> None:
 
     # 3. Worker executes the claimed job
     from app.worker import run_worker_once
+
     processed = run_worker_once(job_queue, pipeline=generation_pipeline)
     assert processed is True
 

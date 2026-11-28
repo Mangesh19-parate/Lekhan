@@ -11,15 +11,19 @@ import uuid
 try:
     import pytest
 except ImportError:
+
     class _MockPytest:
         @staticmethod
         def raises(exc: type[Exception]):
             class _Ctx:
                 def __enter__(self):
                     return self
+
                 def __exit__(self, exc_type, exc_val, exc_tb):
                     return exc_type is not None and issubclass(exc_type, exc)
+
             return _Ctx()
+
     pytest = _MockPytest()  # type: ignore[assignment]
 
 from app.generation.jobs import InMemoryJobRepository, JobRepository
@@ -110,13 +114,16 @@ def test_list_tenant_scoped() -> None:
 
 def test_claim_next_enforces_max_attempts() -> None:
     import datetime
+
     repo = InMemoryJobRepository()
     job = repo.enqueue(TENANT_1, "generate_docx", {})
 
     # Simulate a job that crashed after 3 attempts and timed out
     repo._jobs[job.id].status = "running"
     repo._jobs[job.id].attempts = 3
-    repo._jobs[job.id].locked_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=600)
+    repo._jobs[job.id].locked_at = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(seconds=600)
 
     # Calling claim_next must NOT claim this job; it must dead-letter it
     claimed = repo.claim_next(tenant_id=TENANT_1, visibility_timeout_seconds=300, max_attempts=3)
@@ -128,13 +135,16 @@ def test_claim_next_enforces_max_attempts() -> None:
 
 def test_claim_next_reclaims_timed_out_job_under_max_attempts() -> None:
     import datetime
+
     repo = InMemoryJobRepository()
     job = repo.enqueue(TENANT_1, "generate_docx", {})
 
     # Simulate a crashed job with 1 attempt
     repo._jobs[job.id].status = "running"
     repo._jobs[job.id].attempts = 1
-    repo._jobs[job.id].locked_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=600)
+    repo._jobs[job.id].locked_at = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(seconds=600)
 
     # Calling claim_next must reclaim it and increment attempts
     claimed = repo.claim_next(tenant_id=TENANT_1, visibility_timeout_seconds=300, max_attempts=3)
@@ -142,4 +152,3 @@ def test_claim_next_reclaims_timed_out_job_under_max_attempts() -> None:
     assert claimed.id == job.id
     assert claimed.attempts == 2
     assert claimed.status == "running"
-

@@ -12,6 +12,7 @@ import concurrent.futures
 import re
 import uuid
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from hypothesis import given, settings
@@ -30,7 +31,6 @@ from app.units.area import (
     sqft_to_sqm,
     sqm_to_sqft,
 )
-
 
 # --- 1. Property: Document Numbering Gap-Free Concurrency ---
 
@@ -134,7 +134,9 @@ def test_decimal_area_sqm_sqft_roundtrip(sqm: Decimal) -> None:
 
     # Due to 2 decimal places rounding on both legs, round-trip error cannot exceed 0.05 sqm
     error = abs(sqm - recomputed_sqm)
-    assert error <= Decimal("0.05"), f"Round-trip area conversion error {error} exceeds tolerance for {sqm}"
+    assert error <= Decimal("0.05"), (
+        f"Round-trip area conversion error {error} exceeds tolerance for {sqm}"
+    )
 
 
 @settings(max_examples=50, deadline=None)
@@ -198,9 +200,7 @@ def test_english_amount_in_words_roundtrip(amount: Decimal) -> None:
     words = number_to_words_en(amount, currency=True)
     parsed = words_to_number_en(words)
     assert parsed == amount, (
-        f"Round-trip failed for {amount}!\n"
-        f"  Words:  {words}\n"
-        f"  Parsed: {parsed}"
+        f"Round-trip failed for {amount}!\n  Words:  {words}\n  Parsed: {parsed}"
     )
 
 
@@ -280,5 +280,3 @@ def test_no_negative_wraparound_or_invalid_amounts(invalid_amount: Any) -> None:
     with pytest.raises(InvalidAmountError) as exc_en:
         number_to_words_en(invalid_amount)
     assert exc_en.value.status_code == 422
-
-

@@ -168,4 +168,3 @@ def test_search_and_list_all_tenant_scoped() -> None:
     matches1 = repo.search(TENANT_1, "देशमुख")
     assert len(matches1) == 1
     assert matches1[0][0].id == p1.id
-

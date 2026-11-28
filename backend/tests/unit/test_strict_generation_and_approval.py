@@ -1,11 +1,12 @@
 """Unit tests for Step 5: Strict rendering, no invented defaults, and template approval enforcement."""
 
 import uuid
+
 import pytest
+
 from app.generation.jobs import JobRecord
 from app.generation.pipeline import GenerationPipelineFSM
 from app.generation.repository import InMemoryDocumentRepository
-
 
 TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000000")
 

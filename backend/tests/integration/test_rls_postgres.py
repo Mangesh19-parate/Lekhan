@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import uuid
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 import pytest
 from alembic import command
@@ -175,15 +175,19 @@ def seeded_tenants(postgres_engine: Engine) -> dict[str, Any]:
 def test_lekhan_app_role_has_nobypassrls(postgres_engine: Engine) -> None:
     """Verifies that the application role lekhan_app is NOSUPERUSER and NOBYPASSRLS."""
     with postgres_engine.connect() as conn:
-        row = conn.execute(
-            text(
-                """
+        row = (
+            conn.execute(
+                text(
+                    """
                 SELECT rolname, rolsuper, rolbypassrls
                 FROM pg_catalog.pg_roles
                 WHERE rolname = 'lekhan_app';
                 """
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         assert row is not None, "lekhan_app role must exist"
         assert row["rolsuper"] is False, "lekhan_app must be NOSUPERUSER"
@@ -286,21 +290,31 @@ def test_pre_auth_security_definer_lookups_succeed_without_tenant_context(
             text("SELECT * FROM sessions WHERE id_hash = :hash;"),
             {"hash": seeded_tenants["session_hash_a"]},
         ).first()
-        assert direct_session is None, "Direct session SELECT must return None under RLS with no context"
+        assert direct_session is None, (
+            "Direct session SELECT must return None under RLS with no context"
+        )
 
         # 2. Narrow SECURITY DEFINER functions succeed and return the records safely
-        fn_user = conn.execute(
-            text("SELECT * FROM auth_lookup_user_by_email(:email);"),
-            {"email": seeded_tenants["user_a_email"]},
-        ).mappings().first()
+        fn_user = (
+            conn.execute(
+                text("SELECT * FROM auth_lookup_user_by_email(:email);"),
+                {"email": seeded_tenants["user_a_email"]},
+            )
+            .mappings()
+            .first()
+        )
         assert fn_user is not None
         assert fn_user["email"] == seeded_tenants["user_a_email"]
         assert fn_user["tenant_id"] == TENANT_A
 
-        fn_session = conn.execute(
-            text("SELECT * FROM auth_lookup_session_by_hash(:hash);"),
-            {"hash": seeded_tenants["session_hash_a"]},
-        ).mappings().first()
+        fn_session = (
+            conn.execute(
+                text("SELECT * FROM auth_lookup_session_by_hash(:hash);"),
+                {"hash": seeded_tenants["session_hash_a"]},
+            )
+            .mappings()
+            .first()
+        )
         assert fn_session is not None
         assert fn_session["tenant_id"] == TENANT_A
         assert fn_session["id_hash"] == seeded_tenants["session_hash_a"]

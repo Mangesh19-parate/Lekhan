@@ -15,27 +15,19 @@ Verifies:
 from __future__ import annotations
 
 import uuid
-from typing import Any, AsyncGenerator, Generator
+from typing import Generator
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import Request, status
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session
 
-from app.adapters.db import get_db
-from app.adapters.repositories.sessions import PostgresSessionRepository
-from app.adapters.repositories.users import PostgresUserRepository
-from app.api.auth import DUMMY_PASSWORD_HASH, get_session_repo, get_user_repo, login_throttler
+from app.api.auth import DUMMY_PASSWORD_HASH, get_user_repo, login_throttler
 from app.config import get_settings
-from app.identity.models import UserRecord
 from app.identity.policy import Actor
-from app.identity.throttling import DatabaseThrottler, InMemoryThrottler
+from app.identity.throttling import DatabaseThrottler
 from app.main import app
-from app.shared.errors import AppError
 from app.shared.network import get_client_ip
-from app.shared.security import hash_password
 
 settings = get_settings()
 
@@ -202,7 +194,10 @@ def test_login_dual_throttling() -> None:
         "/api/v1/auth/login",
         json={"email": target_account, "password": "WrongPassword!"},
     )
-    assert res_account_locked.status_code in (status.HTTP_429_TOO_MANY_REQUESTS, status.HTTP_423_LOCKED)
+    assert res_account_locked.status_code in (
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        status.HTTP_423_LOCKED,
+    )
 
     # 2. Reset and test IP lockout across different usernames
     login_throttler.reset()

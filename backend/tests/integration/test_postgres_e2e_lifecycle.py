@@ -23,9 +23,9 @@ from __future__ import annotations
 import os
 import uuid
 from typing import Generator
+
 import pytest
-from sqlalchemy import create_engine, select, text
-from sqlalchemy.engine import Engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.adapters.db import current_tenant_id_ctx
@@ -33,22 +33,19 @@ from app.adapters.repositories.documents import PostgresDocumentRepository
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.storage import default_storage
 from app.audit.jobs import verify_all_audit_chains
-from app.audit.service import AuditService
 from app.config import get_settings
 from app.generation.pipeline import GenerationPipelineFSM
 from app.review.fsm import DocumentFinalisedError, ReviewChecklist
 from app.review.service import DocumentReviewService
 from app.shared.models import (
     Base,
-    Counter as CounterModel,
-    Document as DocumentModel,
-    DocumentReview as DocumentReviewModel,
-    Job as JobModel,
     Tenant,
     User,
 )
+from app.shared.models import (
+    Counter as CounterModel,
+)
 from app.shared.security import hash_password
-
 
 VALID_LIFECYCLE_PAYLOAD = {
     "template_id": "sale_deed_plot_mr",
@@ -127,7 +124,9 @@ def test_full_real_postgres_drafting_lifecycle(postgres_session: Session) -> Non
     reviewer_id = uuid.uuid4()
 
     # 1. Provision Tenant & Users
-    tenant = Tenant(id=tenant_id, name="Lifecycle Law Chambers", slug=f"chamber-{tenant_id.hex[:6]}")
+    tenant = Tenant(
+        id=tenant_id, name="Lifecycle Law Chambers", slug=f"chamber-{tenant_id.hex[:6]}"
+    )
     session.add(tenant)
 
     drafter = User(
@@ -237,7 +236,9 @@ def test_full_real_postgres_drafting_lifecycle(postgres_session: Session) -> Non
     assert final_meta.status.value == "finalised"
 
     # 7. Document is now locked against modification
-    with pytest.raises(DocumentFinalisedError, match="Finalised documents are immutable and cannot be re-reviewed."):
+    with pytest.raises(
+        DocumentFinalisedError, match="Finalised documents are immutable and cannot be re-reviewed."
+    ):
         review_service.mark_reviewed(
             document_id=doc_record.id,
             tenant_id=tenant_id,

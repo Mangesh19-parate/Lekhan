@@ -8,9 +8,8 @@ Verifies:
 
 from __future__ import annotations
 
-import json
 import uuid
-from typing import Any, Generator
+from typing import Generator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,14 +18,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.adapters.db import get_db
-from app.api.auth import get_current_actor, require_csrf
-from app.audit.repository import AuditRepository, InMemoryAuditRepository
-from app.audit.service import AuditService
 from app.api.admin import get_audit_service
+from app.api.auth import get_current_actor, require_csrf
+from app.audit.repository import InMemoryAuditRepository
+from app.audit.service import AuditService
 from app.identity.policy import Actor
 from app.main import app
-from app.shared.ids import uuid7
-from app.shared.models import Base, Draft, Tenant, User
+from app.shared.models import Base, Tenant, User
 
 # In-memory SQLite with StaticPool so all sessions share the in-memory database
 test_engine = create_engine(
@@ -81,11 +79,40 @@ def override_get_audit_service() -> AuditService:
 def setup_test_db():
     Base.metadata.create_all(bind=test_engine)
     db = TestingSessionLocal()
-    tenant_a = Tenant(id=TENANT_A, name="Tenant A", settings={"retention_class": "matter_lifecycle", "digits_setting": "western", "idle_minutes": 30})
+    tenant_a = Tenant(
+        id=TENANT_A,
+        name="Tenant A",
+        settings={
+            "retention_class": "matter_lifecycle",
+            "digits_setting": "western",
+            "idle_minutes": 30,
+        },
+    )
     tenant_b = Tenant(id=TENANT_B, name="Tenant B", settings={})
-    user_a = User(id=ADMIN_A.user_id, tenant_id=TENANT_A, email="admin@a.com", display_name="Admin A", password_hash="dummy_hash", role="admin")
-    user_drafter = User(id=DRAFTER_A.user_id, tenant_id=TENANT_A, email="drafter@a.com", display_name="Drafter A", password_hash="dummy_hash", role="drafter")
-    user_b = User(id=DRAFTER_B.user_id, tenant_id=TENANT_B, email="drafter@b.com", display_name="Drafter B", password_hash="dummy_hash", role="drafter")
+    user_a = User(
+        id=ADMIN_A.user_id,
+        tenant_id=TENANT_A,
+        email="admin@a.com",
+        display_name="Admin A",
+        password_hash="dummy_hash",
+        role="admin",
+    )
+    user_drafter = User(
+        id=DRAFTER_A.user_id,
+        tenant_id=TENANT_A,
+        email="drafter@a.com",
+        display_name="Drafter A",
+        password_hash="dummy_hash",
+        role="drafter",
+    )
+    user_b = User(
+        id=DRAFTER_B.user_id,
+        tenant_id=TENANT_B,
+        email="drafter@b.com",
+        display_name="Drafter B",
+        password_hash="dummy_hash",
+        role="drafter",
+    )
     db.add_all([tenant_a, tenant_b, user_a, user_drafter, user_b])
     db.commit()
     db.close()

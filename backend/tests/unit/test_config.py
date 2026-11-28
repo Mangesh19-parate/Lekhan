@@ -197,4 +197,3 @@ def test_prod_boot_with_valid_keys_succeeds() -> None:
     )
     assert prod.ENV == "prod"
     assert prod.is_dev is False
-

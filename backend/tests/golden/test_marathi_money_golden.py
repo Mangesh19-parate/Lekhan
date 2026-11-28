@@ -10,12 +10,15 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from app.lang_packs.marathi import number_to_words_mr
 
-GOLDEN_VECTORS_PATH = Path(__file__).parent.parent.parent.parent / "conformance" / "marathi_numbers.json"
+GOLDEN_VECTORS_PATH = (
+    Path(__file__).parent.parent.parent.parent / "conformance" / "marathi_numbers.json"
+)
 
 
 def _load_golden_vectors() -> list[dict[str, Any]]:
@@ -39,7 +42,9 @@ def test_marathi_numbers_golden_vectors() -> None:
 
         if not is_verified:
             # Unverified rows are designated for lawyer signoff
-            assert "TODO(lawyer)" in notes, f"Unverified row for {vec['amount']} must be marked TODO(lawyer)"
+            assert "TODO(lawyer)" in notes, (
+                f"Unverified row for {vec['amount']} must be marked TODO(lawyer)"
+            )
             continue
 
         actual_words = number_to_words_mr(amount_dec, currency=True)

@@ -274,7 +274,7 @@ def test_statutory_cap_applied(db_session: Session) -> None:
         jurisdiction="maharashtra",
         instrument="registration_fee",
         rate=Decimal("0.010000"),  # 1%
-        cap=Decimal("30000.00"),   # Capped at ₹30,000
+        cap=Decimal("30000.00"),  # Capped at ₹30,000
         concession=None,
         effective_from=datetime.date(2024, 1, 1),
         effective_to=None,

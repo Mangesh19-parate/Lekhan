@@ -17,19 +17,18 @@ import io
 import re
 import uuid
 import zipfile
+
 import pytest
 
 from app.adapters.storage import default_storage
 from app.audit.jobs import verify_all_audit_chains
-from app.audit.service import AuditService, InMemoryAuditRepository, audit_service
+from app.audit.service import InMemoryAuditRepository, audit_service
 from app.generation.jobs import InMemoryJobRepository
 from app.generation.pipeline import GenerationPipelineFSM
 from app.generation.repository import InMemoryDocumentRepository
-from app.numbering.service import DocumentNumberingService
 from app.review.fsm import DocumentFinalisedError, ReviewChecklist
 from app.review.service import DocumentReviewService
 from app.worker import run_worker_once
-
 
 TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
 DRAFTER_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000002")
@@ -168,7 +167,9 @@ def test_complete_drafting_and_finalization_lifecycle():
     assert final_doc.status == "finalised"
 
     # 8. Immutability Lock: further review or finalization must be strictly rejected
-    with pytest.raises(DocumentFinalisedError, match="Finalised documents are immutable and cannot be re-reviewed."):
+    with pytest.raises(
+        DocumentFinalisedError, match="Finalised documents are immutable and cannot be re-reviewed."
+    ):
         review_service.mark_reviewed(
             document_id=doc.id,
             tenant_id=TENANT_ID,

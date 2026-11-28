@@ -20,8 +20,8 @@ except ImportError:
     from backend.scripts.backup import create_backup
     from backend.scripts.restore import restore_backup
 
-from app.generation.jobs import JobQueue, JobRecord
-from app.generation.pipeline import GenerationPipelineFSM, generation_pipeline
+from app.generation.jobs import JobQueue
+from app.generation.pipeline import generation_pipeline
 from app.generation.repository import InMemoryDocumentRepository
 
 
@@ -126,16 +126,20 @@ def test_restore_tampered_archive_fails(temp_backup_env) -> None:
 
 def test_restore_drill_verifies_audit_chain(temp_backup_env) -> None:
     """Verifies that backup and restore preserves and cryptographically verifies audit log chain."""
-    from app.audit.service import audit_service
     from app.audit.jobs import verify_all_audit_chains
+    from app.audit.service import audit_service
     from scripts.restore_drill import run_restore_drill
 
     backups_dir = temp_backup_env["backups"]
     restore_storage_dir = temp_backup_env["storage"]
 
     tenant_id = uuid.uuid4()
-    audit_service.log_event(tenant_id=tenant_id, action="create_document", entity="document", entity_id="101")
-    audit_service.log_event(tenant_id=tenant_id, action="finalise_document", entity="document", entity_id="101")
+    audit_service.log_event(
+        tenant_id=tenant_id, action="create_document", entity="document", entity_id="101"
+    )
+    audit_service.log_event(
+        tenant_id=tenant_id, action="finalise_document", entity="document", entity_id="101"
+    )
 
     # Initial check
     initial_check = verify_all_audit_chains()
@@ -161,4 +165,3 @@ def test_restore_drill_verifies_audit_chain(temp_backup_env) -> None:
 
     # Full drill script run
     assert run_restore_drill() is True
-

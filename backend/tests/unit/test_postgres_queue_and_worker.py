@@ -15,17 +15,14 @@ import threading
 import uuid
 from unittest.mock import MagicMock
 
-import pytest
-
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.repositories.sessions import PostgresSessionRepository
 from app.generation.jobs import InMemoryJobRepository, JobRecord
 from app.generation.pipeline import GenerationPipelineFSM
 from app.generation.repository import InMemoryDocumentRepository
-from app.identity.session_repository import InMemorySessionRepository, SessionData
+from app.identity.session_repository import SessionData
 from app.shared.models import Session as SessionModel
 from app.shared.security import hash_token
-from app.worker import run_worker_once
 
 TENANT_ID = uuid.UUID("0193132e-504f-7a1b-8000-000000000001")
 
@@ -157,7 +154,9 @@ def test_attempts_backoff_and_dead_letter_state() -> None:
     assert rec1.locked_at is None
     assert rec1.error is not None
     assert rec1.error["retry_in_seconds"] == 2
-    assert rec1.run_at > datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
+    assert rec1.run_at > datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        seconds=1
+    )
 
     # Fast forward run_at for Attempt 2
     rec1.run_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1)
