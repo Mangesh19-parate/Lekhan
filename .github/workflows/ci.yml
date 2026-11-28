@@ -68,7 +68,7 @@ jobs:
           cd backend
           lint-imports
 
-      - name: Run Tests with Coverage Gate (Floor: 85%)
+      - name: "Run Tests with Coverage Gate (Floor: 85%)"
         run: |
           cd backend
           pytest -q --cov=app --cov-report=term-missing --cov-fail-under=85
