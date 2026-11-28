@@ -168,10 +168,14 @@ class PostgresJobRepository:
                     FROM claim_next_job(:timeout, :max_attempts)
                     """
                 )
-                row = session.execute(
-                    stmt,
-                    {"timeout": visibility_timeout_seconds, "max_attempts": max_attempts},
-                ).mappings().first()
+                row = (
+                    session.execute(
+                        stmt,
+                        {"timeout": visibility_timeout_seconds, "max_attempts": max_attempts},
+                    )
+                    .mappings()
+                    .first()
+                )
                 if not row:
                     return None
                 session.commit()
@@ -210,8 +214,16 @@ class PostgresJobRepository:
                 }
 
             claimable_cond = or_(
-                and_(JobModel.status == "queued", JobModel.run_at <= now, JobModel.attempts < max_attempts),
-                and_(JobModel.status == "running", JobModel.locked_at <= visibility_cutoff, JobModel.attempts < max_attempts),
+                and_(
+                    JobModel.status == "queued",
+                    JobModel.run_at <= now,
+                    JobModel.attempts < max_attempts,
+                ),
+                and_(
+                    JobModel.status == "running",
+                    JobModel.locked_at <= visibility_cutoff,
+                    JobModel.attempts < max_attempts,
+                ),
             )
 
             query = (
@@ -294,14 +306,8 @@ class PostgresJobRepository:
             if status:
                 query = query.filter(JobModel.status == status)
 
-            db_jobs = (
-                query.order_by(JobModel.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-                .all()
-            )
+            db_jobs = query.order_by(JobModel.created_at.desc()).offset(offset).limit(limit).all()
             return [_to_record(j) for j in db_jobs]
         finally:
             if should_close:
                 session.close()
-

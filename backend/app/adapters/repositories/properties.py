@@ -7,7 +7,6 @@ Enforces strict tenant scoping on every method.
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -49,7 +48,9 @@ class PostgresPropertyRepository:
         actor_id: uuid.UUID | None = None,
     ) -> PropertyRecord:
         if prop.tenant_id != tenant_id:
-            raise ValueError(f"Property tenant_id {prop.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Property tenant_id {prop.tenant_id} does not match parameter {tenant_id}"
+            )
 
         session = self._get_session()
         should_close = self._session is None
@@ -98,7 +99,9 @@ class PostgresPropertyRepository:
         actor_id: uuid.UUID | None = None,
     ) -> PropertyRecord:
         if prop.tenant_id != tenant_id:
-            raise ValueError(f"Property tenant_id {prop.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Property tenant_id {prop.tenant_id} does not match parameter {tenant_id}"
+            )
 
         session = self._get_session()
         should_close = self._session is None
@@ -187,4 +190,3 @@ class PostgresPropertyRepository:
 
         scored_matches.sort(key=lambda x: x[1], reverse=True)
         return scored_matches[:limit]
-

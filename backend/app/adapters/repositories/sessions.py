@@ -12,6 +12,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.identity.session_repository import SessionData
 from app.shared.logging import get_logger
 from app.shared.models import Session as SessionModel
@@ -21,14 +22,23 @@ logger = get_logger(__name__)
 
 def _to_data(model: SessionModel) -> SessionData:
     """Converts a SQLAlchemy SessionModel to domain SessionData."""
+    expires_at = model.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+    created_at = model.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=datetime.timezone.utc)
+    last_seen_at = model.last_seen_at
+    if last_seen_at.tzinfo is None:
+        last_seen_at = last_seen_at.replace(tzinfo=datetime.timezone.utc)
     return SessionData(
         id_hash=model.id_hash,
         user_id=model.user_id,
         tenant_id=model.tenant_id,
         csrf_token_hash=model.csrf_token_hash,
-        created_at=model.created_at,
-        last_seen_at=model.last_seen_at,
-        expires_at=model.expires_at,
+        created_at=created_at,
+        last_seen_at=last_seen_at,
+        expires_at=expires_at,
         user_agent=model.user_agent,
         ip=model.ip,
         mfa_pending=getattr(model, "mfa_pending", False),
@@ -38,13 +48,19 @@ def _to_data(model: SessionModel) -> SessionData:
 class PostgresSessionRepository:
     """PostgreSQL session repository implementing SessionRepository."""
 
-    def __init__(self, session: Session, idle_timeout_minutes: int = 30) -> None:
+    def __init__(self, session: Session, idle_timeout_minutes: int | None = None) -> None:
         self._session = session
-        self._idle_timeout_minutes = idle_timeout_minutes
+        self._idle_timeout_minutes = (
+            idle_timeout_minutes
+            if idle_timeout_minutes is not None
+            else get_settings().SESSION_IDLE_MINUTES
+        )
 
     def save(self, tenant_id: uuid.UUID, session: SessionData) -> SessionData:
         if session.tenant_id != tenant_id:
-            raise ValueError(f"Session tenant_id {session.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Session tenant_id {session.tenant_id} does not match parameter {tenant_id}"
+            )
 
         db_session = (
             self._session.query(SessionModel)
@@ -92,8 +108,14 @@ class PostgresSessionRepository:
             return None
 
         now = datetime.datetime.now(datetime.timezone.utc)
-        idle_cutoff = model.last_seen_at + datetime.timedelta(minutes=self._idle_timeout_minutes)
-        if now > model.expires_at or now > idle_cutoff:
+        expires_at = model.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+        last_seen_at = model.last_seen_at
+        if last_seen_at.tzinfo is None:
+            last_seen_at = last_seen_at.replace(tzinfo=datetime.timezone.utc)
+        idle_cutoff = last_seen_at + datetime.timedelta(minutes=self._idle_timeout_minutes)
+        if now > expires_at or now > idle_cutoff:
             self.delete(tenant_id, id_hash)
             return None
 
@@ -105,13 +127,19 @@ class PostgresSessionRepository:
             try:
                 bind = self._session.get_bind()
                 if bind and bind.dialect.name == "postgresql":
-                    row = self._session.execute(
-                        text("SELECT * FROM auth_lookup_session_by_hash(:hash)"),
-                        {"hash": id_hash},
-                    ).mappings().first()
+                    row = (
+                        self._session.execute(
+                            text("SELECT * FROM auth_lookup_session_by_hash(:hash)"),
+                            {"hash": id_hash},
+                        )
+                        .mappings()
+                        .first()
+                    )
                     if row:
                         now = datetime.datetime.now(datetime.timezone.utc)
-                        idle_cutoff = row["last_seen_at"] + datetime.timedelta(minutes=self._idle_timeout_minutes)
+                        idle_cutoff = row["last_seen_at"] + datetime.timedelta(
+                            minutes=self._idle_timeout_minutes
+                        )
                         if now > row["expires_at"] or now > idle_cutoff:
                             self.delete(row["tenant_id"], id_hash)
                             return None
@@ -139,8 +167,14 @@ class PostgresSessionRepository:
             return None
 
         now = datetime.datetime.now(datetime.timezone.utc)
-        idle_cutoff = model.last_seen_at + datetime.timedelta(minutes=self._idle_timeout_minutes)
-        if now > model.expires_at or now > idle_cutoff:
+        expires_at = model.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+        last_seen_at = model.last_seen_at
+        if last_seen_at.tzinfo is None:
+            last_seen_at = last_seen_at.replace(tzinfo=datetime.timezone.utc)
+        idle_cutoff = last_seen_at + datetime.timedelta(minutes=self._idle_timeout_minutes)
+        if now > expires_at or now > idle_cutoff:
             self.delete(model.tenant_id, id_hash)
             return None
 
@@ -195,4 +229,3 @@ class PostgresSessionRepository:
         )
         self._session.commit()
         return int(deleted)
-

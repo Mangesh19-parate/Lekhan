@@ -28,8 +28,15 @@ def upgrade() -> None:
             server_default="[]",
             nullable=False,
         ),
-        sa.Column("consecutive_failures", sa.Integer(), server_default=sa.text("0"), nullable=False),
-        sa.Column("locked_until", sa.Numeric(precision=18, scale=4), server_default=sa.text("0.0"), nullable=False),
+        sa.Column(
+            "consecutive_failures", sa.Integer(), server_default=sa.text("0"), nullable=False
+        ),
+        sa.Column(
+            "locked_until",
+            sa.Numeric(precision=18, scale=4),
+            server_default=sa.text("0.0"),
+            nullable=False,
+        ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
@@ -41,4 +48,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("rate_limits")
-

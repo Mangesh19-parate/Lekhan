@@ -11,6 +11,7 @@ Features:
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -34,7 +35,7 @@ def get_master_key_bytes() -> bytes:
         raw = base64.b64decode(key_str, validate=True)
         if len(raw) == 32:
             return raw
-    except Exception:
+    except (binascii.Error, ValueError):
         pass
     # Deterministic 32-byte key fallback for development placeholders
     return hashlib.sha256(key_str.encode("utf-8")).digest()
@@ -150,6 +151,7 @@ def decrypt_json_payload(payload: Any) -> Any:
     except Exception as exc:
         logger.error("Failed to decrypt JSON payload: %s", exc)
         from app.config import get_settings
+
         if get_settings().ENV in ("prod", "staging"):
             raise ValueError(f"Payload decryption failed: {exc}") from exc
         return payload

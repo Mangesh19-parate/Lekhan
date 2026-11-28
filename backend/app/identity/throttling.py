@@ -8,15 +8,13 @@ Enforces:
 
 from __future__ import annotations
 
-import datetime
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal
 from threading import Lock
-from typing import Protocol
+from typing import Any, Protocol
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 
 from app.adapters.db import SessionLocal
 from app.config import get_settings
@@ -34,17 +32,13 @@ LOCKOUT_SECONDS = 15 * 60  # 15 minutes
 class Throttler(Protocol):
     """Protocol for login throttling and rate limiting."""
 
-    def is_locked(self, key: str) -> tuple[bool, int]:
-        ...
+    def is_locked(self, key: str) -> tuple[bool, int]: ...
 
-    def record_failure(self, key: str) -> tuple[bool, int]:
-        ...
+    def record_failure(self, key: str) -> tuple[bool, int]: ...
 
-    def record_success(self, key: str) -> None:
-        ...
+    def record_success(self, key: str) -> None: ...
 
-    def reset(self) -> None:
-        ...
+    def reset(self) -> None: ...
 
 
 @dataclass
@@ -112,7 +106,7 @@ class InMemoryThrottler:
 class DatabaseThrottler:
     """PostgreSQL-backed distributed throttler using `rate_limits` table."""
 
-    def __init__(self, session_factory: type[Session] = SessionLocal) -> None:
+    def __init__(self, session_factory: Any = SessionLocal) -> None:
         self._session_factory = session_factory
         self._fallback = InMemoryThrottler()
         self._last_db_failure: float = 0.0
@@ -150,7 +144,9 @@ class DatabaseThrottler:
             self._last_db_failure = time.time()
             settings = get_settings()
             if not settings.is_dev:
-                logger.error("Database throttler error in staging/prod: failing closed. Error: %s", exc)
+                logger.error(
+                    "Database throttler error in staging/prod: failing closed. Error: %s", exc
+                )
                 return True, 60
             logger.debug("Database throttler fallback to memory: %s", exc)
             return self._fallback.is_locked(key)
@@ -198,7 +194,10 @@ class DatabaseThrottler:
             self._last_db_failure = time.time()
             settings = get_settings()
             if not settings.is_dev:
-                logger.error("Database throttler failure recording in staging/prod: failing closed. Error: %s", exc)
+                logger.error(
+                    "Database throttler failure recording in staging/prod: failing closed. Error: %s",
+                    exc,
+                )
                 return True, LOCKOUT_SECONDS
             logger.debug("Database throttler failure recording fallback to memory: %s", exc)
             return self._fallback.record_failure(key)
@@ -219,7 +218,10 @@ class DatabaseThrottler:
             self._last_db_failure = time.time()
             settings = get_settings()
             if not settings.is_dev:
-                logger.error("Database throttler reset failure in staging/prod: failing closed. Error: %s", exc)
+                logger.error(
+                    "Database throttler reset failure in staging/prod: failing closed. Error: %s",
+                    exc,
+                )
                 raise
             logger.debug("Database throttler reset failure fallback: %s", exc)
             self._fallback.record_success(key)

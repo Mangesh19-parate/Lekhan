@@ -42,6 +42,7 @@ class AuditService:
         else:
             try:
                 from app.adapters.repositories.audit import PostgresAuditRepository
+
                 self._repository = PostgresAuditRepository()
             except Exception:
                 self._repository = InMemoryAuditRepository()
@@ -70,8 +71,14 @@ class AuditService:
             last_record = self._repository.get_last_record(tenant_id)
         except Exception as exc:
             from app.config import get_settings
-            if get_settings().ENV in ("dev", "test") and not isinstance(self._repository, InMemoryAuditRepository):
-                logger.debug("PostgreSQL audit get_last_record failed (%s); using in-memory for dev/test", exc)
+
+            if get_settings().ENV in ("dev", "test") and not isinstance(
+                self._repository, InMemoryAuditRepository
+            ):
+                logger.debug(
+                    "PostgreSQL audit get_last_record failed (%s); using in-memory for dev/test",
+                    exc,
+                )
                 self._repository = InMemoryAuditRepository()
                 last_record = self._repository.get_last_record(tenant_id)
             else:
@@ -106,8 +113,13 @@ class AuditService:
             return self._repository.append(tenant_id, record)
         except Exception as exc:
             from app.config import get_settings
-            if get_settings().ENV in ("dev", "test") and not isinstance(self._repository, InMemoryAuditRepository):
-                logger.debug("PostgreSQL audit append failed (%s); using in-memory for dev/test", exc)
+
+            if get_settings().ENV in ("dev", "test") and not isinstance(
+                self._repository, InMemoryAuditRepository
+            ):
+                logger.debug(
+                    "PostgreSQL audit append failed (%s); using in-memory for dev/test", exc
+                )
                 self._repository = InMemoryAuditRepository()
                 return self._repository.append(tenant_id, record)
             raise
@@ -135,6 +147,7 @@ class AuditService:
             self._repository.clear(tenant_id)
         except Exception as exc:
             from app.config import get_settings
+
             if get_settings().ENV in ("dev", "test"):
                 self._repository = InMemoryAuditRepository()
                 self._repository.clear(tenant_id)

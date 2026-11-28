@@ -29,4 +29,3 @@ class PartyVersionRecord:
     version: int
     data: dict[str, Any]
     changed_by: uuid.UUID | None
-

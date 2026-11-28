@@ -7,7 +7,6 @@ Enforces strict tenant scoping on every method.
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -23,13 +22,13 @@ def _to_record(model: DocumentModel) -> GeneratedDocumentRecord:
         id=model.id,
         tenant_id=model.tenant_id,
         template_version_id=model.template_version_id,
-        doc_no=model.doc_no,
+        doc_no=model.doc_no or "",
         engine_version=model.engine_version,
         language=model.language,
         data_snapshot=decrypt_json_payload(model.data_snapshot),
-        input_hash=model.input_hash,
-        output_hash=model.output_hash,
-        file_ref=model.file_ref,
+        input_hash=model.input_hash or b"",
+        output_hash=model.output_hash or b"",
+        file_ref=model.file_ref or "",
         pdf_ref=model.pdf_ref,
         status=model.status,
         created_at=model.created_at.isoformat() if model.created_at else "",
@@ -47,7 +46,9 @@ class PostgresDocumentRepository:
 
     def save(self, tenant_id: uuid.UUID, record: GeneratedDocumentRecord) -> None:
         if record.tenant_id != tenant_id:
-            raise ValueError(f"Document tenant_id {record.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Document tenant_id {record.tenant_id} does not match parameter {tenant_id}"
+            )
 
         session = self._get_session()
         should_close = self._session is None
@@ -91,7 +92,9 @@ class PostgresDocumentRepository:
 
     def update(self, tenant_id: uuid.UUID, record: GeneratedDocumentRecord) -> None:
         if record.tenant_id != tenant_id:
-            raise ValueError(f"Document tenant_id {record.tenant_id} does not match parameter {tenant_id}")
+            raise ValueError(
+                f"Document tenant_id {record.tenant_id} does not match parameter {tenant_id}"
+            )
 
         session = self._get_session()
         should_close = self._session is None
@@ -136,13 +139,9 @@ class PostgresDocumentRepository:
 
             total = query.count()
             db_docs = (
-                query.order_by(DocumentModel.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-                .all()
+                query.order_by(DocumentModel.created_at.desc()).offset(offset).limit(limit).all()
             )
             return [_to_record(d) for d in db_docs], total
         finally:
             if should_close:
                 session.close()
-

@@ -177,4 +177,3 @@ def create_dev_user_repository() -> InMemoryUserRepository:
         ),
     ]
     return InMemoryUserRepository(synthetic)
-

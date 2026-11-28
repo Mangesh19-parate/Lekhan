@@ -14,7 +14,6 @@ import re
 from decimal import ROUND_HALF_UP, Decimal
 
 from app.lang_packs.base import validate_and_quantize_amount
-from app.shared.errors import InvalidAmountError
 
 EN_ONES: dict[int, str] = {
     0: "Zero",
@@ -121,10 +120,42 @@ def number_to_words_en(amount: int | Decimal, *, currency: bool = True) -> str:
     return words
 
 
+def _parse_sub_crore(clean: str) -> int:
+    """Parses a sub-crore English number phrase (lakhs, thousands, hundreds, ones)."""
+    tokens = clean.split()
+    total = 0
+    current_chunk = 0
+    for tok in tokens:
+        if tok in EN_WORDS_TO_NUM:
+            current_chunk += EN_WORDS_TO_NUM[tok]
+        elif tok == "hundred":
+            current_chunk = max(1, current_chunk) * 100
+        elif tok == "thousand":
+            current_chunk = max(1, current_chunk) * 1_000
+            total += current_chunk
+            current_chunk = 0
+        elif tok in ("lakh", "lacs"):
+            current_chunk = max(1, current_chunk) * 100_000
+            total += current_chunk
+            current_chunk = 0
+    total += current_chunk
+    return total
+
+
+def _parse_phrase_tokens(clean: str) -> int:
+    """Recursively parses Indian numbering hierarchy where any number of Crores can precede 'crore'."""
+    parts = re.split(r"\bcrores?\b", clean)
+    if len(parts) > 1:
+        rem_str = parts[-1]
+        crore_str = " crore ".join(parts[:-1])
+        return (_parse_phrase_tokens(crore_str) * 10_000_000) + _parse_sub_crore(rem_str)
+    return _parse_sub_crore(clean)
+
+
 def words_to_number_en(text: str) -> Decimal:
     """Mathematical inverse parser: converts English legal words back to exact Decimal.
 
-    Handles Indian units (Crore, Lakh, Thousand, Hundred, Paise).
+    Handles Indian units (Crore, Lakh, Thousand, Hundred, Paise) hierarchically.
     """
     clean = text.lower().strip()
     clean = re.sub(r"\b(rupees|rupee|only)\b", "", clean).strip()
@@ -155,32 +186,7 @@ def words_to_number_en(text: str) -> Decimal:
     else:
         clean = re.sub(r"\band\b", "", clean).strip()
 
-    tokens = clean.split()
-    total = 0
-    current_chunk = 0
-
-    i = 0
-    while i < len(tokens):
-        tok = tokens[i]
-        if tok in EN_WORDS_TO_NUM:
-            current_chunk += EN_WORDS_TO_NUM[tok]
-        elif tok == "hundred":
-            current_chunk = max(1, current_chunk) * 100
-        elif tok == "thousand":
-            current_chunk = max(1, current_chunk) * 1_000
-            total += current_chunk
-            current_chunk = 0
-        elif tok in ("lakh", "lacs"):
-            current_chunk = max(1, current_chunk) * 100_000
-            total += current_chunk
-            current_chunk = 0
-        elif tok in ("crore", "crores"):
-            current_chunk = max(1, current_chunk) * 10_000_000
-            total += current_chunk
-            current_chunk = 0
-        i += 1
-
-    total += current_chunk
+    total = _parse_phrase_tokens(clean)
     result = Decimal(str(total))
     if paise > 0:
         result += Decimal(str(paise)) / Decimal("100")

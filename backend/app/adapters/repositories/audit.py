@@ -7,7 +7,6 @@ Enforces strict tenant scoping and cryptographic SHA-256 verification.
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -161,9 +160,7 @@ class PostgresAuditRepository:
 
             for record in records:
                 if record.prev_hash != expected_prev:
-                    logger.error(
-                        "Audit chain broken at record %d: prev_hash mismatch", record.id
-                    )
+                    logger.error("Audit chain broken at record %d: prev_hash mismatch", record.id)
                     return False
 
                 recomputed = compute_audit_hash(
@@ -210,4 +207,3 @@ class PostgresAuditRepository:
         finally:
             if should_close:
                 session.close()
-

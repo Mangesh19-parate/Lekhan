@@ -229,9 +229,7 @@ class PartyService:
                 continue
 
             if name:
-                names_to_check = (
-                    list(party.names.values()) if isinstance(party.names, dict) else []
-                )
+                names_to_check = list(party.names.values()) if isinstance(party.names, dict) else []
                 for existing_name in names_to_check:
                     score = trigram_similarity(name, str(existing_name))
                     if score >= threshold:

@@ -100,9 +100,13 @@ class Settings(BaseSettings):
                     app_pw = app_pw_file.read_text(encoding="utf-8").strip()
                     app_url = data.get("APP_DATABASE_URL", "")
                     if "lekhan_app@" in app_url and "lekhan_app:@" not in app_url:
-                        data["APP_DATABASE_URL"] = app_url.replace("lekhan_app@", f"lekhan_app:{app_pw}@")
+                        data["APP_DATABASE_URL"] = app_url.replace(
+                            "lekhan_app@", f"lekhan_app:{app_pw}@"
+                        )
                     elif "lekhan_app:lekhan_app@" in app_url:
-                        data["APP_DATABASE_URL"] = app_url.replace("lekhan_app:lekhan_app@", f"lekhan_app:{app_pw}@")
+                        data["APP_DATABASE_URL"] = app_url.replace(
+                            "lekhan_app:lekhan_app@", f"lekhan_app:{app_pw}@"
+                        )
         return data
 
     ENV: Literal["dev", "test", "staging", "prod"] = "dev"
@@ -236,7 +240,7 @@ class Settings(BaseSettings):
             return [item.strip() for item in s.split(",") if item.strip()]
         if isinstance(v, (list, tuple, set)):
             return [str(item).strip() for item in v if str(item).strip()]
-        return v
+        return [str(v).strip()] if v else []
 
     @property
     def is_dev(self) -> bool:
@@ -250,11 +254,32 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _reject_dev_keys_in_deployed_envs(self) -> "Settings":
-        """Fail fast if staging/prod boots with placeholder dev cryptographic keys."""
+        """Fail fast if staging/prod boots with placeholder dev cryptographic keys or administrative DB."""
         if self.ENV in ("staging", "prod"):
             _validate_deployed_key("SECRET_KEY", self.SECRET_KEY, require_base64_32bytes=False)
             _validate_deployed_key("MASTER_KEY", self.MASTER_KEY, require_base64_32bytes=True)
             _validate_deployed_key("INDEX_KEY", self.INDEX_KEY, require_base64_32bytes=True)
+
+            if not self.APP_DATABASE_URL:
+                raise ValueError(
+                    "APP_DATABASE_URL is mandatory in staging/prod for least-privilege RLS"
+                )
+
+            if self.APP_DATABASE_URL == self.DATABASE_URL:
+                raise ValueError(
+                    "APP_DATABASE_URL cannot match DATABASE_URL in staging/prod; application traffic must use least-privilege role"
+                )
+
+            lower_app_url = self.APP_DATABASE_URL.lower()
+            if (
+                "lekhan_app_dev_password" in lower_app_url
+                or ":change-me" in lower_app_url
+                or ":dev-" in lower_app_url
+            ):
+                raise ValueError(
+                    "APP_DATABASE_URL cannot use dev or placeholder credentials in staging/prod"
+                )
+
             if not self.ENFORCE_MFA:
                 self.ENFORCE_MFA = True
         return self

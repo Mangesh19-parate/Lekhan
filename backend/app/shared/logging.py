@@ -37,23 +37,39 @@ class CorrelationIdFilter(logging.Filter):
         return True
 
 
+class CorrelationIdFormatter(logging.Formatter):
+    """Safely injects default correlation_id if missing on foreign or propagated log records."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        if not hasattr(record, "correlation_id") or not record.correlation_id:
+            record.correlation_id = correlation_id_ctx.get() or "-"
+        return super().format(record)
+
+
 def setup_logging(level: str = "INFO") -> None:
     """Configures root logger with correlation ID enrichment."""
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
 
-    # Avoid duplicate handlers if called multiple times
+    cid_filter = CorrelationIdFilter()
     if not any(isinstance(f, CorrelationIdFilter) for f in root_logger.filters):
-        root_logger.addFilter(CorrelationIdFilter())
+        root_logger.addFilter(cid_filter)
+
+    formatter = CorrelationIdFormatter(
+        fmt="%(asctime)s [%(levelname)s] [cid:%(correlation_id)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
     if not root_logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt="%(asctime)s [%(levelname)s] [cid:%(correlation_id)s] %(name)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-        handler.setFormatter(formatter)
-        root_logger.addHandler(handler)
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.addFilter(cid_filter)
+        stream_handler.setFormatter(formatter)
+        root_logger.addHandler(stream_handler)
+    else:
+        for existing_handler in root_logger.handlers:
+            if not any(isinstance(f, CorrelationIdFilter) for f in existing_handler.filters):
+                existing_handler.addFilter(cid_filter)
+            existing_handler.setFormatter(formatter)
 
 
 def get_logger(name: str) -> logging.Logger:

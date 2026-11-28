@@ -37,7 +37,9 @@ def validate_and_quantize_amount(amount: Decimal | int) -> tuple[int, int]:
         try:
             d_amount = Decimal(str(amount))
             if not d_amount.is_finite():
-                raise InvalidAmountError(f"Non-finite amount {amount} is prohibited in conveyancing.")
+                raise InvalidAmountError(
+                    f"Non-finite amount {amount} is prohibited in conveyancing."
+                )
         except Exception as exc:
             raise InvalidAmountError(f"Invalid monetary amount: {amount}") from exc
 
@@ -45,7 +47,9 @@ def validate_and_quantize_amount(amount: Decimal | int) -> tuple[int, int]:
         raise InvalidAmountError(f"Negative amounts are prohibited in conveyancing: {d_amount}")
 
     if d_amount > MAX_CONVEYANCING_AMOUNT:
-        raise InvalidAmountError(f"Amount {d_amount} exceeds maximum conveyancing threshold of 10^15.")
+        raise InvalidAmountError(
+            f"Amount {d_amount} exceeds maximum conveyancing threshold of 10^15."
+        )
 
     quantized = d_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     integer_part = int(quantized)

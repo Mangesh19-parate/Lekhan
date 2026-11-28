@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.audit.service import audit_service
-from app.generation.pipeline import GenerationPipelineFSM, generation_pipeline
+from app.generation.pipeline import GenerationPipelineFSM
 from app.review.fsm import (
     ReviewChecklist,
     ReviewMetadata,
@@ -36,21 +36,13 @@ class DocumentReviewService:
         if pipeline is not None:
             self.pipeline = pipeline
         else:
-            try:
-                from app.adapters.repositories.documents import PostgresDocumentRepository
-                self.pipeline = GenerationPipelineFSM(repository=PostgresDocumentRepository())
-            except Exception:
-                self.pipeline = GenerationPipelineFSM()
+            self.pipeline = GenerationPipelineFSM()
         self._reviews: dict[uuid.UUID, ReviewMetadata] = {}
 
     def _get_db_session(self, session: Session | None = None) -> tuple[Session | None, bool]:
         if session is not None:
             return session, False
-        try:
-            from app.adapters.db import SessionLocal
-            return SessionLocal(), True
-        except Exception:
-            return None, False
+        return None, False
 
     def _get_document(
         self,
@@ -62,11 +54,12 @@ class DocumentReviewService:
         if session is not None:
             try:
                 from app.adapters.repositories.documents import PostgresDocumentRepository
+
                 doc = PostgresDocumentRepository(session=session).get(tenant_id, document_id)
                 if doc:
                     return doc
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Document review session lookup fallback: %s", exc)
         return self.pipeline.get_document(document_id, tenant_id)
 
     def get_review_record(
@@ -80,6 +73,7 @@ class DocumentReviewService:
         if db is not None:
             try:
                 from app.shared.models import DocumentReview as DocumentReviewModel
+
                 rev_model = (
                     db.query(DocumentReviewModel)
                     .filter(
@@ -98,9 +92,13 @@ class DocumentReviewService:
                         status=ReviewStatus(rev_model.status),
                         checklist=checklist_obj,
                         reviewed_by=rev_model.reviewed_by,
-                        reviewed_at=rev_model.reviewed_at.isoformat() if rev_model.reviewed_at else None,
+                        reviewed_at=rev_model.reviewed_at.isoformat()
+                        if rev_model.reviewed_at
+                        else None,
                         finalised_by=rev_model.finalised_by,
-                        finalised_at=rev_model.finalised_at.isoformat() if rev_model.finalised_at else None,
+                        finalised_at=rev_model.finalised_at.isoformat()
+                        if rev_model.finalised_at
+                        else None,
                     )
             except Exception as e:
                 logger.debug("Database review fetch unavailable: %s", e)
@@ -188,6 +186,7 @@ class DocumentReviewService:
                 db.rollback()
                 logger.error("Database review persistence error: %s", e)
                 from app.config import get_settings
+
                 if get_settings().ENV in ("prod", "staging"):
                     raise RuntimeError(f"Database review persistence error: {e}") from e
             finally:
@@ -276,6 +275,7 @@ class DocumentReviewService:
                 db.rollback()
                 logger.error("Database finalization error: %s", e)
                 from app.config import get_settings
+
                 if get_settings().ENV in ("prod", "staging"):
                     raise RuntimeError(f"Database finalization error: {e}") from e
             finally:
@@ -350,6 +350,7 @@ class DocumentReviewService:
                 db.rollback()
                 logger.error("Database reopen error: %s", e)
                 from app.config import get_settings
+
                 if get_settings().ENV in ("prod", "staging"):
                     raise RuntimeError(f"Database reopen error: {e}") from e
             finally:

@@ -206,19 +206,34 @@ class PropertyService:
 
         for p in props:
             p_attrs = p.attrs or {}
-            p_survey = str(p_attrs.get("survey_number") or p_attrs.get("survey_no") or p_attrs.get("gat_no") or p_attrs.get("plot_no") or "").strip().lower()
+            p_survey = (
+                str(
+                    p_attrs.get("survey_number")
+                    or p_attrs.get("survey_no")
+                    or p_attrs.get("gat_no")
+                    or p_attrs.get("plot_no")
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
             p_village = str(p_attrs.get("village") or p_attrs.get("mouza") or "").strip().lower()
 
             if target_survey and p_survey and target_survey == p_survey:
                 village_match = bool(target_village and p_village and target_village == p_village)
-                duplicates.append({
-                    "property_id": str(p.id),
-                    "category": p.category,
-                    "survey_number": p_survey,
-                    "village": p_village,
-                    "match_type": "exact_survey" if not village_match else "exact_survey_and_village",
-                    "reason": f"Exact survey/plot match ({p_survey})" + (f" in village {p_village}" if village_match else ""),
-                })
+                duplicates.append(
+                    {
+                        "property_id": str(p.id),
+                        "category": p.category,
+                        "survey_number": p_survey,
+                        "village": p_village,
+                        "match_type": "exact_survey"
+                        if not village_match
+                        else "exact_survey_and_village",
+                        "reason": f"Exact survey/plot match ({p_survey})"
+                        + (f" in village {p_village}" if village_match else ""),
+                    }
+                )
         return duplicates
 
     def clear(self) -> None:

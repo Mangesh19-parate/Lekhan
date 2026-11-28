@@ -108,11 +108,7 @@ def calculate_stamp_duty(
             matched_rule = None
 
     # Hard Rule 7: If no rule matches or rule is not verified by legal counsel, return "rate not configured"
-    if (
-        matched_rule is None
-        or matched_rule.verified_by is None
-        or matched_rule.verified_at is None
-    ):
+    if matched_rule is None or matched_rule.verified_by is None or matched_rule.verified_at is None:
         return StampDutyBreakdown(
             status="rate not configured",
             rule_id=None,
@@ -127,9 +123,7 @@ def calculate_stamp_duty(
     chargeable = max(consideration, ready_reckoner_value).quantize(
         Decimal("1.00"), rounding=ROUND_HALF_UP
     )
-    raw_duty = (chargeable * matched_rule.rate).quantize(
-        Decimal("1.00"), rounding=ROUND_HALF_UP
-    )
+    raw_duty = (chargeable * matched_rule.rate).quantize(Decimal("1.00"), rounding=ROUND_HALF_UP)
     base_duty = min(raw_duty, matched_rule.cap) if matched_rule.cap is not None else raw_duty
 
     # Concession (e.g. sole female purchaser)

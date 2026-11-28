@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime
 import threading
 import uuid
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -53,17 +53,8 @@ class DocumentNumberingService:
 
         next_val: int | None = None
 
-        # Try database allocation first if session provided or SessionLocal available
+        # Try database allocation if session provided
         active_session = session
-        should_close = False
-        if active_session is None:
-            try:
-                from app.adapters.db import SessionLocal
-                active_session = SessionLocal()
-                should_close = True
-            except Exception:
-                active_session = None
-
         if active_session is not None:
             try:
                 # PostgreSQL atomic UPSERT returning incremented value
@@ -87,21 +78,16 @@ class DocumentNumberingService:
                 row = result.fetchone()
                 if row:
                     next_val = int(row[0])
-                    if should_close:
-                        active_session.commit()
-                    else:
-                        active_session.flush()
+                    active_session.flush()
             except Exception as e:
-                if should_close:
-                    active_session.rollback()
                 logger.error("Database counter allocation failed: %s", e)
                 from app.config import get_settings
+
                 if get_settings().ENV in ("prod", "staging"):
-                    raise RuntimeError(f"Database counter allocation failed in {get_settings().ENV}: {e}") from e
+                    raise RuntimeError(
+                        f"Database counter allocation failed in {get_settings().ENV}: {e}"
+                    ) from e
                 next_val = None
-            finally:
-                if should_close and active_session is not None:
-                    active_session.close()
 
         # Fallback to thread-safe in-memory store
         if next_val is None:
@@ -133,6 +119,7 @@ class DocumentNumberingService:
         if active_session is None:
             try:
                 from app.adapters.db import SessionLocal
+
                 active_session = SessionLocal()
                 should_close = True
             except Exception:
@@ -150,8 +137,8 @@ class DocumentNumberingService:
                 if row:
                     return int(row[0])
                 return 0
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Database counter lookup failed: %s", exc)
             finally:
                 if should_close:
                     active_session.close()

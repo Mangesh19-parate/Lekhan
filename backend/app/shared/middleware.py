@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 class PayloadTooLargeError(Exception):
     """Raised when request payload exceeds configured max_bytes limit."""
+
     pass
 
 
@@ -105,7 +106,7 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                     raise PayloadTooLargeError(
                         f"Request body size exceeds maximum limit of {self.max_bytes} bytes."
                     )
-            return message
+            return dict(message)
 
         request._receive = limited_receive
 

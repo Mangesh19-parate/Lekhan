@@ -233,9 +233,7 @@ class MfaPendingEnrollment(Base):
     hashed_recovery_codes: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
-    expires_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -505,9 +503,10 @@ def validate_template_version_immutability(
 ) -> None:
     """Enforces immutability: once approved, only status transition to retired is permitted."""
     from sqlalchemy import inspect
+    from sqlalchemy.orm.base import PassiveFlag
 
     insp = inspect(target)
-    history = insp.get_history("status", False)
+    history = insp.get_history("status", PassiveFlag.PASSIVE_NO_INITIALIZE)
     old_status = history.deleted[0] if history.deleted else target.status
 
     if old_status == "approved":
@@ -525,7 +524,7 @@ def validate_template_version_immutability(
             "submitted_by",
             "approved_by",
         ):
-            col_hist = insp.get_history(col, False)
+            col_hist = insp.get_history(col, PassiveFlag.PASSIVE_NO_INITIALIZE)
             if col_hist.has_changes():
                 raise PermissionError(
                     f"Approved template versions are immutable; modifying '{col}' is prohibited."
@@ -655,7 +654,9 @@ class RateLimit(Base):
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     timestamps: Mapped[list[float]] = mapped_column(JSONB, nullable=False, server_default="[]")
     consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    locked_until: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False, default=0.0)
+    locked_until: Mapped[Decimal] = mapped_column(
+        Numeric(18, 4), nullable=False, default=Decimal("0.0")
+    )
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -671,9 +672,7 @@ class FeeRule(Base, UUIDv7PKMixin, TimestampMixin):
     """
 
     __tablename__ = "fee_rules"
-    __table_args__ = (
-        Index("ix_fee_rules_lookup", "jurisdiction", "instrument", "effective_from"),
-    )
+    __table_args__ = (Index("ix_fee_rules_lookup", "jurisdiction", "instrument", "effective_from"),)
 
     jurisdiction: Mapped[str] = mapped_column(String(64), nullable=False)
     instrument: Mapped[str] = mapped_column(String(64), nullable=False)

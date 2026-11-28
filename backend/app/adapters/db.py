@@ -35,8 +35,13 @@ def get_current_tenant_id() -> uuid.UUID | None:
     return current_tenant_id_ctx.get()
 
 
-# Engine configuration: prefer APP_DATABASE_URL (lekhan_app role) for application runtime
-db_url = settings.APP_DATABASE_URL or settings.DATABASE_URL
+# Engine configuration: in production/staging, APP_DATABASE_URL is mandatory (lekhan_app role)
+if settings.ENV in ("staging", "prod"):
+    if not settings.APP_DATABASE_URL:
+        raise RuntimeError("APP_DATABASE_URL is mandatory in staging and production environments")
+    db_url = settings.APP_DATABASE_URL
+else:
+    db_url = settings.APP_DATABASE_URL or settings.DATABASE_URL
 
 if "sqlite" in db_url:
     engine = create_engine(
@@ -83,15 +88,12 @@ def set_tenant_context(session: Session | None, tenant_id: uuid.UUID | None) -> 
     """Sets PostgreSQL session setting app.tenant_id for RLS enforcement; raises on failure."""
     current_tenant_id_ctx.set(tenant_id)
     if session is not None:
-        try:
-            bind = session.get_bind()
-            if bind and bind.dialect.name == "postgresql":
-                if tenant_id is not None:
-                    session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
-                else:
-                    session.execute(text("RESET app.tenant_id"))
-        except Exception:
-            pass
+        bind = session.get_bind()
+        if bind and bind.dialect.name == "postgresql":
+            if tenant_id is not None:
+                session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
+            else:
+                session.execute(text("RESET app.tenant_id"))
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -105,7 +107,10 @@ def get_db() -> Generator[Session, None, None]:
         raise
     finally:
         db.close()
-        current_tenant_id_ctx.set(None)
+        try:
+            current_tenant_id_ctx.reset(token)
+        except ValueError:
+            current_tenant_id_ctx.set(None)
 
 
 def ping_db() -> bool:

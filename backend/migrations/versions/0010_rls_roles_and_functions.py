@@ -32,7 +32,9 @@ TENANT_TABLES = [
 
 def upgrade() -> None:
     # 1. Create the non-privileged application role if it doesn't already exist
-    app_password = os.environ.get("LEKHAN_APP_PASSWORD", "lekhan_app_dev_password").replace("'", "''")
+    app_password = os.environ.get("LEKHAN_APP_PASSWORD", "lekhan_app_dev_password").replace(
+        "'", "''"
+    )
     op.execute(
         f"""
         DO $$

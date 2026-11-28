@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+
 from fastapi import Request
 
 from app.config import get_settings
@@ -37,7 +38,9 @@ def get_client_ip(request: Request, trusted_proxies: list[str] | None = None) ->
     socket_ip = request.client.host if request.client else "127.0.0.1"
 
     settings = get_settings()
-    allowed_proxies = set(trusted_proxies if trusted_proxies is not None else settings.TRUSTED_PROXIES)
+    allowed_proxies = set(
+        trusted_proxies if trusted_proxies is not None else settings.TRUSTED_PROXIES
+    )
     if settings.is_dev or settings.is_test:
         allowed_proxies.add("testclient")
 

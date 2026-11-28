@@ -56,7 +56,9 @@ class LibreOfficePdfConverter:
     """Production LibreOffice adapter running headless in isolated user environments."""
 
     def __init__(self, binary_path: str | None = None, strict: bool = False) -> None:
-        self.binary_path = binary_path if binary_path is not None else self._detect_libreoffice_binary()
+        self.binary_path = (
+            binary_path if binary_path is not None else self._detect_libreoffice_binary()
+        )
         self.strict = strict
         if self.strict and not self.binary_path:
             raise LibreOfficeNotFoundError("LibreOffice binary not detected on system.")

@@ -128,4 +128,3 @@ class OpenTelemetryTracingMiddleware(BaseHTTPMiddleware):
             raise exc
         finally:
             span.end()
-

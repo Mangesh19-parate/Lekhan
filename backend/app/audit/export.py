@@ -22,17 +22,19 @@ def format_audit_records(records: list[AuditRecord]) -> list[dict[str, Any]]:
     """Formats audit records into standardized dictionary representation."""
     formatted: list[dict[str, Any]] = []
     for r in records:
-        formatted.append({
-            "id": r.id,
-            "action": r.action,
-            "entity": r.entity,
-            "entity_id": r.entity_id,
-            "timestamp": r.at.isoformat(),
-            "actor_id": str(r.actor_id) if r.actor_id else None,
-            "hash": r.hash.hex(),
-            "prev_hash": r.prev_hash.hex() if r.prev_hash else "00" * 32,
-            "meta": r.meta,
-        })
+        formatted.append(
+            {
+                "id": r.id,
+                "action": r.action,
+                "entity": r.entity,
+                "entity_id": r.entity_id,
+                "timestamp": r.at.isoformat(),
+                "actor_id": str(r.actor_id) if r.actor_id else None,
+                "hash": r.hash.hex(),
+                "prev_hash": r.prev_hash.hex() if r.prev_hash else "00" * 32,
+                "meta": r.meta,
+            }
+        )
     return formatted
 
 
@@ -56,9 +58,7 @@ def create_signed_audit_export(
     canonical_bytes = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
-    signature = hmac.new(
-        secret_key.encode("utf-8"), canonical_bytes, hashlib.sha256
-    ).hexdigest()
+    signature = hmac.new(secret_key.encode("utf-8"), canonical_bytes, hashlib.sha256).hexdigest()
 
     return {
         "signature_algorithm": "HMAC-SHA256",
@@ -82,8 +82,6 @@ def verify_signed_audit_export(
     canonical_bytes = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
-    expected_sig = hmac.new(
-        secret_key.encode("utf-8"), canonical_bytes, hashlib.sha256
-    ).hexdigest()
+    expected_sig = hmac.new(secret_key.encode("utf-8"), canonical_bytes, hashlib.sha256).hexdigest()
 
     return hmac.compare_digest(signature, expected_sig)
