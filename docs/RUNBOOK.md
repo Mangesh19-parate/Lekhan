@@ -38,11 +38,18 @@ make check
 ### 2.1 Separate Migration Release Step
 In production and staging environments (Kubernetes, AWS ECS, Heroku, etc.), **database migrations must run as an isolated release phase before web replicas boot**. Never run `alembic upgrade head` in application container startup scripts or entrypoints to prevent race conditions, schema lock contention, and connection storms.
 
+Migration requires administrative privileges via `DATABASE_URL` (table owner).
+Web containers run under least-privilege `APP_DATABASE_URL` (`lekhan_app` role).
+
 ```bash
 # Step 1: Pre-deployment migration runner (isolated one-off container or initContainer)
+# Migration 0015 synchronizes lekhan_app credentials from LEKHAN_APP_PASSWORD.
+export DATABASE_URL="postgresql://lekhan_owner:secure_owner_pass@db.internal:5432/lekhan_prod"
+export LEKHAN_APP_PASSWORD="strong_runtime_role_secret"
 python -m alembic upgrade head
 
-# Step 2: Once migration exits with code 0, roll application containers
+# Step 2: Once migration exits with code 0, roll application containers with runtime credentials
+export APP_DATABASE_URL="postgresql://lekhan_app:strong_runtime_role_secret@db.internal:5432/lekhan_prod"
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
@@ -116,8 +123,15 @@ Standard status code mappings:
 
 ### 4.2 Database-Backed Rate Limiting & Account Lockout
 Rate limiting is backed by PostgreSQL via the `rate_limits` table (no process-local memory state), ensuring consistent enforcement across multiple load-balanced web replicas:
+- **Privacy preservation:** Rate limit keys are stored as `sha256(identifier)` rather than plaintext emails or IP addresses.
 - **Login attempts:** 5 failures within 15 minutes trigger `429 Too Many Requests`.
 - **Brute-force lockout:** 10 failures trigger `423 Locked` until administrative unlock or backoff expiration.
+- **Automated cleanup:** Expired rate-limit windows automatically purge to bound table growth.
+
+### 4.3 Zero-PII Logging Checklist
+- Ensure logs never print raw email addresses, names, phone numbers, PAN, Aadhaar, property descriptions, or session tokens.
+- All errors and log entries include `cid:<correlation_id>` for distributed tracing.
+- Run `tests/unit/test_production_backend_hardening.py` in CI to ensure formatter resilience and zero-PII compliance.
 - **Atomic updates:** Updates use atomic SQL writes or row-level locking to avoid race conditions.
 
 ### 4.3 Request Size Limits

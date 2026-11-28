@@ -235,3 +235,18 @@ The matrix is implemented once as `authorize(actor, action, resource)` and teste
 - Every endpoint has: success test, validation-failure test, unauthorised test, cross-tenant test (expects `404`), and an idempotency test where applicable.
 - Responses never include password hashes, MFA secrets, ciphertext, blind indexes or session hashes.
 - **No endpoint accepts a file path or URL to fetch.** Downloads use signed URLs generated server-side.
+
+---
+
+## 6. Privacy-Preserving Security & Observability
+
+### 6.1 Privacy-Preserving Rate Limiting
+- To eliminate PII leakage inside database stores, rate limit identifiers on authentication routes (`/api/v1/auth/login`, `/api/v1/auth/password/forgot`) are hashed:
+  $$\text{key} = \text{sha256}(\text{prefix} + \text{identifier})$$
+- Raw email addresses and client IP addresses are never persisted in the `rate_limits` table.
+- Expired rate-limit windows automatically purge, bounding database growth.
+
+### 6.2 Zero-PII Log and Error Sanitization
+- RFC 9457 problem details returned on 4xx/5xx errors contain standard `type`, `title`, `status`, `code`, `detail`, and `correlation_id`.
+- Errors never expose backend stack traces, SQL syntax or parameters, user credentials, document drafts, or customer identity numbers.
+- Operational logs emit structured JSON with correlation IDs (`cid:<uuid>`). PII is scrubbed before emission to standard output or APM collectors.

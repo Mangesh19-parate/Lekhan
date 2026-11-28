@@ -341,3 +341,35 @@ Nightly `pg_dump` (custom format) plus object-store sync, encrypted, shipped off
 
 ## 12. Performance notes
 `EXPLAIN (ANALYZE, BUFFERS)` for any query over 100 ms in staging; avoid `SELECT *` on JSONB-heavy tables; paginate with cursors (`(created_at, id)`); partition `documents` and `audit_log` by month only when row counts justify it (trigger in ARCHITECTURE.md section 11).
+
+---
+
+## 13. Production Least-Privilege & Row-Level Security Enforcement
+
+### 13.1 Database Roles Architecture
+1. **Migration / Admin Role (`DATABASE_URL`)**:
+   - Table owner; executes Alembic migrations during isolated release steps.
+   - Holds full DDL (`CREATE`, `ALTER`, `DROP`) permissions.
+   - Never exposed to web application pods in production environments.
+2. **Application Runtime Role (`APP_DATABASE_URL`, `lekhan_app`)**:
+   - Connects the FastAPI application and background worker processes.
+   - Restricted to DML operations (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) on runtime tables.
+   - Granted `USAGE, SELECT` on all sequences.
+   - Strictly forbidden from `DROP`, `TRUNCATE`, or `ALTER TABLE`.
+   - `NOBYPASSRLS` enforced: subject to all PostgreSQL Row-Level Security policies.
+   - Append-only tables like `audit_log` permit only `INSERT` and `SELECT`; runtime role cannot `UPDATE` or `DELETE` audit entries.
+
+### 13.2 Migration 0015: Forward-Only Role Password Synchronization
+- Created as forward-only migration `backend/migrations/versions/0015_harden_app_role_password.py`.
+- Synchronizes `lekhan_app` role password with the secret environment variable `LEKHAN_APP_PASSWORD` or `APP_DATABASE_URL`.
+- Enforces fail-fast behavior: if `ENVIRONMENT in ('staging', 'production')` and `LEKHAN_APP_PASSWORD` is unset or contains default development passwords (`lekhan_app_dev_password`, `change-me`), migration immediately aborts deployment.
+- Never alters historical applied migrations `0001` through `0014`.
+
+### 13.3 Fail-Closed Tenant Context Protocol
+- In `app/adapters/db.py:set_tenant_context()`:
+  ```sql
+  SET LOCAL app.current_tenant_id = :tenant_id
+  ```
+- **Fail-Closed Execution**: If executing `SET LOCAL` raises any database or syntax error, the function raises immediately without masking. Unhandled tenant context errors trigger immediate session rollback.
+- Context isolation is tracked via `ContextVar[uuid.UUID | None]` and reset using tokens in `finally:` blocks on every HTTP request and background worker job.
+- When `current_tenant_id` is unset or null, RLS policies evaluate to false, rendering tenant-scoped records completely invisible to the session.

@@ -10,11 +10,12 @@ Modular monolith, hexagonal (ports and adapters), config-driven templates. Built
 |---|---|
 | Frontend | React 18, TypeScript (strict), Vite, Tailwind (tokens from `DESIGN.md`), React Hook Form + Zod, TanStack Query, react-i18next |
 | Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic |
-| Database | PostgreSQL 16 (`pg_trgm`, `btree_gist`, JSONB) |
+| Database | PostgreSQL 16 (`pg_trgm`, `btree_gist`, JSONB), RLS (Row-Level Security) |
+| DB Access | Strict Least-Privilege: `DATABASE_URL` for pre-deploy migrations; `APP_DATABASE_URL` (`lekhan_app` role) for runtime traffic |
 | DOCX | `docxtpl` (python-docx + Jinja2, sandboxed) |
 | PDF | LibreOffice headless (direct subprocess; Gotenberg sidecar optional) |
 | Storage | Local volume first; S3-compatible later behind the same port |
-| Auth | Server-side sessions in Postgres, HTTP-only cookies, argon2id |
+| Auth | Server-side sessions in Postgres, HTTP-only cookies, argon2id, SHA-256 hashed rate-limiting |
 | Jobs | Postgres queue (`FOR UPDATE SKIP LOCKED`), worker = same image, different command |
 | Infra | Docker Compose, Caddy (HTTPS), GitHub Actions, Sentry |
 | Tests | pytest, Hypothesis, Playwright, Schemathesis |
@@ -265,5 +266,25 @@ Capacity sanity check: one company, 10 users, 150 documents a day is trivial (DO
 | 012 | Gap-free counter in same transaction |
 | 013 | Unicode canonical; Kruti export optional |
 | 014 | Font choice for templates |
+| 015 | Least-privilege database roles, fail-closed RLS & zero-PII logging |
 
 Each ADR: Context, Options, Decision, Consequences, **How we will know we were wrong**.
+
+---
+
+## 14. Production Security Hardening & Zero-Trust Tenant Isolation
+
+### 14.1 Least-Privilege Database Role Separation
+- **`DATABASE_URL` (Owner/Migration Role)**: Used strictly during offline or isolated CI/CD pre-deployment migration phases (`alembic upgrade head`). Holds schema-alteration privileges (`CREATE`, `ALTER`, `DROP`). Never mounted in runtime web pods in production/staging.
+- **`APP_DATABASE_URL` (`lekhan_app` Runtime Role)**: Used by all application processes and background workers. Holds only DML permissions (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) on application tables and `USAGE` on sequences. Has NO `BYPASSRLS` attribute. Cannot alter schemas or truncate tables.
+- **Fail-Fast Startup Validation**: In staging and production (`ENVIRONMENT in ('staging', 'production')`), `app/config.py` enforces that `APP_DATABASE_URL` is set, is not identical to `DATABASE_URL`, and does not use insecure or development passwords (`lekhan_app_dev_password`, `change-me`, `dev-`).
+
+### 14.2 Fail-Closed PostgreSQL Row-Level Security (RLS)
+- Session tenant context (`SET LOCAL app.current_tenant_id = :tenant_id`) executes inside `app/adapters/db.py:set_tenant_context()`.
+- **Zero Silent Failure**: Any failure during tenant context configuration raises an immediate `DatabaseError` and triggers transaction rollback. The context never falls through open.
+- **ContextVar Lifecycle**: Request context token is managed via `ContextVar[uuid.UUID | None]` and strictly reset in `get_db()` `finally:` blocks to prevent tenant bleeding across pooled connections or concurrent async tasks.
+
+### 14.3 Privacy-Preserving Key Hashing & Zero-PII Observability
+- **Rate-Limiting**: Login attempt counters in PostgreSQL are keyed by `sha256(identifier)`, preventing plaintext storage of user emails or client IP addresses in rate limit records.
+- **Scrubbed Logs**: Loggers across `app/api/auth.py`, `app/shared/logging.py`, and domain modules are forbidden from logging emails, names, phone numbers, Aadhaar/PAN numbers, document texts, or client IPs. All operational debugging relies exclusively on `X-Correlation-ID` (`cid`). Foreign loggers (`httpx`, `sqlalchemy`, `uvicorn`) are protected from formatting errors via `CorrelationIdFormatter`.
+- **Forward-Only Role Synchronization**: Forward migration `0015_harden_app_role_password.py` enforces runtime password alignment with `LEKHAN_APP_PASSWORD` secrets without modifying historical migrations 0001–0014.
