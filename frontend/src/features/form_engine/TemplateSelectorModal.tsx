@@ -13,6 +13,8 @@ export interface TemplateCatalogItem {
   document_type: string;
   property_type: string;
   has_docx: boolean;
+  has_renderer?: boolean;
+  can_generate?: boolean;
 }
 
 const FALLBACK_TEMPLATES: TemplateCatalogItem[] = [
@@ -26,61 +28,73 @@ const FALLBACK_TEMPLATES: TemplateCatalogItem[] = [
     document_type: "sale_deed",
     property_type: "plot",
     has_docx: true,
+    has_renderer: true,
+    can_generate: true,
   },
   {
     template_id: "agreement_to_sell_plot_mr",
     name_en: "Agreement to Sell (Plot / Isar Pawati)",
     name_mr: "साठेखत / इसारपावती (भूखंड)",
     version: 1,
-    status: "approved",
+    status: "draft",
     language: "mr",
     document_type: "agreement_to_sell",
     property_type: "plot",
     has_docx: true,
+    has_renderer: false,
+    can_generate: false,
   },
   {
     template_id: "sale_deed_flat_mr",
     name_en: "Sale Deed (Apartment / Flat)",
     name_mr: "खरेदीखत (सदनिका / फ्लॅट)",
     version: 1,
-    status: "approved",
+    status: "draft",
     language: "mr",
     document_type: "sale_deed",
     property_type: "flat",
     has_docx: true,
+    has_renderer: false,
+    can_generate: false,
   },
   {
     template_id: "sale_deed_flat_en",
     name_en: "Sale Deed (Residential Flat - English)",
     name_mr: "विक्री विलेख (सदनिका - इंग्रजी)",
     version: 1,
-    status: "approved",
+    status: "draft",
     language: "en",
     document_type: "sale_deed",
     property_type: "flat",
     has_docx: true,
+    has_renderer: false,
+    can_generate: false,
   },
   {
     template_id: "general_poa_mr",
     name_en: "General Power of Attorney",
     name_mr: "कुलमुखत्यारपत्र (General Power of Attorney)",
     version: 1,
-    status: "approved",
+    status: "draft",
     language: "mr",
     document_type: "power_of_attorney",
     property_type: "general",
     has_docx: true,
+    has_renderer: false,
+    can_generate: false,
   },
   {
     template_id: "general_poa_en",
     name_en: "General Power of Attorney (English)",
     name_mr: "कुलमुखत्यारपत्र (इंग्रजी)",
     version: 1,
-    status: "approved",
+    status: "draft",
     language: "en",
     document_type: "power_of_attorney",
     property_type: "general",
     has_docx: true,
+    has_renderer: false,
+    can_generate: false,
   },
 ];
 
@@ -169,10 +183,41 @@ export const TemplateSelectorModal: React.FC<Props> = ({
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "400px", overflowY: "auto" }}>
           {filtered.map((item) => {
             const isSelected = item.template_id === selectedTemplateId;
+            const canGenerate = item.status === "approved" && item.has_docx && item.has_renderer !== false;
+
+            const getBadgeProps = () => {
+              switch (item.status) {
+                case "approved":
+                  return {
+                    variant: "approved" as const,
+                    label: lang === "mr" ? "मंजूर (Approved)" : "Approved",
+                  };
+                case "under_review":
+                  return {
+                    variant: "under_review" as const,
+                    label: lang === "mr" ? "पुनरावलोकन" : "Under Review",
+                  };
+                case "retired":
+                  return {
+                    variant: "danger" as const,
+                    label: lang === "mr" ? "कालबाह्य" : "Retired",
+                  };
+                case "draft":
+                default:
+                  return {
+                    variant: "draft" as const,
+                    label: lang === "mr" ? "मसुदा (Draft)" : "Draft",
+                  };
+              }
+            };
+
+            const badgeProps = getBadgeProps();
+
             return (
               <div
                 key={item.template_id}
                 onClick={() => {
+                  if (!canGenerate) return;
                   onSelectTemplate(item);
                   onClose();
                 }}
@@ -184,10 +229,18 @@ export const TemplateSelectorModal: React.FC<Props> = ({
                   borderRadius: "var(--radius-card)",
                   backgroundColor: isSelected ? "var(--brand-100)" : "var(--surface-sunken)",
                   border: isSelected ? "1.5px solid var(--brand-500)" : "1px solid var(--line-subtle)",
-                  cursor: "pointer",
+                  cursor: canGenerate ? "pointer" : "not-allowed",
+                  opacity: canGenerate ? 1 : 0.65,
                   transition: "all var(--transition-fast)",
                 }}
-                className="hover:border-[var(--brand-500)]"
+                className={canGenerate ? "hover:border-[var(--brand-500)]" : ""}
+                title={
+                  !canGenerate
+                    ? item.status !== "approved"
+                      ? "Draft status: Only officially approved templates can generate deeds."
+                      : "Generation unavailable: DOCX template or renderer not active."
+                    : undefined
+                }
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <FileText
@@ -204,11 +257,18 @@ export const TemplateSelectorModal: React.FC<Props> = ({
                       <span style={{ marginLeft: "8px" }}>• Property: {item.property_type}</span>
                       <span style={{ marginLeft: "8px" }}>• Lang: {item.language.toUpperCase()}</span>
                     </div>
+                    {!canGenerate && (
+                      <div style={{ fontSize: "0.71875rem", color: "var(--warning-600)", marginTop: "3px" }}>
+                        {lang === "mr"
+                          ? "मसुदा साचा — अधिकृत मंजुरीनंतरच दस्त निर्मिती उपलब्ध होईल"
+                          : "Draft template — Generation disabled until officially approved"}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Badge variant="approved" size="sm" label="Approved" />
+                  <Badge variant={badgeProps.variant} size="sm" label={badgeProps.label} />
                   {isSelected ? (
                     <CheckCircle2 size={18} color="var(--brand-600)" />
                   ) : (

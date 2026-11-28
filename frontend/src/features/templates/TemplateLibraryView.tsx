@@ -38,7 +38,7 @@ const DEFAULT_WAVE1_TEMPLATES: TemplateSummaryItem[] = [
     language: "mr",
     document_type: "deed",
     property_type: "flat",
-    status: "approved",
+    status: "draft",
   },
   {
     template_id: "general_poa_mr",
@@ -48,7 +48,7 @@ const DEFAULT_WAVE1_TEMPLATES: TemplateSummaryItem[] = [
     language: "mr",
     document_type: "poa",
     property_type: "general",
-    status: "approved",
+    status: "draft",
   },
   {
     template_id: "agreement_to_sell_plot_mr",
@@ -58,7 +58,7 @@ const DEFAULT_WAVE1_TEMPLATES: TemplateSummaryItem[] = [
     language: "mr",
     document_type: "agreement",
     property_type: "plot",
-    status: "approved",
+    status: "draft",
   },
 ];
 
@@ -238,9 +238,25 @@ export const TemplateLibraryView: React.FC<TemplateLibraryViewProps> = ({
                   </div>
                 </div>
                 <Badge
-                  variant={t.status === "approved" ? "approved" : t.status === "under_review" ? "neutral" : "neutral"}
+                  variant={
+                    t.status === "approved"
+                      ? "approved"
+                      : t.status === "under_review"
+                      ? "under_review"
+                      : t.status === "retired"
+                      ? "danger"
+                      : "draft"
+                  }
                   size="sm"
-                  label={t.status.toUpperCase()}
+                  label={
+                    t.status === "approved"
+                      ? lang === "mr" ? "मंजूर (Approved)" : "Approved"
+                      : t.status === "under_review"
+                      ? lang === "mr" ? "पुनरावलोकन" : "Under Review"
+                      : t.status === "retired"
+                      ? lang === "mr" ? "कालबाह्य" : "Retired"
+                      : lang === "mr" ? "मसुदा (Draft)" : "Draft"
+                  }
                 />
               </div>
 
