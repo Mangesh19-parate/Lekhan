@@ -162,7 +162,9 @@ class PropertyDuplicateCheckPayload(BaseModel):
     village: str | None = None
 
 
-@router.post("/detect-duplicates", summary="Detect duplicate properties by survey number or village")
+@router.post(
+    "/detect-duplicates", summary="Detect duplicate properties by survey number or village"
+)
 def detect_duplicate_properties(
     payload: PropertyDuplicateCheckPayload,
     actor: Actor = Depends(get_current_actor),

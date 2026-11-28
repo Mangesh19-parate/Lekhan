@@ -7,10 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
-from app.adapters.db import get_db
-from app.adapters.repositories.jobs import PostgresJobRepository
 from app.api.auth import get_current_actor
 from app.api.documents import get_job_repo
 from app.generation.jobs import JobRepository
@@ -66,9 +63,8 @@ def get_job_status(
         "pdf": False,
     }
 
-    retryable = (
-        job.status in ("queued", "running")
-        or (job.status == "failed" and bool(job.error and job.error.get("retryable", False)))
+    retryable = job.status in ("queued", "running") or (
+        job.status == "failed" and bool(job.error and job.error.get("retryable", False))
     )
 
     return JobDetailResponse(
@@ -80,6 +76,10 @@ def get_job_status(
         error=job.error,
         retryable=retryable,
         outputs=outputs,
-        download_url=f"/api/v1/documents/{doc_id}/download" if (job.status == "succeeded" and doc_id) else None,
-        pdf_url=f"/api/v1/documents/{doc_id}/pdf" if (job.status == "succeeded" and doc_id) else None,
+        download_url=f"/api/v1/documents/{doc_id}/download"
+        if (job.status == "succeeded" and doc_id)
+        else None,
+        pdf_url=f"/api/v1/documents/{doc_id}/pdf"
+        if (job.status == "succeeded" and doc_id)
+        else None,
     )

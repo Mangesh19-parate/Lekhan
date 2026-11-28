@@ -16,8 +16,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.adapters.db import engine, ping_db
 from app.api.admin import router as admin_router
 from app.api.advisory import router as advisory_router
-from app.api.auth import get_current_actor, require_csrf, router as auth_router
-from app.identity.policy import Actor
+from app.api.auth import get_current_actor, require_csrf
+from app.api.auth import router as auth_router
 from app.api.dashboard import router as dashboard_router
 from app.api.documents import router as documents_router
 from app.api.drafts import router as drafts_router
@@ -29,6 +29,7 @@ from app.api.properties import router as properties_router
 from app.api.review import router as review_router
 from app.api.templates_admin import router as templates_admin_router
 from app.config import get_settings
+from app.identity.policy import Actor
 from app.lang_packs.marathi import number_to_words_mr
 from app.observability import (
     ObservabilityMetricsMiddleware,
@@ -128,10 +129,16 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Translates Pydantic request validation errors into RFC 9457 problem+json."""
     clean_errors = [
-        {"loc": [str(loc_item) for loc_item in err.get("loc", [])], "msg": str(err.get("msg", "")), "type": str(err.get("type", ""))}
+        {
+            "loc": [str(loc_item) for loc_item in err.get("loc", [])],
+            "msg": str(err.get("msg", "")),
+            "type": str(err.get("type", "")),
+        }
         for err in exc.errors()
     ]
     return problem_json_response(
@@ -232,8 +239,7 @@ def verify_metrics_access(
         else ("127.0.0.1", "::1", "localhost")
     )
     ip_allowed = client_ip in settings.METRICS_ALLOWED_IPS or (
-        not request.headers.get("X-Forwarded-For")
-        and client_ip in allowed_direct
+        not request.headers.get("X-Forwarded-For") and client_ip in allowed_direct
     )
 
     if not (token_valid or ip_allowed):

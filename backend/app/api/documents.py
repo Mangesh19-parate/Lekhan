@@ -5,7 +5,17 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,7 +25,7 @@ from app.adapters.repositories.jobs import PostgresJobRepository
 from app.adapters.storage import default_storage
 from app.api.auth import get_current_actor
 from app.audit.service import audit_service
-from app.generation.jobs import JobRecord, JobRepository, job_queue
+from app.generation.jobs import JobRepository
 from app.generation.pipeline import GenerationPipelineFSM
 from app.generation.provenance import verify_docx_provenance
 from app.generation.repository import DocumentRepository
@@ -126,16 +136,60 @@ def create_document_generation_job(
     if not decision.allowed:
         raise HTTPException(status_code=decision.status_code, detail=decision.reason)
 
-    # 2. Extract or assign deterministic document_id
+    # 2. Server-side pre-enqueue validation (fail-closed, RFC 9457 errors)
+    raw_template_id = payload.get("template_id")
+    if not raw_template_id or not isinstance(raw_template_id, str):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Field 'template_id' is required.",
+        )
+    template_id = raw_template_id.strip()
+
+    from app.generation.renderers import default_renderer_registry
+    from app.templates.validator import validate_template_id
+
+    tmpl_status: str | None = None
+    try:
+        tmpl_dir = validate_template_id(template_id)
+        manifest_path = tmpl_dir / "manifest.json"
+        if manifest_path.exists():
+            import json
+
+            m = json.loads(manifest_path.read_text(encoding="utf-8"))
+            tmpl_status = m.get("status", "draft")
+    except ValueError:
+        pass
+
+    if tmpl_status is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Template '{template_id}' not found.",
+        )
+
+    if tmpl_status != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Template '{template_id}' is in '{tmpl_status}' status. Only approved templates can be used for document generation.",
+        )
+
+    if not default_renderer_registry.has_renderer(template_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Template '{template_id}' does not have a compatible document renderer registered.",
+        )
+
+    # 3. Extract or assign deterministic document_id
     if "document_id" in payload:
         try:
             doc_id = uuid.UUID(str(payload["document_id"]))
         except (ValueError, TypeError):
             from app.shared.ids import uuid7
+
             doc_id = uuid7()
             payload["document_id"] = str(doc_id)
     else:
         from app.shared.ids import uuid7
+
         doc_id = uuid7()
         payload["document_id"] = str(doc_id)
 
@@ -324,7 +378,9 @@ def download_document_pdf(
         pdf_bytes = pipeline.get_or_create_pdf(document_id, actor.tenant_id)
     except Exception as exc:
         cid = get_correlation_id()
-        logger.exception("Failed to generate PDF for document %s [cid=%s]: %s", document_id, cid, exc)
+        logger.exception(
+            "Failed to generate PDF for document %s [cid=%s]: %s", document_id, cid, exc
+        )
         raise AppError(
             message=f"PDF generation failed (Correlation ID: {cid}).",
             code="PDF_GENERATION_FAILED",
@@ -371,7 +427,9 @@ async def verify_uploaded_docx(
 
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty."
+        )
 
     res = verify_docx_provenance(content)
     return ProvenanceVerificationResponse(
@@ -505,6 +563,7 @@ def inspect_document_quality(
         )
 
     from datetime import datetime, timezone
+
     from app.templates.lint import DocxLinter
 
     linter = DocxLinter()
@@ -512,23 +571,31 @@ def inspect_document_quality(
 
     passed_checks: list[dict[str, str]] = []
     if len(report.leftover_data) == 0:
-        passed_checks.append({
-            "name": "Zero Leftover Client Data",
-            "description": "No unmasked PAN, Aadhaar, phone numbers, or client PII detected.",
-        })
+        passed_checks.append(
+            {
+                "name": "Zero Leftover Client Data",
+                "description": "No unmasked PAN, Aadhaar, phone numbers, or client PII detected.",
+            }
+        )
     if len(report.errors) == 0:
-        passed_checks.append({
-            "name": "OpenXML Structural & Font Integrity",
-            "description": "Safe XML relationships, valid page geometry, and clean fonts verified.",
-        })
-    passed_checks.append({
-        "name": "Split Runs Integrity",
-        "description": f"{report.split_runs_repaired} split tag runs inspected and resolved.",
-    })
-    passed_checks.append({
-        "name": "Deterministic Rule Compliance",
-        "description": "Document satisfies statutory template rules.",
-    })
+        passed_checks.append(
+            {
+                "name": "OpenXML Structural & Font Integrity",
+                "description": "Safe XML relationships, valid page geometry, and clean fonts verified.",
+            }
+        )
+    passed_checks.append(
+        {
+            "name": "Split Runs Integrity",
+            "description": f"{report.split_runs_repaired} split tag runs inspected and resolved.",
+        }
+    )
+    passed_checks.append(
+        {
+            "name": "Deterministic Rule Compliance",
+            "description": "Document satisfies statutory template rules.",
+        }
+    )
 
     overall_status = "Passed" if report.can_approve and len(report.leftover_data) == 0 else "Failed"
     score = (

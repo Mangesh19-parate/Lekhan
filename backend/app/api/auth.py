@@ -45,7 +45,7 @@ from app.identity.service import (
 from app.identity.session_repository import SessionData, SessionRepository
 from app.identity.throttling import InMemoryThrottler, login_throttler
 from app.shared.crypto import decrypt_mfa_secret, encrypt_mfa_secret
-from app.shared.logging import get_logger
+from app.shared.logging import get_correlation_id, get_logger
 from app.shared.models import MfaPendingEnrollment
 from app.shared.network import get_client_ip
 from app.shared.security import (
@@ -53,7 +53,6 @@ from app.shared.security import (
     generate_opaque_token,
     hash_password,
     hash_token,
-    verify_csrf_token,
     verify_password,
 )
 
@@ -62,6 +61,13 @@ settings = get_settings()
 
 # Constant-time dummy hash to defeat timing enumeration of usernames
 DUMMY_PASSWORD_HASH = hash_password("dummy_password_for_constant_time_enumeration_protection")
+
+
+def hash_rate_limit_key(prefix: str, identifier: str) -> str:
+    """Derives a privacy-preserving fixed-length identifier for distributed rate limiting."""
+    hashed = hashlib.sha256(f"{prefix}:{identifier.strip()}".encode("utf-8")).hexdigest()
+    return f"{prefix}:{hashed[:32]}"
+
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -106,7 +112,7 @@ def get_user_repo(db: Session = Depends(get_db)) -> UserRepository:
 
 def get_session_repo(db: Session = Depends(get_db)) -> SessionRepository:
     """Provides the SessionRepository scoped to the current database session."""
-    return PostgresSessionRepository(db)
+    return PostgresSessionRepository(db, idle_timeout_minutes=settings.SESSION_IDLE_MINUTES)
 
 
 # --- Dependencies ---
@@ -150,9 +156,15 @@ def get_current_actor(
             )
 
     now = datetime.datetime.now(datetime.timezone.utc)
+    expires_at = session_data.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+    last_seen_at = session_data.last_seen_at
+    if last_seen_at.tzinfo is None:
+        last_seen_at = last_seen_at.replace(tzinfo=datetime.timezone.utc)
 
     # Check absolute timeout
-    if now > session_data.expires_at:
+    if now > expires_at:
         session_repo.delete(session_data.tenant_id, id_hash)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -160,7 +172,7 @@ def get_current_actor(
         )
 
     # Check sliding idle timeout (30 minutes)
-    idle_limit = session_data.last_seen_at + datetime.timedelta(minutes=IDLE_TIMEOUT_MINUTES)
+    idle_limit = last_seen_at + datetime.timedelta(minutes=IDLE_TIMEOUT_MINUTES)
     if now > idle_limit:
         session_repo.delete(session_data.tenant_id, id_hash)
         raise HTTPException(
@@ -229,8 +241,8 @@ def login(
 ) -> Any:
     """Authenticates credentials, enforces throttling, and rotates session cookie."""
     client_ip = get_client_ip(request)
-    account_key = f"account:{payload.email.lower().strip()}"
-    ip_key = f"ip:{client_ip}"
+    account_key = hash_rate_limit_key("account", payload.email.lower())
+    ip_key = hash_rate_limit_key("ip", client_ip)
 
     # 1. Check rate-limit & lockout per-account AND per-IP
     acct_locked, acct_rem = login_throttler.is_locked(account_key)
@@ -239,9 +251,8 @@ def login(
     if acct_locked or ip_locked:
         remaining_seconds = max(acct_rem, ip_rem)
         logger.warning(
-            "Throttled login attempt for %s from IP %s (acct_locked=%s, ip_locked=%s)",
-            payload.email,
-            client_ip,
+            "Throttled login attempt [cid=%s] (acct_locked=%s, ip_locked=%s)",
+            get_correlation_id(),
             acct_locked,
             ip_locked,
         )
@@ -260,7 +271,7 @@ def login(
         verify_password(DUMMY_PASSWORD_HASH, payload.password)
         login_throttler.record_failure(account_key)
         login_throttler.record_failure(ip_key)
-        logger.info("Failed login attempt for nonexistent user %s from %s", payload.email, client_ip)
+        logger.info("Failed login attempt for nonexistent user [cid=%s]", get_correlation_id())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
@@ -270,7 +281,7 @@ def login(
         login_throttler.record_failure(account_key)
         login_throttler.record_failure(ip_key)
         user_repo.record_failed_login(tenant_id=user.tenant_id, user_id=user.id)
-        logger.info("Failed login attempt (bad password) for %s from %s", payload.email, client_ip)
+        logger.info("Failed login attempt (bad password) [cid=%s]", get_correlation_id())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
@@ -510,15 +521,16 @@ _USED_TOTP_CODES: dict[str, float] = {}
 def is_totp_replayed(user_id: uuid.UUID, code: str, db: Session | None = None) -> bool:
     """Checks if a TOTP code was already consumed within the validity window."""
     now = time.time()
-    key = f"totp_used:{user_id}:{code.strip()}"
+    key = hash_rate_limit_key("totp_used", f"{user_id}:{code.strip()}")
     if db is not None:
         try:
             from app.shared.models import RateLimit
+
             existing = db.query(RateLimit).filter(RateLimit.key == key).first()
-            if existing and existing.locked_until > now:
+            if existing and float(existing.locked_until) > now:
                 return True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Database TOTP replay query check failed: %s", exc)
 
     # Expire old entries (> 90 seconds)
     expired = [k for k, t in _USED_TOTP_CODES.items() if now - t > 90]
@@ -531,24 +543,30 @@ def is_totp_replayed(user_id: uuid.UUID, code: str, db: Session | None = None) -
 def record_used_totp(user_id: uuid.UUID, code: str, db: Session | None = None) -> None:
     """Marks a TOTP code as consumed to prevent replay attacks across processes."""
     now = time.time()
-    key = f"totp_used:{user_id}:{code.strip()}"
+    key = hash_rate_limit_key("totp_used", f"{user_id}:{code.strip()}")
     _USED_TOTP_CODES[key] = now
     if db is not None:
         try:
+            from decimal import Decimal
+
             from app.shared.models import RateLimit
+
             limit_entry = RateLimit(
                 key=key,
                 timestamps=[now],
                 consecutive_failures=0,
-                locked_until=now + 120.0,
+                locked_until=Decimal(str(round(now + 120.0, 4))),
             )
             db.merge(limit_entry)
             db.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            db.rollback()
+            logger.debug("Database TOTP replay record failed: %s", exc)
 
 
-@auth_csrf_router.post("/mfa/setup", response_model=MfaSetupResponse, summary="Initiate TOTP MFA setup")
+@auth_csrf_router.post(
+    "/mfa/setup", response_model=MfaSetupResponse, summary="Initiate TOTP MFA setup"
+)
 def setup_mfa(
     actor: Actor = Depends(get_current_actor),
     user_repo: UserRepository = Depends(get_user_repo),
@@ -572,9 +590,7 @@ def setup_mfa(
 
     # Persist in DB with 10-minute TTL
     existing = (
-        db.query(MfaPendingEnrollment)
-        .filter(MfaPendingEnrollment.user_id == actor.user_id)
-        .first()
+        db.query(MfaPendingEnrollment).filter(MfaPendingEnrollment.user_id == actor.user_id).first()
     )
     if existing:
         existing.secret_enc = secret_enc
@@ -815,13 +831,17 @@ class ResetPasswordPayload(BaseModel):
     )
 
 
-def generate_password_reset_token(user_id: uuid.UUID, tenant_id: uuid.UUID, password_hash: str) -> str:
+def generate_password_reset_token(
+    user_id: uuid.UUID, tenant_id: uuid.UUID, password_hash: str
+) -> str:
     """Generates a signed, single-use, 15-minute expiration token bound to current password hash."""
     now = int(time.time())
     expires_at = now + 900  # 15 minutes
     hash_prefix = hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
     payload = f"{user_id}:{tenant_id}:{expires_at}:{hash_prefix}"
-    sig = hmac.new(settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    sig = hmac.new(
+        settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
     raw = f"{payload}:{sig}"
     return base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii")
 
@@ -867,7 +887,11 @@ def deliver_password_reset_token(
 ) -> dict[str, str]:
     """Delivers password reset link via configured SMTP or local delivery outbox."""
     domain = getattr(settings, "DOMAIN", "app.lekhan.local")
-    base_url = f"https://{domain}" if not (settings.is_dev or settings.is_test) else "http://localhost:5173"
+    base_url = (
+        f"https://{domain}"
+        if not (settings.is_dev or settings.is_test)
+        else "http://localhost:5173"
+    )
     reset_url = f"{base_url}/auth/reset-password?token={token}"
 
     smtp_host = getattr(settings, "SMTP_HOST", None)
@@ -904,7 +928,9 @@ def deliver_password_reset_token(
     return {"reset_url": reset_url, "reset_token": token}
 
 
-@router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED, summary="Request password reset link")
+@router.post(
+    "/password/forgot", status_code=status.HTTP_202_ACCEPTED, summary="Request password reset link"
+)
 def forgot_password(
     payload: ForgotPasswordPayload,
     request: Request,
@@ -983,7 +1009,9 @@ def reset_password(
     session_repo.delete_all_for_user(tenant_id=user.tenant_id, user_id=user.id)
     login_throttler.record_success(throttle_key)
 
-    logger.info("Password successfully reset for user %s. All active sessions invalidated.", user.id)
+    logger.info(
+        "Password successfully reset for user %s. All active sessions invalidated.", user.id
+    )
     return {
         "status": "ok",
         "message": "Password successfully reset. Please log in with your new password.",

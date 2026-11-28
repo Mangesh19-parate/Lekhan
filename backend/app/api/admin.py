@@ -14,17 +14,16 @@ from sqlalchemy.orm import Session
 from app.adapters.db import get_db, ping_db
 from app.adapters.repositories.audit import PostgresAuditRepository
 from app.adapters.repositories.jobs import PostgresJobRepository
-from app.adapters.storage import default_storage
 from app.api.auth import get_current_actor, get_user_repo
+from app.api.templates_admin import list_templates
 from app.audit.export import create_signed_audit_export, verify_signed_audit_export
 from app.audit.jobs import verify_all_audit_chains
 from app.audit.repository import AuditRepository
-from app.audit.service import AuditService, audit_service
+from app.audit.service import AuditService
 from app.config import get_settings
 from app.generation.jobs import JobRepository
 from app.identity.policy import ROLE_PERMISSIONS, Actor, authorize
 from app.identity.repository import UserRepository
-from app.api.templates_admin import list_templates
 from app.shared.logging import get_correlation_id, get_logger
 
 logger = get_logger(__name__)
@@ -119,12 +118,15 @@ def toggle_user_status(
         meta={"new_role": target_user.role, "active": target_user.active},
     )
 
-    return {"status": "ok", "user": {
-        "id": str(target_user.id),
-        "email": target_user.email,
-        "role": target_user.role,
-        "active": target_user.active,
-    }}
+    return {
+        "status": "ok",
+        "user": {
+            "id": str(target_user.id),
+            "email": target_user.email,
+            "role": target_user.role,
+            "active": target_user.active,
+        },
+    }
 
 
 @router.get("/roles", summary="Get authoritative RBAC permission matrix")
@@ -248,7 +250,10 @@ def verify_exported_audit(
     }
 
 
-@router.post("/audit/nightly-check", summary="Trigger nightly audit chain verification job across all tenants")
+@router.post(
+    "/audit/nightly-check",
+    summary="Trigger nightly audit chain verification job across all tenants",
+)
 def run_nightly_audit_check(
     actor: Actor = Depends(get_current_actor),
     audit_repo: AuditRepository = Depends(get_audit_repo),
@@ -276,7 +281,7 @@ def get_system_health(
     disk_free_gb = 0.0
     try:
         total, used, free = shutil.disk_usage(storage_dir if storage_dir.exists() else ".")
-        disk_free_gb = round(free / (1024 ** 3), 2)
+        disk_free_gb = round(free / (1024**3), 2)
     except OSError as err:
         logger.warning(
             "Could not inspect disk usage [cid=%s]: %s",
@@ -334,7 +339,11 @@ class SystemSettingsUpdatePayload(BaseModel):
     idle_minutes: int | None = None
 
 
-@router.get("/settings", response_model=SystemSettingsResponse, summary="Get tenant system settings (Admin only)")
+@router.get(
+    "/settings",
+    response_model=SystemSettingsResponse,
+    summary="Get tenant system settings (Admin only)",
+)
 def get_system_settings(
     actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
@@ -357,7 +366,11 @@ def get_system_settings(
     )
 
 
-@router.put("/settings", response_model=SystemSettingsResponse, summary="Update tenant system settings (Admin only, audited)")
+@router.put(
+    "/settings",
+    response_model=SystemSettingsResponse,
+    summary="Update tenant system settings (Admin only, audited)",
+)
 def update_system_settings(
     payload: SystemSettingsUpdatePayload,
     actor: Actor = Depends(get_current_actor),
@@ -373,7 +386,9 @@ def update_system_settings(
 
     tenant = db.query(Tenant).filter(Tenant.id == actor.tenant_id).first()
     if not tenant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant organization not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant organization not found."
+        )
 
     updates: dict[str, Any] = {}
     if payload.retention_class is not None:

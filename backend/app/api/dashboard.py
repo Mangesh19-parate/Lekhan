@@ -11,11 +11,11 @@ from pydantic import BaseModel
 from app.api.admin import get_audit_repo
 from app.api.auth import get_current_actor, get_user_repo
 from app.api.documents import get_pipeline
+from app.api.templates_admin import list_templates
 from app.audit.repository import AuditRepository
 from app.generation.pipeline import GenerationPipelineFSM
 from app.identity.policy import Actor
 from app.identity.repository import UserRepository
-from app.api.templates_admin import list_templates
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -98,14 +98,16 @@ def get_dashboard_stats(
     recent_activity: list[dict[str, Any]] = []
 
     for rec in reversed(audit_chain):
-        recent_activity.append({
-            "id": rec.id,
-            "action": rec.action,
-            "entity": rec.entity,
-            "entity_id": rec.entity_id,
-            "timestamp": rec.at.isoformat(),
-            "meta": rec.meta,
-        })
+        recent_activity.append(
+            {
+                "id": rec.id,
+                "action": rec.action,
+                "entity": rec.entity,
+                "entity_id": rec.entity_id,
+                "timestamp": rec.at.isoformat(),
+                "meta": rec.meta,
+            }
+        )
 
     # Operational alerts
     alerts: list[dict[str, Any]] = []

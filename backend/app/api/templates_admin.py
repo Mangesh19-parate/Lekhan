@@ -25,6 +25,7 @@ from app.adapters.db import get_db
 from app.adapters.storage import default_storage
 from app.api.auth import get_current_actor
 from app.audit.service import audit_service
+from app.generation.renderers import default_renderer_registry
 from app.identity.policy import Actor, authorize
 from app.shared.ids import uuid7
 from app.shared.logging import get_correlation_id, get_logger
@@ -49,6 +50,8 @@ class TemplateSummary(BaseModel):
     document_type: str
     property_type: str
     has_docx: bool
+    has_renderer: bool = False
+    can_generate: bool = False
     submitted_by: str | None = None
     approved_by: str | None = None
 
@@ -78,6 +81,8 @@ def list_templates(
         seen_keys.add(tv.template_key)
         m = tv.manifest_json or {}
         has_file = bool(tv.docx_ref and default_storage.exists(tv.docx_ref))
+        has_renderer = default_renderer_registry.has_renderer(tv.template_key)
+        can_generate = bool(tv.status == "approved" and has_file and has_renderer)
         results.append(
             TemplateSummary(
                 template_id=tv.template_key,
@@ -89,6 +94,8 @@ def list_templates(
                 document_type=m.get("document_type", "general"),
                 property_type=m.get("property_type", "general"),
                 has_docx=has_file,
+                has_renderer=has_renderer,
+                can_generate=can_generate,
                 submitted_by=str(tv.submitted_by) if tv.submitted_by else None,
                 approved_by=str(tv.approved_by) if tv.approved_by else None,
             )
@@ -108,17 +115,23 @@ def list_templates(
                 if t_id in seen_keys:
                     continue
                 seen_keys.add(t_id)
+                has_docx = (item / "template.docx").exists()
+                t_status = data.get("status", "draft")
+                has_renderer = default_renderer_registry.has_renderer(t_id)
+                can_generate = bool(t_status == "approved" and has_docx and has_renderer)
                 results.append(
                     TemplateSummary(
                         template_id=t_id,
                         name_en=data.get("name_en", item.name),
                         name_mr=data.get("name_mr", ""),
                         version=data.get("version", 1),
-                        status=data.get("status", "draft"),
+                        status=t_status,
                         language=data.get("language", "mr"),
                         document_type=data.get("document_type", "general"),
                         property_type=data.get("property_type", "general"),
-                        has_docx=(item / "template.docx").exists(),
+                        has_docx=has_docx,
+                        has_renderer=has_renderer,
+                        can_generate=can_generate,
                     )
                 )
             except (json.JSONDecodeError, OSError, KeyError) as err:

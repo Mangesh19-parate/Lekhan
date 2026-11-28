@@ -62,7 +62,9 @@ def _format_draft(draft: Draft) -> DraftResponse:
 # --- Routes ---
 
 
-@router.get("", response_model=list[DraftResponse], summary="List all in-progress drafts for current tenant")
+@router.get(
+    "", response_model=list[DraftResponse], summary="List all in-progress drafts for current tenant"
+)
 def list_drafts(
     actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
@@ -80,7 +82,12 @@ def list_drafts(
     return [_format_draft(d) for d in drafts]
 
 
-@router.post("", response_model=DraftResponse, status_code=status.HTTP_201_CREATED, summary="Create a new draft")
+@router.post(
+    "",
+    response_model=DraftResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new draft",
+)
 def create_draft(
     payload: DraftCreatePayload,
     actor: Actor = Depends(get_current_actor),
@@ -112,11 +119,7 @@ def get_draft(
     db: Session = Depends(get_db),
 ) -> DraftResponse:
     """Retrieves a single draft. Scoped strictly to the tenant; cross-tenant access returns 404."""
-    draft = (
-        db.query(Draft)
-        .filter(Draft.id == draft_id, Draft.tenant_id == actor.tenant_id)
-        .first()
-    )
+    draft = db.query(Draft).filter(Draft.id == draft_id, Draft.tenant_id == actor.tenant_id).first()
     if not draft:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found.")
 
@@ -136,11 +139,7 @@ def update_draft(
     db: Session = Depends(get_db),
 ) -> DraftResponse:
     """Updates an existing draft's title, template_id, or form data."""
-    draft = (
-        db.query(Draft)
-        .filter(Draft.id == draft_id, Draft.tenant_id == actor.tenant_id)
-        .first()
-    )
+    draft = db.query(Draft).filter(Draft.id == draft_id, Draft.tenant_id == actor.tenant_id).first()
     if not draft:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found.")
 
@@ -169,11 +168,7 @@ def delete_draft(
     db: Session = Depends(get_db),
 ) -> Response:
     """Deletes an in-progress draft session. Scoped strictly to the tenant."""
-    draft = (
-        db.query(Draft)
-        .filter(Draft.id == draft_id, Draft.tenant_id == actor.tenant_id)
-        .first()
-    )
+    draft = db.query(Draft).filter(Draft.id == draft_id, Draft.tenant_id == actor.tenant_id).first()
     if not draft:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found.")
 
