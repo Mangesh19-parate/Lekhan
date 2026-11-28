@@ -154,7 +154,22 @@ def scan_docx_for_leftover_data(
                                     )
                                 )
 
-                    except (ET.ParseError, UnicodeDecodeError, KeyError):
+                    except (
+                        SafeET.ParseError,
+                        UnicodeDecodeError,
+                        KeyError,
+                        Exception,
+                    ) as parse_err:
+                        findings.append(
+                            LeftoverFinding(
+                                category="UNSAFE_XML_DETECTED",
+                                count=1,
+                                part=info.filename,
+                                paragraph_idx=0,
+                                masked_sample=f"Unsafe XML or malformed structure: {parse_err}",
+                                code="UNSAFE_XML_DETECTED",
+                            )
+                        )
                         continue
 
     except (zipfile.BadZipFile, OSError, KeyError):

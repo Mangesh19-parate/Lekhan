@@ -12,10 +12,8 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from xml.etree import ElementTree as ET
 
-import defusedxml.ElementTree as SafeET
-from defusedxml.common import DefusedXmlException
+import defusedxml.ElementTree as ET
 
 from app.templates.lint.models import LintFinding, LintSeverity
 
@@ -153,7 +151,7 @@ def strip_external_relationships(docx_bytes: bytes) -> bytes:
                 data = zin.read(item.filename)
                 if item.filename.endswith(".rels") and b'TargetMode="External"' in data:
                     try:
-                        root = SafeET.fromstring(
+                        root = ET.fromstring(
                             data,
                             forbid_dtd=True,
                             forbid_entities=True,

@@ -13,10 +13,11 @@ import datetime
 import hashlib
 import io
 import uuid
-import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
-from typing import Any
+from xml.etree import ElementTree as ET
+
+import defusedxml.ElementTree as SafeET
 
 PROVENANCE_XML_PATH = "customXml/provenance.xml"
 PROVENANCE_XML_NS = "http://schemas.lekhan.local/provenance/v1"
@@ -62,7 +63,9 @@ def stamp_docx_provenance(
     now_iso = (generated_at or datetime.datetime.now(datetime.timezone.utc)).isoformat()
 
     in_zip = zipfile.ZipFile(io.BytesIO(docx_bytes), "r")
-    files: dict[str, bytes] = {item.filename: in_zip.read(item.filename) for item in in_zip.infolist()}
+    files: dict[str, bytes] = {
+        item.filename: in_zip.read(item.filename) for item in in_zip.infolist()
+    }
     in_zip.close()
 
     # 1. Compute document_hash from word/document.xml
@@ -104,7 +107,7 @@ def extract_docx_provenance(docx_bytes: bytes) -> ProvenanceRecord | None:
                 return None
             xml_bytes = zf.read(PROVENANCE_XML_PATH)
 
-        root = ET.fromstring(xml_bytes)
+        root = SafeET.fromstring(xml_bytes)
         ns = {"p": PROVENANCE_XML_NS}
 
         def _get_val(tag: str) -> str:
@@ -152,7 +155,15 @@ def verify_docx_provenance(docx_bytes: bytes) -> ProvenanceVerificationResult:
                 )
             prov_xml_bytes = zf.read(PROVENANCE_XML_PATH)
 
-        root = ET.fromstring(prov_xml_bytes)
+        try:
+            root = SafeET.fromstring(prov_xml_bytes)
+        except Exception:
+            return ProvenanceVerificationResult(
+                valid=False,
+                tampered=True,
+                verified_at=verified_at_iso,
+                message="Malicious or malformed provenance XML rejected.",
+            )
         ns = {"p": PROVENANCE_XML_NS}
 
         def _get(tag: str) -> str:

@@ -9,9 +9,9 @@ Prevents directory traversal, arbitrary file read/write, and symlink attacks:
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
 import urllib.parse
+from pathlib import Path
 
 TEMPLATE_ID_PATTERN = re.compile(r"^[a-z0-9_]{3,64}$")
 TEMPLATES_DIR = (
@@ -39,9 +39,7 @@ def validate_template_id(template_id: str, base_dir: Path | None = None) -> Path
         raise ValueError("template_id contains forbidden NUL bytes")
 
     if not TEMPLATE_ID_PATTERN.fullmatch(template_id) or not TEMPLATE_ID_PATTERN.fullmatch(decoded):
-        raise ValueError(
-            f"Invalid template_id {template_id!r}: must match ^[a-z0-9_]{{3,64}}$"
-        )
+        raise ValueError(f"Invalid template_id {template_id!r}: must match ^[a-z0-9_]{{3,64}}$")
 
     root = (base_dir or TEMPLATES_DIR).resolve()
     raw_target = root / template_id

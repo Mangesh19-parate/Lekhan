@@ -44,9 +44,11 @@ class LeftoverFinding:
     part: str
     paragraph_idx: int
     masked_sample: str
+    code: str = "LEFTOVER_DATA"
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "code": self.code,
             "category": self.category,
             "count": self.count,
             "part": self.part,

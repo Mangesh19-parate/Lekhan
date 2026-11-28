@@ -13,7 +13,6 @@ import re
 import zipfile
 
 from defusedxml import ElementTree as SafeET
-from defusedxml.common import DefusedXmlException
 
 from app.templates.lint.models import LintFinding, LintSeverity
 
@@ -79,7 +78,20 @@ def audit_docx_fonts(docx_bytes: bytes) -> tuple[list[str], list[LintFinding]]:
                                             )
                                         )
 
-                    except (ET.ParseError, UnicodeDecodeError, KeyError):
+                    except (
+                        SafeET.ParseError,
+                        UnicodeDecodeError,
+                        KeyError,
+                        Exception,
+                    ) as parse_err:
+                        findings.append(
+                            LintFinding(
+                                code="UNSAFE_XML_DETECTED",
+                                severity=LintSeverity.ERROR,
+                                message=f"Unsafe XML or malformed structure in '{info.filename}': {parse_err}",
+                                part=info.filename,
+                            )
+                        )
                         continue
 
     except (zipfile.BadZipFile, OSError, KeyError):

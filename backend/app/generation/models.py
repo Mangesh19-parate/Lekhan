@@ -22,4 +22,3 @@ class GeneratedDocumentRecord:
     pdf_ref: str | None  # PDF Convenience Copy
     status: str  # draft, reviewed, finalised
     created_at: str  # ISO 8601
-

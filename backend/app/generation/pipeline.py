@@ -18,8 +18,6 @@ import json
 import re
 import uuid
 import zipfile
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from docxtpl import DocxTemplate
@@ -31,18 +29,14 @@ from app.adapters.storage import ObjectStore, default_storage
 from app.audit.service import audit_service
 from app.generation.jobs import JobRecord
 from app.generation.models import GeneratedDocumentRecord
+from app.generation.renderers import default_renderer_registry
 from app.generation.repository import (
     DocumentRepository,
     InMemoryDocumentRepository,
 )
-from app.generation.spike_engine import (
-    PlotSaleDeedInput,
-    generate_plot_sale_deed_docx,
-)
 from app.numbering.service import document_numbering_service
-from app.shared.ids import uuid7
 from app.shared.logging import get_correlation_id, get_logger
-from app.templates.validator import TEMPLATES_DIR, validate_template_id
+from app.templates.validator import validate_template_id
 
 logger = get_logger(__name__)
 
@@ -131,17 +125,18 @@ class GenerationPipelineFSM:
         self.storage = storage
         if repository is not None:
             self.repository = repository
+        elif db_session is not None:
+            from app.adapters.repositories.documents import PostgresDocumentRepository
+
+            self.repository = PostgresDocumentRepository(session=db_session)
         else:
-            try:
-                from app.adapters.repositories.documents import PostgresDocumentRepository
-                self.repository = PostgresDocumentRepository(session=db_session)
-            except Exception:
-                self.repository = InMemoryDocumentRepository()
+            self.repository = InMemoryDocumentRepository()
         self.db_session = db_session
 
     def process_job(self, job: JobRecord) -> GeneratedDocumentRecord:
         """Executes the generation pipeline FSM for a claimed job with idempotent execution."""
         from app.config import get_settings
+
         gen_timeout = float(getattr(get_settings(), "GENERATION_TIMEOUT_SECONDS", 60.0))
         start_ts = datetime.datetime.now(datetime.timezone.utc)
 
@@ -202,7 +197,9 @@ class GenerationPipelineFSM:
                                 .first()
                             )
                             if not tv:
-                                raise ValueError(f"Template version {raw_tv_id} not found in database.")
+                                raise ValueError(
+                                    f"Template version {raw_tv_id} not found in database."
+                                )
                             if tv.status != "approved":
                                 raise ValueError(
                                     f"Template version {raw_tv_id} has status '{tv.status}' and is not approved."
@@ -224,9 +221,13 @@ class GenerationPipelineFSM:
                     except ValueError:
                         raise
                     except Exception as db_exc:
-                        logger.debug("Database template query failed (%s); resolving from filesystem", db_exc)
+                        logger.debug(
+                            "Database template query failed (%s); resolving from filesystem", db_exc
+                        )
                         if raw_tv_id:
-                            raise ValueError(f"Template version {raw_tv_id} could not be resolved from database: {db_exc}")
+                            raise ValueError(
+                                f"Template version {raw_tv_id} could not be resolved from database: {db_exc}"
+                            )
                         tv = None
 
                     if tv:
@@ -246,7 +247,9 @@ class GenerationPipelineFSM:
             if pinned_version_id is None:
                 raw_tv_id = job.payload.get("template_version_id")
                 if raw_tv_id:
-                    raise ValueError(f"Template version {raw_tv_id} could not be resolved or verified.")
+                    raise ValueError(
+                        f"Template version {raw_tv_id} could not be resolved or verified."
+                    )
                 # Verify filesystem manifest approved status
                 template_dir = validate_template_id(template_id)
                 manifest_path = template_dir / "manifest.json"
@@ -263,18 +266,24 @@ class GenerationPipelineFSM:
 
             # 2. State: VALIDATED -> RENDERED
             job.state = "RENDERED"
-            if template_id == "sale_deed_plot_mr" and template_bytes is None:
-                normalized_payload = _normalize_payload(job.payload)
-                input_data = PlotSaleDeedInput.model_validate(normalized_payload)
-                docx_bytes = generate_plot_sale_deed_docx(input_data)
-            else:
-                docx_bytes = _render_template_docx(
-                    template_id, job.payload, docx_bytes_input=template_bytes
+            renderer = default_renderer_registry.get_renderer(template_id)
+            if not renderer:
+                raise ValueError(
+                    f"No compatible document renderer registered for template '{template_id}'."
                 )
+            docx_bytes = renderer.render(
+                template_id=template_id,
+                payload=job.payload,
+                template_bytes=template_bytes,
+            )
 
             # 3. State: RENDERED -> VERIFIED
-            if (datetime.datetime.now(datetime.timezone.utc) - start_ts).total_seconds() > gen_timeout:
-                raise GenerationTimeoutError(f"Document generation timed out after {gen_timeout} seconds.")
+            if (
+                datetime.datetime.now(datetime.timezone.utc) - start_ts
+            ).total_seconds() > gen_timeout:
+                raise GenerationTimeoutError(
+                    f"Document generation timed out after {gen_timeout} seconds."
+                )
 
             # Stamp provenance and tamper-evidence (customXml/provenance.xml part)
             from app.generation.provenance import stamp_docx_provenance
@@ -296,6 +305,23 @@ class GenerationPipelineFSM:
 
             # Verification gate: python-docx reopen & zero leftover tags confirmed
             job.state = "VERIFIED"
+            with zipfile.ZipFile(io.BytesIO(docx_bytes), "r") as z_verify:
+                has_document_xml = False
+                for item in z_verify.infolist():
+                    if item.filename == "word/document.xml":
+                        has_document_xml = True
+                    if item.filename.startswith("word/") and item.filename.endswith(".xml"):
+                        xml_data = z_verify.read(item.filename).decode("utf-8", errors="ignore")
+                        leftover = re.findall(r"\{\{.*?\}\}|\{%.*?%\}", xml_data)
+                        if leftover:
+                            raise ValueError(
+                                f"Verification Gate Failed: Unrendered template tags remain in {item.filename}: {leftover[:5]}"
+                            )
+                if not has_document_xml:
+                    raise ValueError(
+                        "Verification Gate Failed: Corrupt DOCX output missing word/document.xml"
+                    )
+
             output_hash = hashlib.sha256(docx_bytes).digest()
 
             # 4. State: VERIFIED -> STORED (Atomic write: temp file, fsync, rename)
@@ -306,6 +332,10 @@ class GenerationPipelineFSM:
                 docx_bytes,
                 content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
+            if not self.storage.exists(storage_key):
+                raise OSError(
+                    f"Storage write verification failed: {storage_key} not found after write."
+                )
 
             # 5. State: STORED -> COMPLETED
             job.state = "COMPLETED"
@@ -357,9 +387,7 @@ class GenerationPipelineFSM:
                     "doc_no": doc_no,
                     "file_ref": storage_key,
                     "plot_no": (
-                        input_data.property_details.plot_no
-                        if "input_data" in locals() and hasattr(input_data, "property_details")
-                        else job.payload.get("property_details", {}).get("plot_no", "")
+                        job.payload.get("property_details", {}).get("plot_no", "")
                         if isinstance(job.payload.get("property_details"), dict)
                         else ""
                     ),

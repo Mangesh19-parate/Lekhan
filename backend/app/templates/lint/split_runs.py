@@ -12,10 +12,8 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from xml.etree import ElementTree as ET
 
-import defusedxml.ElementTree as SafeET
-from defusedxml.common import DefusedXmlException
+import defusedxml.ElementTree as ET
 
 from app.templates.lint.models import LintFinding, LintSeverity
 
@@ -119,7 +117,7 @@ def repair_and_check_split_runs(
                         or "footer" in item.filename
                     ):
                         try:
-                            root = SafeET.fromstring(
+                            root = ET.fromstring(
                                 content,
                                 forbid_dtd=True,
                                 forbid_entities=True,
@@ -145,7 +143,20 @@ def repair_and_check_split_runs(
                             if part_merges > 0:
                                 total_merges += part_merges
                                 content = ET.tostring(root, encoding="utf-8")
-                        except (ET.ParseError, UnicodeDecodeError, KeyError):
+                        except (
+                            ET.ParseError,
+                            UnicodeDecodeError,
+                            KeyError,
+                            Exception,
+                        ) as parse_err:
+                            findings.append(
+                                LintFinding(
+                                    code="UNSAFE_XML_DETECTED",
+                                    severity=LintSeverity.ERROR,
+                                    message=f"Unsafe XML or malformed structure in '{item.filename}': {parse_err}",
+                                    part=item.filename,
+                                )
+                            )
                             continue
 
                     zout.writestr(item, content)

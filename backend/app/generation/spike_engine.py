@@ -92,22 +92,24 @@ class SpikeGenerationError(Exception):
 def generate_plot_sale_deed_docx(
     data: PlotSaleDeedInput,
     template_path: Path | None = None,
+    template_bytes: bytes | None = None,
 ) -> bytes:
     """Renders the Marathi Plot Sale Deed template into a complete DOCX file.
 
     Computes derived fields (amount in words, area conversions, party blocks),
     substitutes XML tags, and executes the verification gate.
     """
-    if template_path is None:
-        template_path = (
-            Path(__file__).parent.parent.parent.parent
-            / "templates-library"
-            / "sale_deed_plot_mr"
-            / "template.docx"
-        )
+    if template_bytes is None:
+        if template_path is None:
+            template_path = (
+                Path(__file__).parent.parent.parent.parent
+                / "templates-library"
+                / "sale_deed_plot_mr"
+                / "template.docx"
+            )
 
-    if not template_path.exists():
-        raise SpikeGenerationError(f"Approved template not found at {template_path}")
+        if not template_path.exists():
+            raise SpikeGenerationError(f"Approved template not found at {template_path}")
 
     # 1. Compute Derived Fields
     balance_amount = data.financial.total_consideration - data.financial.earnest_advance
@@ -181,7 +183,11 @@ def generate_plot_sale_deed_docx(
     }
 
     # 5. Open template ZIP and substitute document.xml
-    in_buf = io.BytesIO(template_path.read_bytes())
+    in_buf = (
+        io.BytesIO(template_bytes)
+        if template_bytes is not None
+        else io.BytesIO(template_path.read_bytes())  # type: ignore[union-attr]
+    )
     out_buf = io.BytesIO()
 
     with (

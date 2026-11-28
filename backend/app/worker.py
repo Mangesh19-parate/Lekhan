@@ -19,7 +19,6 @@ from app.adapters.repositories.documents import PostgresDocumentRepository
 from app.adapters.repositories.jobs import PostgresJobRepository
 from app.generation.jobs import JobRepository
 from app.generation.pipeline import GenerationPipelineFSM, GenerationTimeoutError
-from app.generation.repository import DocumentRepository
 from app.shared.logging import get_correlation_id, get_logger, setup_logging
 
 setup_logging()
@@ -30,7 +29,9 @@ _shutdown_requested = False
 
 def _sig_handler(signum: int, frame: Any) -> None:
     global _shutdown_requested
-    logger.info("Shutdown signal received (%d). Finishing current job and exiting gracefully...", signum)
+    logger.info(
+        "Shutdown signal received (%d). Finishing current job and exiting gracefully...", signum
+    )
     _shutdown_requested = True
 
 
@@ -44,13 +45,23 @@ def classify_job_exception(exc: Exception) -> tuple[str, str, bool]:
 
     Never leaks raw exception strings, file paths, or internal variables to clients.
     """
-    if isinstance(exc, ValueError):
-        return "VALIDATION_FAILED", "Document input validation failed.", False
+    from app.generation.spike_engine import SpikeGenerationError
+
+    if isinstance(exc, (ValueError, SpikeGenerationError)):
+        return "VALIDATION_FAILED", "Document input validation or verification failed.", False
     if isinstance(exc, KeyError):
         return "PAYLOAD_ERROR", "Required generation parameter missing.", False
     if isinstance(exc, LibreOfficeNotFoundError):
         return "CONVERTER_MISSING", "Document conversion utility not available.", False
-    if isinstance(exc, (PdfConversionTimeoutError, GenerationTimeoutError, subprocess.TimeoutExpired, TimeoutError)):
+    if isinstance(
+        exc,
+        (
+            PdfConversionTimeoutError,
+            GenerationTimeoutError,
+            subprocess.TimeoutExpired,
+            TimeoutError,
+        ),
+    ):
         return "CONVERTER_TIMEOUT", "Document generation or conversion timed out.", True
     err_type_name = type(exc).__name__
     if "OperationalError" in err_type_name or "DBAPIError" in err_type_name:

@@ -13,7 +13,6 @@ import zipfile
 from typing import Any
 
 from defusedxml import ElementTree as SafeET
-from defusedxml.common import DefusedXmlException
 
 from app.templates.lint.models import LintFinding, LintSeverity
 
@@ -97,7 +96,7 @@ def extract_docx_tags(docx_bytes: bytes) -> tuple[set[str], dict[str, list[tuple
                                             (info.filename, p_idx)
                                         )
 
-                except (ET.ParseError, UnicodeDecodeError, KeyError):
+                except (SafeET.ParseError, UnicodeDecodeError, KeyError):
                     continue
 
     return found_vars, locations

@@ -186,7 +186,11 @@ class InMemoryJobRepository:
                 if tenant_id is not None and job.tenant_id != tenant_id:
                     continue
                 if job.attempts >= max_attempts:
-                    if job.status == "running" and job.locked_at is not None and job.locked_at <= visibility_cutoff:
+                    if (
+                        job.status == "running"
+                        and job.locked_at is not None
+                        and job.locked_at <= visibility_cutoff
+                    ):
                         job.status = "dead"
                         job.error = {
                             "code": "MAX_ATTEMPTS_EXCEEDED",
@@ -249,9 +253,9 @@ class InMemoryJobRepository:
             self._jobs.clear()
 
     @property
-    def _queue(self) -> list[JobRecord]:
+    def _queue(self) -> builtins.list[JobRecord]:
         with self._lock:
-            return list(self._jobs.values())
+            return builtins.list(self._jobs.values())
 
     # Legacy compatibility methods for job_queue callers
     def claim_next_job(self) -> JobRecord | None:
