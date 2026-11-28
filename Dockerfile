@@ -20,11 +20,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY backend/pyproject.toml /build/backend/pyproject.toml
+COPY backend/pyproject.toml backend/README.md /build/backend/
 COPY backend/app /build/backend/app
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e "/build/backend"
+    pip install --no-cache-dir "/build/backend"
 
 # Stage 2: Hardened Runtime Container
 FROM python:3.12-slim-bookworm AS runtime
@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libreoffice-writer \
     libreoffice-calc \
-    libreoffice-nogpu \
+    libreoffice-nogui \
     fonts-deva \
     fonts-lohit-deva \
     fonts-noto-core \

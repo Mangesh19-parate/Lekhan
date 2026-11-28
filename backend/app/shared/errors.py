@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fastapi.responses import JSONResponse
+if TYPE_CHECKING:
+    from fastapi.responses import JSONResponse
 
 from app.shared.logging import get_correlation_id
 
@@ -60,6 +61,8 @@ def problem_json_response(
     resp_headers = {"X-Correlation-ID": cid}
     if headers:
         resp_headers.update(headers)
+
+    from fastapi.responses import JSONResponse
 
     return JSONResponse(
         status_code=status_code,

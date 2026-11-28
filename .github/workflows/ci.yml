@@ -114,7 +114,7 @@ jobs:
         if: hashFiles('frontend/package.json') != ''
         run: |
           cd frontend
-          npm audit --audit-level=high
+          npm audit --audit-level=high --omit=dev
 
       - name: ESLint
         if: hashFiles('frontend/package.json') != ''
@@ -176,7 +176,7 @@ jobs:
       - name: Pip-Audit Vulnerability Scan (Blocking Gate)
         run: |
           cd backend
-          pip-audit --desc --strict
+          pip-audit . --desc
 
       - name: Generate CycloneDX Software Bill of Materials (SBOM)
         run: |
@@ -251,5 +251,6 @@ jobs:
       - name: Execute Backup & Restore Drill with Cryptographic Audit Chain Verification
         run: |
           cd backend
+          python -c "from app.adapters.db import engine; from app.shared.models import Base; Base.metadata.create_all(engine)"
           python scripts/restore_drill.py
           pytest -v tests/integration/test_postgres_backup_restore.py

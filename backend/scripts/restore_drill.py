@@ -41,6 +41,20 @@ def run_restore_drill() -> bool:
     tenant_2 = uuid.uuid4()
 
     try:
+        # 0. Ensure database tables and test tenants exist for foreign key integrity
+        try:
+            from app.adapters.db import SessionLocal, engine
+            from app.shared.models import Base, Tenant
+
+            Base.metadata.create_all(engine)
+            with SessionLocal() as session:
+                for tid, tname in [(tenant_1, "Drill Tenant 1"), (tenant_2, "Drill Tenant 2")]:
+                    if not session.get(Tenant, tid):
+                        session.add(Tenant(id=tid, name=tname, slug=f"drill-{tid.hex[:8]}"))
+                session.commit()
+        except Exception as exc:
+            logger.debug("Database setup skipped or running in-memory: %s", exc)
+
         # 1. Populate state with chained audit logs and sequence counters
         audit_service.log_event(
             tenant_id=tenant_1, action="tenant_created", entity="tenant", entity_id=str(tenant_1)
