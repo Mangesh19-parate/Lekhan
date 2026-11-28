@@ -13,12 +13,11 @@ Strictly synthetic data only. Seeds:
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from app.adapters.db import SessionLocal
-from app.shared.ids import uuid7
 from app.shared.logging import get_logger
 from app.shared.models import FeeRule, Tenant, User
 from app.shared.security import hash_password
@@ -252,4 +251,3 @@ def seed_dev_data() -> dict[str, int]:
 if __name__ == "__main__":
     results = seed_dev_data()
     print(f"Seed dev data completed: {results}")
-

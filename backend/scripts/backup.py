@@ -16,6 +16,7 @@ import os
 import shutil
 import tarfile
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +26,14 @@ from app.numbering.service import document_numbering_service
 from app.shared.logging import get_logger
 from app.shared.models import (
     AuditLog as AuditLogModel,
+)
+from app.shared.models import (
     Counter as CounterModel,
+)
+from app.shared.models import (
     Document as DocumentModel,
+)
+from app.shared.models import (
     DocumentReview,
     Draft,
     FeeRule,
@@ -135,10 +142,10 @@ def create_backup(
         except Exception as exc:
             if is_prod_staging:
                 logger.error("Database snapshot failed in %s: %s", settings.ENV, exc)
-                raise RuntimeError(
-                    f"Production database snapshot failed: {exc}"
-                ) from exc
-            logger.debug("Database snapshot offline in dev/test (%s); falling back to in-memory", exc)
+                raise RuntimeError(f"Production database snapshot failed: {exc}") from exc
+            logger.debug(
+                "Database snapshot offline in dev/test (%s); falling back to in-memory", exc
+            )
 
         if not db_populated:
             if is_prod_staging:
@@ -189,8 +196,9 @@ def create_backup(
             db_snapshot["counters"] = counters_list
 
             from app.audit.service import audit_service
+
             audit_logs_list: list[dict[str, Any]] = []
-            for tid, records in getattr(audit_service._repository, "_logs", {}).items():
+            for _tid, records in getattr(audit_service._repository, "_logs", {}).items():
                 for r in records:
                     audit_logs_list.append(
                         {
@@ -200,14 +208,10 @@ def create_backup(
                             "action": r.action,
                             "entity": r.entity,
                             "entity_id": r.entity_id,
-                            "at": r.at.isoformat()
-                            if hasattr(r.at, "isoformat")
-                            else str(r.at),
+                            "at": r.at.isoformat() if hasattr(r.at, "isoformat") else str(r.at),
                             "meta": r.meta,
                             "prev_hash": r.prev_hash.hex() if r.prev_hash else None,
-                            "hash": r.hash.hex()
-                            if isinstance(r.hash, bytes)
-                            else str(r.hash),
+                            "hash": r.hash.hex() if isinstance(r.hash, bytes) else str(r.hash),
                         }
                     )
             db_snapshot["audit_logs"] = audit_logs_list

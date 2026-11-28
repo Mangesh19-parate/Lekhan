@@ -10,7 +10,6 @@ Adheres strictly to PRD FR-18, Features F-070, and ARCHITECTURE.md Section 11:
 
 from __future__ import annotations
 
-import os
 import shutil
 import sys
 import tempfile
@@ -19,7 +18,6 @@ from pathlib import Path
 
 from app.audit.jobs import verify_all_audit_chains
 from app.audit.service import audit_service
-from app.config import get_settings
 from app.numbering.service import document_numbering_service
 from app.shared.logging import get_logger, setup_logging
 from scripts.backup import create_backup
@@ -44,12 +42,28 @@ def run_restore_drill() -> bool:
 
     try:
         # 1. Populate state with chained audit logs and sequence counters
-        audit_service.log_event(tenant_id=tenant_1, action="tenant_created", entity="tenant", entity_id=str(tenant_1))
-        audit_service.log_event(tenant_id=tenant_1, action="document_created", entity="document", entity_id="DOC/2026/001")
-        audit_service.log_event(tenant_id=tenant_1, action="finalise_document", entity="document", entity_id="DOC/2026/001")
+        audit_service.log_event(
+            tenant_id=tenant_1, action="tenant_created", entity="tenant", entity_id=str(tenant_1)
+        )
+        audit_service.log_event(
+            tenant_id=tenant_1,
+            action="document_created",
+            entity="document",
+            entity_id="DOC/2026/001",
+        )
+        audit_service.log_event(
+            tenant_id=tenant_1,
+            action="finalise_document",
+            entity="document",
+            entity_id="DOC/2026/001",
+        )
 
-        audit_service.log_event(tenant_id=tenant_2, action="tenant_created", entity="tenant", entity_id=str(tenant_2))
-        audit_service.log_event(tenant_id=tenant_2, action="template_approved", entity="template", entity_id="tmpl_001")
+        audit_service.log_event(
+            tenant_id=tenant_2, action="tenant_created", entity="tenant", entity_id=str(tenant_2)
+        )
+        audit_service.log_event(
+            tenant_id=tenant_2, action="template_approved", entity="template", entity_id="tmpl_001"
+        )
 
         document_numbering_service.set_counter(tenant_1, "DOC", 2026, 42)
         document_numbering_service.set_counter(tenant_2, "DOC", 2026, 7)
@@ -57,10 +71,14 @@ def run_restore_drill() -> bool:
         # Confirm initial chain is healthy
         initial_check = verify_all_audit_chains()
         if initial_check.status != "healthy":
-            logger.error("Initial audit chain unhealthy before backup: %s", initial_check.broken_tenants)
+            logger.error(
+                "Initial audit chain unhealthy before backup: %s", initial_check.broken_tenants
+            )
             return False
 
-        logger.info("Pre-backup audit chain verified across %d tenants.", initial_check.tenants_checked)
+        logger.info(
+            "Pre-backup audit chain verified across %d tenants.", initial_check.tenants_checked
+        )
 
         # 2. Create atomic backup
         archive_path = create_backup(destination_dir=backup_dest, include_storage=True)
@@ -87,7 +105,11 @@ def run_restore_drill() -> bool:
         c1 = document_numbering_service.get_counter(tenant_1, "DOC", 2026)
         c2 = document_numbering_service.get_counter(tenant_2, "DOC", 2026)
         if c1 != 42 or c2 != 7:
-            logger.critical("DRILL FAILED: Restored counters do not match pre-backup values (got %s, %s)", c1, c2)
+            logger.critical(
+                "DRILL FAILED: Restored counters do not match pre-backup values (got %s, %s)",
+                c1,
+                c2,
+            )
             return False
 
         logger.info(

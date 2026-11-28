@@ -27,8 +27,14 @@ from app.numbering.service import CounterKey, document_numbering_service
 from app.shared.logging import get_logger
 from app.shared.models import (
     AuditLog as AuditLogModel,
+)
+from app.shared.models import (
     Counter as CounterModel,
+)
+from app.shared.models import (
     Document as DocumentModel,
+)
+from app.shared.models import (
     DocumentReview,
     Draft,
     FeeRule,
@@ -152,9 +158,13 @@ def restore_backup(
                     status=doc["status"],
                     created_at=doc["created_at"],
                 )
-                if hasattr(generation_pipeline, "repository") and hasattr(generation_pipeline.repository, "save"):
+                if hasattr(generation_pipeline, "repository") and hasattr(
+                    generation_pipeline.repository, "save"
+                ):
                     generation_pipeline.repository.save(doc_record.tenant_id, doc_record)
-                elif hasattr(generation_pipeline, "repository") and hasattr(generation_pipeline.repository, "_documents"):
+                elif hasattr(generation_pipeline, "repository") and hasattr(
+                    generation_pipeline.repository, "_documents"
+                ):
                     generation_pipeline.repository._documents[doc_record.id] = doc_record
                 elif hasattr(generation_pipeline, "_documents"):
                     generation_pipeline._documents[doc_record.id] = doc_record
@@ -206,7 +216,9 @@ def restore_backup(
                                 pk_cols = [c.name for c in model_cls.__table__.primary_key.columns]
                                 if pk_cols:
                                     filter_kwargs = {c: kwargs[c] for c in pk_cols if c in kwargs}
-                                    existing = session.query(model_cls).filter_by(**filter_kwargs).first()
+                                    existing = (
+                                        session.query(model_cls).filter_by(**filter_kwargs).first()
+                                    )
                                     if existing:
                                         for k, v in kwargs.items():
                                             setattr(existing, k, v)
@@ -245,7 +257,9 @@ def restore_backup(
                         at=datetime.datetime.fromisoformat(al["at"]),
                         meta=al.get("meta", {}),
                         prev_hash=bytes.fromhex(al["prev_hash"]) if al.get("prev_hash") else None,
-                        hash=bytes.fromhex(al["hash"]) if isinstance(al["hash"], str) else bytes(al["hash"]),
+                        hash=bytes.fromhex(al["hash"])
+                        if isinstance(al["hash"], str)
+                        else bytes(al["hash"]),
                     )
                     if hasattr(audit_service._repository, "_logs"):
                         audit_service._repository._logs.setdefault(rec.tenant_id, []).append(rec)
@@ -266,6 +280,7 @@ def restore_backup(
 
         # 5. Check restored audit chain integrity
         from app.audit.jobs import verify_all_audit_chains
+
         audit_report = verify_all_audit_chains()
 
         report = {
@@ -282,7 +297,10 @@ def restore_backup(
             "audit_chain_report": audit_report.to_dict(),
         }
         if audit_report.status != "healthy":
-            logger.critical("Restored audit chain failed integrity verification: %s", audit_report.broken_tenants)
+            logger.critical(
+                "Restored audit chain failed integrity verification: %s",
+                audit_report.broken_tenants,
+            )
         else:
             logger.info("Restored audit chain verified: 100%% authentic")
         logger.info("Restore successfully completed: %s", report)

@@ -61,7 +61,7 @@ def run_mutation_gate(minimum_score: float = DEFAULT_MINIMUM_SCORE) -> int:
         return 0
 
     score = ((killed + timeout) / total_mutants) * 100.0
-    print(f"\n--- Mutation Score Summary ---")
+    print("\n--- Mutation Score Summary ---")
     print(f"Total Mutants: {total_mutants}")
     print(f"Killed / Timed Out: {killed + timeout}")
     print(f"Survived (Defects): {survived}")
@@ -76,7 +76,9 @@ def run_mutation_gate(minimum_score: float = DEFAULT_MINIMUM_SCORE) -> int:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run mutation testing gate on lang_packs and units")
+    parser = argparse.ArgumentParser(
+        description="Run mutation testing gate on lang_packs and units"
+    )
     parser.add_argument(
         "--min-score",
         type=float,
